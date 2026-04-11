@@ -1,6 +1,6 @@
 # ASP Defect Register
 
-Last updated: 2026-04-11 | Total: 11 | Open: 2 | Resolved: 7 | Already Fixed: 2
+Last updated: 2026-04-11 (post-580dbe1) | Total: 11 | Open: 1 | Resolved: 8 | Already Fixed: 2
 
 ## Summary
 
@@ -11,7 +11,7 @@ Last updated: 2026-04-11 | Total: 11 | Open: 2 | Resolved: 7 | Already Fixed: 2
 | ASP-DEFECT-003 | Volume-only prompt state — migrations 0006-0011 never committed | INTERNAL | INFRASTRUCTURE | CRITICAL | RESOLVED | ASP Dev Team | 2026-04-10 |
 | ASP-DEFECT-004 | Phantom migration 0016 — deep_dive OUTPUT CONTRACT | INTERNAL | ASP-03 | HIGH | RESOLVED | ASP Dev Team | 2026-04-10 |
 | ASP-DEFECT-005 | M-1 errata — spec said X-Api-Key, codebase uses X-ASP-API-Key | ARCHITECT | GOVERNANCE | LOW | RESOLVED | Chief Architect | 2026-04-10 |
-| ASP-DEFECT-006 | Lambda in to_have_url() — invalid Playwright API in generated scripts | CONSUMER | ASP-03 | HIGH | OPEN | PAP Team | 2026-04-11 |
+| ASP-DEFECT-006 | Lambda in to_have_url() — invalid Playwright API in generated scripts | CONSUMER | ASP-03 | HIGH | RESOLVED (580dbe1, mig 0018, AC pending) | PAP Team | 2026-04-11 |
 | ASP-DEFECT-007 | Unknown task names return generic 400 instead of supported task list | CONSUMER | ASP-03 | MEDIUM | ALREADY FIXED (asp-v2) | PAP Team | 2026-04-11 |
 | ASP-DEFECT-008 | locator_source restricted to 2 values on generate_test_cases | CONSUMER | ASP-03 | MEDIUM | ALREADY FIXED (asp-v2) | PAP Team | 2026-04-11 |
 | ASP-DEFECT-009 | Extra payload fields cause 422 on generate_test_cases | CONSUMER | ASP-03 | LOW | RESOLVED (serene-shtern) | PAP Team | 2026-04-11 |
@@ -240,17 +240,14 @@ Python Playwright script generation system prompt (migration 0013, `playwright_p
 **PAP workaround:**
 Post-generation regex sanitizer in `backend/api/execution.py` — transforms lambda patterns to `re.compile()`.
 
-**Fix (pending):**
-Update system prompt for Python Playwright flat variant to add:
-1. Rule: "NEVER use lambda in expect() assertions. Use re.compile() for partial matching."
-2. Example: `expect(page).to_have_url(re.compile(r"q=Playwright"))` 
-3. Add `import re` to required imports list.
-
-Requires new migration to patch the prompt. Classified as prompt-level fix — no code change needed.
+**Fix (applied):**
+Migration 0018 (`ban_lambda_in_playwright_python`) amends the python_playwright_pytest_flat prompt: lambda banned in expect() assertions, `import re` added to required imports, `re.compile()` example added, "no markdown fences" rule added. Folded into ASP-FEAT-ASP-03 v1.1. Verification deferred to AC-Lambda-01..03 in 29-AC suite.
 
 **Timeline:**
 - 2026-04-11: Filed from PAP defect report
-- Status: OPEN — awaiting ASP-03 governance spec (ASP-FEAT-ASP-03)
+- 2026-04-11: Folded into ASP-FEAT-ASP-03 v1.0/v1.1 as migration 0018
+- 2026-04-11: Migration 0018 applied (commit 580dbe1)
+- Pending: AC-Lambda-01..03 verification → status flips to RESOLVED (verified)
 
 ---
 
@@ -384,6 +381,8 @@ Multi-key support or key overlap period requires ASP-00 Gateway governance spec 
 **Timeline:**
 - 2026-04-11: Filed from PAP defect report
 - Status: OPEN — immediate SOP to be added to playbook; code-level fix deferred to ASP-00 spec
+
+**Governance trail:** Principle locked as ADR-032 (ASP-FEAT-ASP-03 v1.1 cycle, 2026-04-11). Mechanics deferred to ASP-FEAT-ASP-00 v1.0 next sprint. Defect remains OPEN until ASP-00 spec implements multi-key support and notification SOP.
 
 ---
 

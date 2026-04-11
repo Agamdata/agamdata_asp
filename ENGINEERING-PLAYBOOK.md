@@ -228,6 +228,7 @@ No `ASP-INDEX-v1_37.md`. Single file, updated in-place.
 | Branch merges creating duplicate revision numbers | Blocking defect. Single head convention is non-negotiable. |
 | Assuming task exists from spec alone | Verify task exists via code or `GET /capabilities` before calling. (ADR-030) |
 | Not auditing cost_events vs VALID_TASKS | Periodic audit catches drift early. Cross-reference quarterly. |
+| Claiming "synced" without verifying BOTH locations | After every deployment, verify both repo and working copy reflect the change before claiming sync. (ADR-026.1) |
 
 ---
 

@@ -1,6 +1,6 @@
 # ASP-INDEX
 
-Last updated: 2026-04-11 | Migration head: 018 | Phase: ASP-03 Governance
+Last updated: 2026-04-11 (post-580dbe1) | Migration head: 018 | Phase: Governance Onboarding + ASP-03 AC Verification
 
 ## ASP-INDEX Maintenance Protocol (ADR-026 — BINDING)
 
@@ -125,7 +125,8 @@ Migrations 002–005 were active in the codebase but untracked in ASP-INDEX prio
 - **ADR-029:** Every PR that touches the migration chain must verify `alembic upgrade head` succeeds on a fresh empty DB and `alembic heads` returns exactly one head. CI gate. No exceptions. (ASP-NOTE-004)
 - **ADR-030:** `GET /api/v1/ai/capabilities` is a Zone 2 Shared Contract surface. Every consumer is entitled to query supported tasks and schemas at runtime. Consumers should validate at startup (ASP-GOV-CONSUMPTION-002 best practice). (ASP-NOTE-004)
 - **ADR-031:** Phantom task resurrection requires formal caller integration requirement.
-- **ADR-033:** Per-service Pydantic strictness. Generation payloads use `extra="ignore"` (ADR-008 exception). NLP and all other services retain `extra="forbid"`. Exception is service-scoped, documented per-model, INFO log on dropped fields. (ASP-FEAT-ASP-03 v1.1) A task that has been deleted from ASP cannot be resurrected by informal request, conversation, or implicit assumption. Resurrection requires a new or amended caller integration requirement document ({CALLER}-ASP-REQ-{SERVICE-ID}) with full payload schema, result schema, prompt template draft, and use case justification. This prevents the contract drift class of failure documented in ASP-NOTE-004. Established by Chief Architect ruling on PAP Chief Architect's deep_dive position; formally documented in PAP-ASP-REQ-ASP-03 v1.0 Section 3 (FUTURE — MVP-3 target).
+- **ADR-032:** API key rotation requires (1) advance written notification to all affected consumers, (2) overlap window where both old and new keys are valid for minimum 5 business days, (3) explicit consumer acknowledgement before old key is revoked. Mechanics deferred to ASP-FEAT-ASP-00 v1.0 (next sprint). QUEUED. (ASP-DEFECT-010)
+- **ADR-033:** Per-service Pydantic strictness — generation service payload models (`GenerateTestCasesPayload`, `GenerateTestCasesWithInventoryPayload`, `LocatorInventoryItem`, `LocatorInventoryLocators`) use `ConfigDict(extra="ignore")` as a documented exception to ADR-008. All other services retain `extra="forbid"`. INFO log emitted on every dropped field for observability. Locked during ASP-FEAT-ASP-03 v1.1 dev team review. (ASP-DEFECT-009) A task that has been deleted from ASP cannot be resurrected by informal request, conversation, or implicit assumption. Resurrection requires a new or amended caller integration requirement document ({CALLER}-ASP-REQ-{SERVICE-ID}) with full payload schema, result schema, prompt template draft, and use case justification. This prevents the contract drift class of failure documented in ASP-NOTE-004. Established by Chief Architect ruling on PAP Chief Architect's deep_dive position; formally documented in PAP-ASP-REQ-ASP-03 v1.0 Section 3 (FUTURE — MVP-3 target).
 
 ## Service status
 
@@ -134,7 +135,7 @@ Migrations 002–005 were active in the codebase but untracked in ASP-INDEX prio
 | ASP-00 | Gateway | Synchronous | ACTIVE (pre-governance) | — | — |
 | ASP-01 | NLP Service | Synchronous | **GOVERNED** | ASP-FEAT-ASP-01 v1.2 | — |
 | ASP-02 | RAG Service | Synchronous | ACTIVE (pre-governance) | — | — |
-| ASP-03 | Generation Service | Synchronous | IN SPEC | ASP-FEAT-ASP-03 v1.1 | — |
+| ASP-03 | Generation Service | Synchronous | **SPEC APPROVED** (AC pending) | ASP-FEAT-ASP-03 v1.1 | — |
 | ASP-04 | Doc Intelligence | Asynchronous | ACTIVE (pre-governance) | — | — |
 | ASP-05 | Prediction Service | Asynchronous | ACTIVE (pre-governance) | — | — |
 | ASP-06 | Prompt Registry | Infrastructure | ACTIVE (pre-governance) | — | — |
@@ -157,6 +158,7 @@ Migrations 002–005 were active in the codebase but untracked in ASP-INDEX prio
 | Req ID | Caller | Target Service | Task | Status | Spec Doc |
 |---|---|---|---|---|---|
 | PAP-ASP-REQ-ASP-01 | PAP | ASP-01 NLP | classify_probe_result | IMPLEMENTED — 25/25 ACs PASS | PAP-ASP-REQ-ASP-01 v1.0 |
+| PAP-ASP-REQ-ASP-03 | PAP | ASP-03 Generation | generate_test_cases, generate_test_cases_with_inventory | IMPLEMENTED — AC verification pending | PAP-ASP-REQ-ASP-03 v1.0 |
 
 ## Consumer Register
 
@@ -176,7 +178,10 @@ Next TSCD: ASP-TSCD-001
 ## Open blockers
 
 1. **ADR-020 — DQE Option A vs B decision OPEN.** Cube.dev integration (Option A) vs custom build (Option B). Full decision matrix in LogiCRM DQE Spec v1.0 Section 13. Owner: Product Owner / Chief Architect. BLOCKING implementation sprint.
-2. **Governance spec writing.** 1/14 services GOVERNED (ASP-01). Remaining 13 are ACTIVE pre-governance. Next spec per build phase order: ASP-00 (Gateway).
+2. **Governance spec writing.** 1/14 services GOVERNED (ASP-01). ASP-03 SPEC APPROVED — pending 29-AC verification + AC-Close-01 evidence. Next spec per build phase order: ASP-00 (Gateway), deferred one sprint per ASP-NOTE-004.
+4. **ASP-03 AC verification.** 29-AC test suite execution pending. AC-Close-01 requires (a) PAP written revert confirmation from snapshot_text workaround to with_inventory, (b) ASP-side smoke test log against Phase 2 fixture (4 elements: first_name/email/phone/submit → 5 test cases, locators verbatim, missing_locators populated). Closure note ASP-NOTE-005 gated on this.
+5. **ADR-032 mechanics.** API key rotation SOP locked as principle (ADR-032). Code-level mechanics — multi-key support, overlap window, key management endpoint — deferred to ASP-FEAT-ASP-00 v1.0 next sprint.
+6. **ASP-NOTE-004 closure.** Phase 2 reconstitution complete; ASP-FEAT-ASP-03 v1.1 deployed. Closure (ASP-NOTE-005) gated on AC-Close-01 evidence per blocker 4.
 3. ~~**Migration 001 formalisation.**~~ RESOLVED — migration chain 001–006 confirmed and tracked. Corrected during ASP-01 governance closure.
 
 ## ASP-NOTE Register
@@ -186,6 +191,8 @@ Next TSCD: ASP-TSCD-001
 | ASP-NOTE-001 | ASP governance onboarding — foundation package created | INFORMATIONAL | 2026-04-10 |
 | ASP-NOTE-002 | ASP-01 NLP Service — governance closure. 25/25 ACs PASS. First service GOVERNED. | CLOSURE | 2026-04-10 |
 | ASP-NOTE-003 | ASP-INDEX maintenance protocol established. ADR-026 locked. Dev team owns repo updates; Chief Architect reviews at deployment. | PROCESS | 2026-04-10 |
+| ASP-NOTE-004 | Contract drift + migration branch conflict — Phase 1/2 complete, deployed 580dbe1, awaiting AC-Close-01 closure | ACTIVE | 2026-04-10 |
+| ASP-NOTE-005 | ASP-03 governance closure (planned — gated on AC-Close-01) | PENDING | TBD |
 
 ### ASP-NOTE-002 — ASP-01 Governance Closure
 
@@ -219,6 +226,9 @@ Next TSCD: ASP-TSCD-001
 |---|---|---|---|---|
 | ASP-GOV-PLAYBOOK-001 | ASP Governance Playbook | v1.0 | APPROVED — BINDING | 2026-04-10 |
 | ASP-GOV-CONSUMPTION-002 | Consumer Governance Agreement | v1.0 | APPROVED — BINDING | 2026-04-10 |
+| ASP-FEAT-ASP-01 | NLP Service Detailed Spec | v1.2 | GOVERNED | 2026-04-10 |
+| ASP-FEAT-ASP-03 | Generation Service Detailed Spec | v1.0 | SUPERSEDED by v1.1 | 2026-04-11 |
+| ASP-FEAT-ASP-03 | Generation Service Detailed Spec | v1.1 | SPEC APPROVED — implementation complete (580dbe1), AC pending | 2026-04-11 |
 
 ## Naming quick-ref
 

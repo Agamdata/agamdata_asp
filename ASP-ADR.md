@@ -38,6 +38,7 @@ Source: ASP-INDEX.md (Chief Architect). This file mirrors the Locked Decisions s
 | ADR-029 | Fresh-DB alembic upgrade head must pass before any PR merges | ACCEPTED |
 | ADR-030 | Capability discovery endpoint (Zone 2 Shared Contract) | ACCEPTED |
 | ADR-031 | Phantom task resurrection requires formal caller integration req | ACCEPTED |
+| ADR-032 | API key rotation SOP — notify, overlap, acknowledge before revoke | QUEUED |
 | ADR-033 | Per-service Pydantic strictness (generation=ignore, NLP=forbid) | ACCEPTED |
 
 ---
@@ -145,6 +146,10 @@ ASP-INDEX.md is maintained by the ASP Development Team in the repo. Chief Archit
 ### ADR-031: Phantom Task Resurrection Requires Formal Caller Integration Requirement
 **Context:** PAP Chief Architect confirmed `generate_test_cases_deep_dive` as FUTURE (MVP-3 target) in PAP-ASP-REQ-ASP-03 v1.0 Section 3. The task was previously deleted as a phantom (ASP-NOTE-004). Informal re-introduction without formal specification caused the original contract drift.
 **Decision:** A task deleted from ASP cannot be resurrected by informal request, conversation, or implicit assumption. Resurrection requires a new or amended caller integration requirement document (`{CALLER}-ASP-REQ-{SERVICE-ID}`) with full payload schema, result schema, prompt template draft, and use case justification. Prevents the contract drift class of failure documented in ASP-NOTE-004.
+
+### ADR-032: API Key Rotation SOP
+**Context:** ASP-DEFECT-010 — PAP experienced two unannounced key rotations (both side-effects of ASP-NOTE-004 remediation), each causing complete generation outage.
+**Decision:** Key rotation requires: (1) advance written notification to all affected consumers, (2) overlap window where both old and new keys are valid for minimum 5 business days, (3) explicit consumer acknowledgement before old key is revoked. **Status: QUEUED** — principle locked, mechanics deferred to ASP-FEAT-ASP-00 v1.0 next sprint.
 
 ### ADR-033: Per-Service Pydantic Strictness
 **Context:** ADR-008 mandates `extra="forbid"` globally. PAP filed DEFECT-009 requesting forward compatibility — caller context fields evolve with test scenarios and 422 on unknown fields breaks PAP.
