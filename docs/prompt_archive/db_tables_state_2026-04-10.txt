@@ -1,0 +1,21 @@
+      table_name       | column_count 
+-----------------------+--------------
+ alembic_version       |            1
+ async_jobs            |           14
+ cost_events           |           15
+ cost_monthly_reports  |            9
+ prompt_templates      |           11
+ tenants               |            8
+ webhook_registrations |            7
+(7 rows)
+
+          tbl          | count 
+-----------------------+-------
+ tenants               |     1
+ prompt_templates      |    24
+ cost_events           |    59
+ async_jobs            |     0
+ cost_monthly_reports  |     0
+ webhook_registrations |     0
+(6 rows)
+

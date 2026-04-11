@@ -1,0 +1,25 @@
+id,service_type,task,caller_module,maturity_level,version,ab_variant,is_active,system_prompt_chars,user_prompt_chars,created_at
+7b9fef27-2bae-4dea-9ae2-0849b7ef343e,dashboard_intelligence,detect_anomaly,*,*,1,,t,284,93,2026-03-22 13:47:46.904719+00
+8b88207e-04a0-4837-b3cc-e29d2f9484e7,dashboard_intelligence,interpret_chart,*,*,1,,t,296,84,2026-03-22 13:47:46.904719+00
+04edbb23-6475-4772-8b8d-fd373e1bf849,dashboard_intelligence,narrate_dashboard,*,*,1,,t,201,92,2026-03-22 13:47:46.904719+00
+cc80ae54-0686-4518-9ce2-c2631439dc29,dashboard_intelligence,suggest_drilldown,*,*,1,,t,205,87,2026-03-22 13:47:46.904719+00
+1a442c14-19ad-43c5-b4e3-24acc60aa7e8,doc_intelligence,classify_document,*,*,1,,t,181,30,2026-03-22 13:47:46.904719+00
+5cf70c76-538b-493c-981c-fe61fd415ac3,doc_intelligence,extract_document,*,*,1,,t,181,56,2026-03-22 13:47:46.904719+00
+8e9d6b85-0e0d-4c09-8cb5-1d5cef5f74c6,generation,draft_email,*,*,1,,t,263,99,2026-03-22 13:47:46.904719+00
+65b32bc7-82a3-4aa5-9c1c-b7c20e824ffe,generation,draft_whatsapp,*,*,1,,t,147,94,2026-03-22 13:47:46.904719+00
+394be53a-1a59-4a20-99e9-dd629d08ea00,generation,generate_playwright_script,playwright_runner,L2,1,playwright_python_pytest,t,3385,99,2026-03-23 06:33:58.122806+00
+0bbc6c5d-3ba1-4491-89e8-7e295e896109,generation,generate_playwright_script,playwright_runner,L2,1,playwright_python_pytest_flat,t,2273,94,2026-03-24 06:48:06.878536+00
+5893dc1c-3e86-4f66-b36b-e81633959c29,generation,generate_playwright_script,playwright_runner,L2,1,playwright_typescript_flat,t,2232,112,2026-03-24 06:48:06.878536+00
+5ad17ba0-6994-44bd-9513-bde45db35ea9,generation,generate_playwright_script,playwright_runner,L2,1,playwright_typescript_pom,t,3295,96,2026-03-22 16:39:14.318815+00
+a5317e02-382f-4030-afc9-26269724e803,generation,generate_quote_narrative,*,*,1,,t,152,94,2026-03-22 13:47:46.904719+00
+6697fbc6-7c38-4d25-b4d5-1ca3e99f61f4,generation,generate_test_cases,playwright_runner,L2,1,inferred,t,4548,149,2026-03-22 15:37:33.665767+00
+d3dd655c-9a01-442c-95e0-a4a3c5be0fea,generation,generate_test_cases,playwright_runner,L2,1,snapshot,t,5157,279,2026-03-22 15:37:33.665767+00
+a6fcca54-128c-4de4-9ea7-e1ac55706d85,generation,generate_test_cases_with_inventory,playwright_runner,L2,1,inventory,t,5048,161,2026-03-24 06:48:06.878536+00
+963ba2fe-57f8-48c9-b3ee-ef939e140013,generation,suggest_fields,*,*,1,,t,182,93,2026-03-22 13:47:46.904719+00
+628f49f6-0c24-425b-af22-8a9a32b763b9,generation,summarise_customer,*,*,1,,t,179,74,2026-03-22 13:47:46.904719+00
+911d9d5d-7d57-4f68-a056-61773d51058b,nlp,analyse_failure,playwright_runner,L2,1,,t,1779,205,2026-03-24 06:48:06.878536+00
+8a511518-5d0d-4be1-954d-1448a5c5ad04,nlp,entity_recognition,*,*,1,,t,180,29,2026-03-22 13:47:46.904719+00
+cfe4e206-5400-4043-96fc-13a76828c332,nlp,intent_extraction,*,*,1,,t,160,27,2026-03-22 13:47:46.904719+00
+47625771-3739-42d7-b2c5-4c49efa06331,nlp,language_detection,*,*,1,,t,193,26,2026-03-22 13:47:46.904719+00
+72963c88-1af2-44a5-bf6e-5ac28ee18c92,nlp,nl_to_sql,*,*,1,,t,556,34,2026-03-22 13:47:46.904719+00
+8e969b77-6df6-4697-928f-baa8d35a8ef4,nlp,sentiment,*,*,1,,t,167,29,2026-03-22 13:47:46.904719+00

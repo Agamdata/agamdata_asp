@@ -1,0 +1,12 @@
+                      user_prompt_template                      
+----------------------------------------------------------------
+ Generate test cases for this page.                            +
+                                                               +
+ URL: {url}                                                    +
+ Page title: {page_title}                                      +
+                                                               +
+ VERIFIED LOCATOR INVENTORY (use RECOMMENDED strings verbatim):+
+ {locator_inventory_text}                                      +
+ 
+(1 row)
+
