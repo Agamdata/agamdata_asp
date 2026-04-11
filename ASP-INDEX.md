@@ -1,6 +1,6 @@
 # ASP-INDEX
 
-Last updated: 2026-04-11 | Migration head: 017 | Phase: Governance Onboarding + ASP-NOTE-004 Remediation
+Last updated: 2026-04-11 | Migration head: 018 | Phase: ASP-03 Governance
 
 ## ASP-INDEX Maintenance Protocol (ADR-026 — BINDING)
 
@@ -60,9 +60,9 @@ If a gap is found: Chief Architect raises it with the ASP Development Team lead.
 
 ## Current migration head
 
-**017 — seed_classify_probe_result_prompt** (renumbered from 006 per ASP-NOTE-004)
+**018 — ban_lambda_in_playwright_python** (ASP-FEAT-ASP-03 v1.1 / DEFECT-006)
 
-Applied chain: 001 → 002 → 003 → 004 → 005 → 012 → 013 → 014 → 015 → 016 → 017
+Applied chain: 001 → 002 → 003 → 004 → 005 → 012 → 013 → 014 → 015 → 016 → 017 → 018
 
 | Migration | Description | Feature |
 |---|---|---|
@@ -77,8 +77,9 @@ Applied chain: 001 → 002 → 003 → 004 → 005 → 012 → 013 → 014 → 0
 | 015 | output_contract (OUTPUT CONTRACT append to test-case prompts) | Pre-governance (recovered) |
 | 016 | reconstitute_generation_prompts (with_inventory from volume archive c52be9c) | ASP-NOTE-004 Phase 2 |
 | 017 | seed_classify_probe_result_prompt (renumbered from 006) | ASP-FEAT-ASP-01 v1.2 |
+| 018 | ban_lambda_in_playwright_python (patch Python script prompt) | ASP-FEAT-ASP-03 v1.1 / DEFECT-006 |
 
-No pending migrations. Chain is linear. Single head: 017.
+No pending migrations. Chain is linear. Single head: 018.
 
 ### Note on migration gap (006-011)
 Migrations 006-011 were never committed to git. They existed only in the serene-shtern Docker volume. Production prompt state was recovered via Phase 1 archive (c52be9c) and reconstituted into migration 016. 0012's down_revision was healed from '0011' to '0005'. See ASP-NOTE-004.
@@ -123,7 +124,8 @@ Migrations 002–005 were active in the codebase but untracked in ASP-INDEX prio
 - **ADR-028:** Pre-writing migrations for unimplemented tasks (aspirational OUTPUT CONTRACTs, schema stubs) is forbidden. A migration in the chain is executed reality, not planned work. (ASP-NOTE-004)
 - **ADR-029:** Every PR that touches the migration chain must verify `alembic upgrade head` succeeds on a fresh empty DB and `alembic heads` returns exactly one head. CI gate. No exceptions. (ASP-NOTE-004)
 - **ADR-030:** `GET /api/v1/ai/capabilities` is a Zone 2 Shared Contract surface. Every consumer is entitled to query supported tasks and schemas at runtime. Consumers should validate at startup (ASP-GOV-CONSUMPTION-002 best practice). (ASP-NOTE-004)
-- **ADR-031:** Phantom task resurrection requires formal caller integration requirement. A task that has been deleted from ASP cannot be resurrected by informal request, conversation, or implicit assumption. Resurrection requires a new or amended caller integration requirement document ({CALLER}-ASP-REQ-{SERVICE-ID}) with full payload schema, result schema, prompt template draft, and use case justification. This prevents the contract drift class of failure documented in ASP-NOTE-004. Established by Chief Architect ruling on PAP Chief Architect's deep_dive position; formally documented in PAP-ASP-REQ-ASP-03 v1.0 Section 3 (FUTURE — MVP-3 target).
+- **ADR-031:** Phantom task resurrection requires formal caller integration requirement.
+- **ADR-033:** Per-service Pydantic strictness. Generation payloads use `extra="ignore"` (ADR-008 exception). NLP and all other services retain `extra="forbid"`. Exception is service-scoped, documented per-model, INFO log on dropped fields. (ASP-FEAT-ASP-03 v1.1) A task that has been deleted from ASP cannot be resurrected by informal request, conversation, or implicit assumption. Resurrection requires a new or amended caller integration requirement document ({CALLER}-ASP-REQ-{SERVICE-ID}) with full payload schema, result schema, prompt template draft, and use case justification. This prevents the contract drift class of failure documented in ASP-NOTE-004. Established by Chief Architect ruling on PAP Chief Architect's deep_dive position; formally documented in PAP-ASP-REQ-ASP-03 v1.0 Section 3 (FUTURE — MVP-3 target).
 
 ## Service status
 
@@ -132,7 +134,7 @@ Migrations 002–005 were active in the codebase but untracked in ASP-INDEX prio
 | ASP-00 | Gateway | Synchronous | ACTIVE (pre-governance) | — | — |
 | ASP-01 | NLP Service | Synchronous | **GOVERNED** | ASP-FEAT-ASP-01 v1.2 | — |
 | ASP-02 | RAG Service | Synchronous | ACTIVE (pre-governance) | — | — |
-| ASP-03 | Generation Service | Synchronous | ACTIVE (pre-governance) | — | — |
+| ASP-03 | Generation Service | Synchronous | IN SPEC | ASP-FEAT-ASP-03 v1.1 | — |
 | ASP-04 | Doc Intelligence | Asynchronous | ACTIVE (pre-governance) | — | — |
 | ASP-05 | Prediction Service | Asynchronous | ACTIVE (pre-governance) | — | — |
 | ASP-06 | Prompt Registry | Infrastructure | ACTIVE (pre-governance) | — | — |

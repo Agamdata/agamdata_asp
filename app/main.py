@@ -9,6 +9,7 @@ from app.infra.redis import init_redis
 from app.gateway.router import router as gateway_router
 from app.cost.meter import router as cost_router
 from app.webhook.service import router as webhook_router
+from app.api.capabilities import router as capabilities_router
 
 configure_logging()
 log = structlog.get_logger()
@@ -32,6 +33,7 @@ app = FastAPI(
 app.include_router(gateway_router, prefix="/api/v1")
 app.include_router(cost_router, prefix="/api/v1/cost")
 app.include_router(webhook_router, prefix="/api/v1/webhooks")
+app.include_router(capabilities_router, prefix="/api/v1")
 
 
 @app.get("/api/v1/health")

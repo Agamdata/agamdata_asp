@@ -1,7 +1,7 @@
 # ASP-SCHEMA-CURRENT — Database Schema Reference
 
 ## Migration Head
-**Current:** `0017` (seed_classify_probe_result_prompt — renumbered from 0006 per ASP-NOTE-004)
+**Current:** `0018` (ban_lambda_in_playwright_python — ASP-FEAT-ASP-03 v1.1 / DEFECT-006)
 
 ## Tables
 
@@ -47,6 +47,7 @@ Aggregated monthly cost rollups (idempotent).
 | 0015 | OUTPUT CONTRACT append to test-case prompts | Cherry-picked from serene-shtern |
 | 0016 | Reconstitute with_inventory prompt from archive | ASP-NOTE-004 Phase 2 |
 | 0017 | Seed classify_probe_result prompt (NLP, PAP canonical) | Renumbered from 0006 |
+| 0018 | Ban lambda in Python Playwright script prompts | ASP-FEAT-ASP-03 v1.1 / DEFECT-006 |
 
 ## Last Updated
 2026-04-11

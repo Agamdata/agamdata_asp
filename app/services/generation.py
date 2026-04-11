@@ -18,14 +18,14 @@ from fastapi import HTTPException
 from pydantic import BaseModel
 from typing import Any
 
-from app.models.request import (
-    InvokeRequest,
+from app.models.request import InvokeRequest
+from app.models.response import InvokeResponse
+from app.schemas.generation_schemas import (
     GenerateTestCasesPayload,
     GeneratePlaywrightScriptPayload,
     GenerateTestCasesWithInventoryPayload,
 )
-from app.models.response import InvokeResponse
-from app.models.generation_schemas import (
+from app.models.generation_outputs import (
     GenerateTestCasesOutput,
     GenerateTestCasesWithInventoryOutput,
     GeneratePlaywrightScriptOutput,
@@ -110,7 +110,11 @@ TASK_MAX_TOKENS = {
 async def handle(req: InvokeRequest, model: str, request_id: str) -> InvokeResponse:
     task = req.task
     if task not in VALID_TASKS:
-        raise HTTPException(status_code=400, detail=f"Unknown generation task: {task}")
+        supported = sorted(VALID_TASKS)
+        raise HTTPException(
+            status_code=422,
+            detail=f"Unknown task '{task}'. Supported: {supported}",
+        )
 
     log.info("generation_invoke_start", request_id=request_id, tenant_id=req.tenant_id,
              caller_module=req.caller_module, task=task, model=model)
@@ -213,7 +217,7 @@ async def handle(req: InvokeRequest, model: str, request_id: str) -> InvokeRespo
 
     # generate_playwright_script returns raw code — strip fences/labels, wrap directly
     if task == "generate_playwright_script":
-        from app.models.generation_schemas import GeneratePlaywrightScriptOutput
+        from app.models.generation_outputs import GeneratePlaywrightScriptOutput
         output = GeneratePlaywrightScriptOutput(script=strip_script(raw))
     else:
         # Use effective_task for schema lookup: fallback path uses GenerateTestCasesOutput,

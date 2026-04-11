@@ -38,6 +38,7 @@ Source: ASP-INDEX.md (Chief Architect). This file mirrors the Locked Decisions s
 | ADR-029 | Fresh-DB alembic upgrade head must pass before any PR merges | ACCEPTED |
 | ADR-030 | Capability discovery endpoint (Zone 2 Shared Contract) | ACCEPTED |
 | ADR-031 | Phantom task resurrection requires formal caller integration req | ACCEPTED |
+| ADR-033 | Per-service Pydantic strictness (generation=ignore, NLP=forbid) | ACCEPTED |
 
 ---
 
@@ -144,6 +145,10 @@ ASP-INDEX.md is maintained by the ASP Development Team in the repo. Chief Archit
 ### ADR-031: Phantom Task Resurrection Requires Formal Caller Integration Requirement
 **Context:** PAP Chief Architect confirmed `generate_test_cases_deep_dive` as FUTURE (MVP-3 target) in PAP-ASP-REQ-ASP-03 v1.0 Section 3. The task was previously deleted as a phantom (ASP-NOTE-004). Informal re-introduction without formal specification caused the original contract drift.
 **Decision:** A task deleted from ASP cannot be resurrected by informal request, conversation, or implicit assumption. Resurrection requires a new or amended caller integration requirement document (`{CALLER}-ASP-REQ-{SERVICE-ID}`) with full payload schema, result schema, prompt template draft, and use case justification. Prevents the contract drift class of failure documented in ASP-NOTE-004.
+
+### ADR-033: Per-Service Pydantic Strictness
+**Context:** ADR-008 mandates `extra="forbid"` globally. PAP filed DEFECT-009 requesting forward compatibility — caller context fields evolve with test scenarios and 422 on unknown fields breaks PAP.
+**Decision:** Generation service payloads use `ConfigDict(extra="ignore")` as a documented exception. NLP and all other services retain `extra="forbid"` per ADR-008. Exception is service-scoped, documented per-model, INFO log emitted on dropped fields for observability.
 
 ## Last Updated
 2026-04-11
