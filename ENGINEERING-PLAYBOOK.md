@@ -208,6 +208,19 @@ CLAUDE.md                 — Updated on every migration (head + chain)
 ### Never Version These Files
 No `ASP-INDEX-v1_37.md`. Single file, updated in-place.
 
+### Governance Doc Sync Targets (ADR-026.2 — CANONICAL LIST)
+All living governance documents must be synced to ALL targets in the same operation.
+A "synced" claim requires every target verified identical (diff).
+Add new targets to this list BEFORE the first sync to them.
+
+```
+1. C:\Users\amodp\projects\asp\                          (repo — authoritative)
+2. C:\Users\amodp\projects\asp-projects\00-index\        (working copy — primary)
+3. C:\Users\amodp\projects\asp-projects\00-index\communication\  (working copy — Chief Architect review)
+```
+
+Documents covered: ASP-INDEX.md, ASP-SCHEMA-CURRENT.md, ASP-ADR.md, ASP-DEFECT-REGISTER.md
+
 ---
 
 ## 11. Common Mistakes & Fixes

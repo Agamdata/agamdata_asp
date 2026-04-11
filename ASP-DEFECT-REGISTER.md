@@ -11,7 +11,7 @@ Last updated: 2026-04-11 (post-580dbe1) | Total: 11 | Open: 1 | Resolved: 8 | Al
 | ASP-DEFECT-003 | Volume-only prompt state — migrations 0006-0011 never committed | INTERNAL | INFRASTRUCTURE | CRITICAL | RESOLVED | ASP Dev Team | 2026-04-10 |
 | ASP-DEFECT-004 | Phantom migration 0016 — deep_dive OUTPUT CONTRACT | INTERNAL | ASP-03 | HIGH | RESOLVED | ASP Dev Team | 2026-04-10 |
 | ASP-DEFECT-005 | M-1 errata — spec said X-Api-Key, codebase uses X-ASP-API-Key | ARCHITECT | GOVERNANCE | LOW | RESOLVED | Chief Architect | 2026-04-10 |
-| ASP-DEFECT-006 | Lambda in to_have_url() — invalid Playwright API in generated scripts | CONSUMER | ASP-03 | HIGH | RESOLVED (580dbe1, mig 0018, AC pending) | PAP Team | 2026-04-11 |
+| ASP-DEFECT-006 | Lambda in to_have_url() — invalid Playwright API in generated scripts | CONSUMER | ASP-03 | HIGH | RESOLVED (verified, e8e3896) | PAP Team | 2026-04-11 |
 | ASP-DEFECT-007 | Unknown task names return generic 400 instead of supported task list | CONSUMER | ASP-03 | MEDIUM | ALREADY FIXED (asp-v2) | PAP Team | 2026-04-11 |
 | ASP-DEFECT-008 | locator_source restricted to 2 values on generate_test_cases | CONSUMER | ASP-03 | MEDIUM | ALREADY FIXED (asp-v2) | PAP Team | 2026-04-11 |
 | ASP-DEFECT-009 | Extra payload fields cause 422 on generate_test_cases | CONSUMER | ASP-03 | LOW | RESOLVED (serene-shtern) | PAP Team | 2026-04-11 |
@@ -247,7 +247,8 @@ Migration 0018 (`ban_lambda_in_playwright_python`) amends the python_playwright_
 - 2026-04-11: Filed from PAP defect report
 - 2026-04-11: Folded into ASP-FEAT-ASP-03 v1.0/v1.1 as migration 0018
 - 2026-04-11: Migration 0018 applied (commit 580dbe1)
-- Pending: AC-Lambda-01..03 verification → status flips to RESOLVED (verified)
+- 2026-04-11: AC-Lambda-01..03 PASS (commit e8e3896, 32/32 suite)
+- 2026-04-11: RESOLVED (verified) — per ASP-NOTE-005 Section 4 immediate flip
 
 ---
 

@@ -33,6 +33,7 @@ Source: ASP-INDEX.md (Chief Architect). This file mirrors the Locked Decisions s
 | ADR-025 | Shared utils in app/utils/ (extract_json etc.) | ACCEPTED |
 | ADR-026 | ASP-INDEX maintenance protocol | ACCEPTED |
 | ADR-026.1 | Dual-location governance docs (repo + working copy, same operation) | ACCEPTED |
+| ADR-026.2 | Multi-target sync — canonical target list in ENGINEERING-PLAYBOOK | ACCEPTED |
 | ADR-027 | All prompts via committed Alembic migrations (ADR-005 enforcement) | ACCEPTED |
 | ADR-028 | Migrations = executed reality, not planned work | ACCEPTED |
 | ADR-029 | Fresh-DB alembic upgrade head must pass before any PR merges | ACCEPTED |
@@ -126,6 +127,10 @@ ASP-INDEX.md is maintained by the ASP Development Team in the repo. Chief Archit
 ### ADR-026.1: Dual-Location Governance Documents (Addendum to ADR-026)
 **Context:** ASP-INDEX.md and other living governance docs exist in two locations: the repo (authoritative, used for deployment/CI) and a working copy (used for Chief Architect review and consumer coordination). Drift between the two causes confusion.
 **Decision:** Both locations must be updated in the same operation. Working copy refresh is performed automatically by the ASP Development Team after every migration completes. Applies to: ASP-INDEX.md, ASP-SCHEMA-CURRENT.md, ASP-ADR.md, ASP-DEFECT-REGISTER.md, and any future living governance document.
+
+### ADR-026.2: Multi-Target Governance Doc Sync (Addendum to ADR-026.1)
+**Context:** During ASP-NOTE-005 v1.1 deployment review, governance doc drift was traced to a third sync target (`00-index/communication/`) that the dev team did not know about. ADR-026.1 speaks of two locations but operational reality is three or more.
+**Decision:** Living governance documents may have more than two locations. The authoritative repo and ALL coordination working copies must be updated in the same operation. The dev team maintains the canonical list of sync targets in ENGINEERING-PLAYBOOK.md and adds new targets before first sync. A "synced" claim requires every listed target verified identical.
 
 ### ADR-027: All Prompts Via Committed Migrations
 **Context:** ASP-NOTE-004 root cause — migrations 0006-0011 were never committed. Prompts lived only in Docker volume.

@@ -125,6 +125,7 @@ Migrations 002–005 were active in the codebase but untracked in ASP-INDEX prio
 - **ADR-029:** Every PR that touches the migration chain must verify `alembic upgrade head` succeeds on a fresh empty DB and `alembic heads` returns exactly one head. CI gate. No exceptions. (ASP-NOTE-004)
 - **ADR-030:** `GET /api/v1/ai/capabilities` is a Zone 2 Shared Contract surface. Every consumer is entitled to query supported tasks and schemas at runtime. Consumers should validate at startup (ASP-GOV-CONSUMPTION-002 best practice). (ASP-NOTE-004)
 - **ADR-031:** Phantom task resurrection requires formal caller integration requirement.
+- **ADR-026.2 (Addendum):** Living governance documents may have more than two locations. The authoritative repo location and any coordination working copies (currently `00-index/` and `00-index/communication/`, plus any future targets) must all be updated in the same operation. The ASP Development Team maintains the canonical list of sync targets in ENGINEERING-PLAYBOOK.md and adds new targets to that list before the first sync to them. A "synced" claim is only valid when every listed target has been updated and verified identical (checksum or diff). (ASP-NOTE-005)
 - **ADR-032:** API key rotation requires (1) advance written notification to all affected consumers, (2) overlap window where both old and new keys are valid for minimum 5 business days, (3) explicit consumer acknowledgement before old key is revoked. Mechanics deferred to ASP-FEAT-ASP-00 v1.0 (next sprint). QUEUED. (ASP-DEFECT-010)
 - **ADR-033:** Per-service Pydantic strictness — generation service payload models (`GenerateTestCasesPayload`, `GenerateTestCasesWithInventoryPayload`, `LocatorInventoryItem`, `LocatorInventoryLocators`) use `ConfigDict(extra="ignore")` as a documented exception to ADR-008. All other services retain `extra="forbid"`. INFO log emitted on every dropped field for observability. Locked during ASP-FEAT-ASP-03 v1.1 dev team review. (ASP-DEFECT-009)
 
@@ -135,7 +136,7 @@ Migrations 002–005 were active in the codebase but untracked in ASP-INDEX prio
 | ASP-00 | Gateway | Synchronous | ACTIVE (pre-governance) | — | — |
 | ASP-01 | NLP Service | Synchronous | **GOVERNED** | ASP-FEAT-ASP-01 v1.2 | — |
 | ASP-02 | RAG Service | Synchronous | ACTIVE (pre-governance) | — | — |
-| ASP-03 | Generation Service | Synchronous | **SPEC APPROVED** (AC pending) | ASP-FEAT-ASP-03 v1.1 | — |
+| ASP-03 | Generation Service | Synchronous | **SPEC APPROVED** (32/32 AC PASS, PAP confirmation pending) | ASP-FEAT-ASP-03 v1.1 | — |
 | ASP-04 | Doc Intelligence | Asynchronous | ACTIVE (pre-governance) | — | — |
 | ASP-05 | Prediction Service | Asynchronous | ACTIVE (pre-governance) | — | — |
 | ASP-06 | Prompt Registry | Infrastructure | ACTIVE (pre-governance) | — | — |
@@ -192,7 +193,7 @@ Next TSCD: ASP-TSCD-001
 | ASP-NOTE-002 | ASP-01 NLP Service — governance closure. 25/25 ACs PASS. First service GOVERNED. | CLOSURE | 2026-04-10 |
 | ASP-NOTE-003 | ASP-INDEX maintenance protocol established. ADR-026 locked. Dev team owns repo updates; Chief Architect reviews at deployment. | PROCESS | 2026-04-10 |
 | ASP-NOTE-004 | Contract drift + migration branch conflict — Phase 1/2 complete, deployed 580dbe1, awaiting AC-Close-01 closure | ACTIVE | 2026-04-10 |
-| ASP-NOTE-005 | ASP-03 governance closure (planned — gated on AC-Close-01) | PENDING | TBD |
+| ASP-NOTE-005 | ASP-03 governance closure + ASP-NOTE-004 closeout. 32/32 AC PASS. GOVERNED flip authorized, pending PAP AC-Close-01(b). ADR-026.2 locked. | AUTHORIZED | 2026-04-11 |
 
 ### ASP-NOTE-002 — ASP-01 Governance Closure
 
@@ -228,7 +229,7 @@ Next TSCD: ASP-TSCD-001
 | ASP-GOV-CONSUMPTION-002 | Consumer Governance Agreement | v1.0 | APPROVED — BINDING | 2026-04-10 |
 | ASP-FEAT-ASP-01 | NLP Service Detailed Spec | v1.2 | GOVERNED | 2026-04-10 |
 | ASP-FEAT-ASP-03 | Generation Service Detailed Spec | v1.0 | SUPERSEDED by v1.1 | 2026-04-11 |
-| ASP-FEAT-ASP-03 | Generation Service Detailed Spec | v1.1 | SPEC APPROVED — implementation complete (580dbe1), AC pending | 2026-04-11 |
+| ASP-FEAT-ASP-03 | Generation Service Detailed Spec | v1.1 | SPEC APPROVED — 32/32 AC PASS (e8e3896), PAP confirmation pending | 2026-04-11 |
 
 ## Naming quick-ref
 
