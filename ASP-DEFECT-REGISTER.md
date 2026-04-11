@@ -1,6 +1,6 @@
 # ASP Defect Register
 
-Last updated: 2026-04-11 (post-580dbe1) | Total: 11 | Open: 1 | Resolved: 8 | Already Fixed: 2
+Last updated: 2026-04-12 (post-PAP-confirmation) | Total: 11 | Open: 1 | Resolved: 8 | Already Fixed: 2
 
 ## Summary
 

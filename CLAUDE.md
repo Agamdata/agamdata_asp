@@ -18,6 +18,7 @@ AI Service Platform (ASP) — A FastAPI/Python backend providing a unified gatew
 - Branch: `claude/asp-v2` (governance + new features)
 - Phase: Governance Onboarding
 - ASP-01 NLP: **GOVERNED** (25/25 ACs PASS — first service through governance)
+- ASP-03 Generation: **GOVERNED** (32/32 ACs PASS — ASP-NOTE-005 closure)
 
 ## Implemented Features
 | ID | Service | Status |

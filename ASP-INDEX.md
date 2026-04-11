@@ -1,6 +1,6 @@
 # ASP-INDEX
 
-Last updated: 2026-04-11 (post-580dbe1) | Migration head: 018 | Phase: Governance Onboarding + ASP-03 AC Verification
+Last updated: 2026-04-12 | Migration head: 018 | Phase: ASP-00 Gateway Governance
 
 ## ASP-INDEX Maintenance Protocol (ADR-026 — BINDING)
 
@@ -136,7 +136,7 @@ Migrations 002–005 were active in the codebase but untracked in ASP-INDEX prio
 | ASP-00 | Gateway | Synchronous | ACTIVE (pre-governance) | — | — |
 | ASP-01 | NLP Service | Synchronous | **GOVERNED** | ASP-FEAT-ASP-01 v1.2 | — |
 | ASP-02 | RAG Service | Synchronous | ACTIVE (pre-governance) | — | — |
-| ASP-03 | Generation Service | Synchronous | **SPEC APPROVED** (32/32 AC PASS, PAP confirmation pending) | ASP-FEAT-ASP-03 v1.1 | — |
+| ASP-03 | Generation Service | Synchronous | **GOVERNED** | ASP-FEAT-ASP-03 v1.1 | — |
 | ASP-04 | Doc Intelligence | Asynchronous | ACTIVE (pre-governance) | — | — |
 | ASP-05 | Prediction Service | Asynchronous | ACTIVE (pre-governance) | — | — |
 | ASP-06 | Prompt Registry | Infrastructure | ACTIVE (pre-governance) | — | — |
@@ -180,10 +180,8 @@ Next TSCD: ASP-TSCD-001
 ## Open blockers
 
 1. **ADR-020 — DQE Option A vs B decision OPEN.** Cube.dev integration (Option A) vs custom build (Option B). Full decision matrix in LogiCRM DQE Spec v1.0 Section 13. Owner: Product Owner / Chief Architect. BLOCKING implementation sprint.
-2. **Governance spec writing.** 1/14 services GOVERNED (ASP-01). ASP-03 SPEC APPROVED — pending 29-AC verification + AC-Close-01 evidence. Next spec per build phase order: ASP-00 (Gateway), deferred one sprint per ASP-NOTE-004.
-4. **ASP-03 closure — AC-Close-01(b) SCHEDULED.** PAP accepted ASP-NOTE-005 evidence on 2026-04-11. Atomic revert committed by PAP (task → generate_test_cases_with_inventory + locator_source → verified, single commit). Staging validation → 24h soak → production promotion → formal confirmation (commit SHA + 10 production call log evidence) expected Day 5–6. ASP-NOTE-005 gated flips fire on receipt. No further authorization required from Chief Architect — pre-authorized in ASP-NOTE-005 §4.
-5. **ADR-032 mechanics.** API key rotation SOP locked as principle (ADR-032). Code-level mechanics — multi-key support, overlap window, key management endpoint — deferred to ASP-FEAT-ASP-00 v1.0 next sprint.
-6. **ASP-NOTE-004 closure.** Phase 2 reconstitution complete; ASP-FEAT-ASP-03 v1.1 deployed. Closure (ASP-NOTE-005) gated on AC-Close-01 evidence per blocker 4.
+2. **Governance spec writing.** 2/14 services GOVERNED (ASP-01, ASP-03). Next spec per build phase order: ASP-00 (Gateway). ASP-FEAT-ASP-00 v1.0 in progress with Chief Architect.
+3. **ADR-032 mechanics.** API key rotation SOP locked as principle (ADR-032). Code-level mechanics — multi-key support, overlap window, key management endpoint — deferred to ASP-FEAT-ASP-00 v1.0 this sprint.
 3. ~~**Migration 001 formalisation.**~~ RESOLVED — migration chain 001–006 confirmed and tracked. Corrected during ASP-01 governance closure.
 
 ## ASP-NOTE Register
@@ -193,8 +191,8 @@ Next TSCD: ASP-TSCD-001
 | ASP-NOTE-001 | ASP governance onboarding — foundation package created | INFORMATIONAL | 2026-04-10 |
 | ASP-NOTE-002 | ASP-01 NLP Service — governance closure. 25/25 ACs PASS. First service GOVERNED. | CLOSURE | 2026-04-10 |
 | ASP-NOTE-003 | ASP-INDEX maintenance protocol established. ADR-026 locked. Dev team owns repo updates; Chief Architect reviews at deployment. | PROCESS | 2026-04-10 |
-| ASP-NOTE-004 | Contract drift + migration branch conflict — Phase 1/2 complete, deployed 580dbe1, awaiting AC-Close-01 closure | ACTIVE | 2026-04-10 |
-| ASP-NOTE-005 | ASP-03 governance closure + ASP-NOTE-004 closeout. 32/32 AC PASS. GOVERNED flip authorized, pending PAP AC-Close-01(b). ADR-026.2 locked. | AUTHORIZED | 2026-04-11 |
+| ASP-NOTE-004 | Contract drift + migration branch conflict — Phase 1/2 complete, deployed 580dbe1. CLOSED by ASP-NOTE-005. | CLOSED | 2026-04-10 |
+| ASP-NOTE-005 | ASP-03 governance closure + ASP-NOTE-004 closeout. 32/32 AC PASS. AC-Close-01(b) confirmed by PAP (commit 1b32600). 2/14 GOVERNED. ADR-026.2 locked. | CLOSURE | 2026-04-12 |
 
 ### ASP-NOTE-002 — ASP-01 Governance Closure
 
@@ -230,7 +228,7 @@ Next TSCD: ASP-TSCD-001
 | ASP-GOV-CONSUMPTION-002 | Consumer Governance Agreement | v1.0 | APPROVED — BINDING | 2026-04-10 |
 | ASP-FEAT-ASP-01 | NLP Service Detailed Spec | v1.2 | GOVERNED | 2026-04-10 |
 | ASP-FEAT-ASP-03 | Generation Service Detailed Spec | v1.0 | SUPERSEDED by v1.1 | 2026-04-11 |
-| ASP-FEAT-ASP-03 | Generation Service Detailed Spec | v1.1 | SPEC APPROVED — 32/32 AC PASS (e8e3896), PAP confirmation pending | 2026-04-11 |
+| ASP-FEAT-ASP-03 | Generation Service Detailed Spec | v1.1 | GOVERNED — 32/32 AC PASS (e8e3896), PAP confirmed (1b32600) | 2026-04-12 |
 
 ## Naming quick-ref
 
