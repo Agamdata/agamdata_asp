@@ -97,7 +97,8 @@ def authed_client(client, test_api_key):
 def mock_anthropic():
     """Patch anthropic client to return a controlled response."""
     with patch("app.services._shared.anthropic_client") as mock_shared, \
-         patch("app.services.nlp.anthropic_client", mock_shared):
+         patch("app.services.nlp.anthropic_client", mock_shared), \
+         patch("app.services.generation.anthropic_client", mock_shared):
         yield mock_shared
 
 
@@ -179,6 +180,48 @@ def mock_prompt_registry():
                 user_prompt_template=tpl,
             )
 
+    generation_prompt = PromptTemplateDTO(
+        id=str(uuid.uuid4()),
+        service_type="generation",
+        task="generate_test_cases",
+        caller_module="playwright_runner",
+        maturity_level="L2",
+        version=1,
+        system_prompt="You are a test generation expert.",
+        user_prompt_template="Generate test cases for: {url}",
+    )
+
+    inventory_prompt = PromptTemplateDTO(
+        id=str(uuid.uuid4()),
+        service_type="generation",
+        task="generate_test_cases_with_inventory",
+        caller_module="playwright_runner",
+        maturity_level="L2",
+        version=1,
+        system_prompt="You are an inventory-based test generation expert.",
+        user_prompt_template="Generate test cases for: {url}\nInventory: {locator_inventory_text}",
+    )
+
+    script_prompt = PromptTemplateDTO(
+        id=str(uuid.uuid4()),
+        service_type="generation",
+        task="generate_playwright_script",
+        caller_module="playwright_runner",
+        maturity_level="L2",
+        version=1,
+        system_prompt="You generate Playwright scripts.",
+        user_prompt_template="Generate script for: {url}\nTest cases:\n{test_cases_json}",
+    )
+
+    async def _get_prompt_variant(service_type, task, caller_module, maturity_level, ab_variant):
+        if task == "generate_test_cases_with_inventory":
+            return inventory_prompt
+        elif task == "generate_playwright_script":
+            return script_prompt
+        elif task == "generate_test_cases":
+            return generation_prompt
+        return nl_to_sql_prompt
+
     with patch("app.registry.prompt_registry.get_prompt", side_effect=_get_prompt), \
-         patch("app.registry.prompt_registry.get_prompt_variant", new_callable=AsyncMock, return_value=nl_to_sql_prompt) as mock:
+         patch("app.registry.prompt_registry.get_prompt_variant", side_effect=_get_prompt_variant) as mock:
         yield mock

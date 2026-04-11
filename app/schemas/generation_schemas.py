@@ -14,7 +14,7 @@ Spec: ASP-FEAT-ASP-03 v1.1, Section 7
 import structlog
 from typing import Literal, Optional, List
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 log = structlog.get_logger()
 
@@ -89,7 +89,7 @@ class GenerateTestCasesWithInventoryPayload(BaseModel):
     url: str
     page_title: Optional[str] = None
     locator_source: Literal["verified"] = "verified"
-    locator_inventory: List[LocatorInventoryItem]
+    locator_inventory: List[LocatorInventoryItem] = Field(min_length=1)
 
 
 class GeneratePlaywrightScriptPayload(BaseModel):
