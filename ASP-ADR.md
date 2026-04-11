@@ -37,6 +37,7 @@ Source: ASP-INDEX.md (Chief Architect). This file mirrors the Locked Decisions s
 | ADR-028 | Migrations = executed reality, not planned work | ACCEPTED |
 | ADR-029 | Fresh-DB alembic upgrade head must pass before any PR merges | ACCEPTED |
 | ADR-030 | Capability discovery endpoint (Zone 2 Shared Contract) | ACCEPTED |
+| ADR-031 | Phantom task resurrection requires formal caller integration req | ACCEPTED |
 
 ---
 
@@ -139,6 +140,10 @@ ASP-INDEX.md is maintained by the ASP Development Team in the repo. Chief Archit
 ### ADR-030: Capability Discovery Endpoint
 **Context:** PAP called tasks that did not exist, with no runtime way to verify.
 **Decision:** `GET /api/v1/ai/capabilities` is a Zone 2 Shared Contract surface. Every consumer is entitled to query supported tasks and schemas at runtime. Consumers should validate at startup (ASP-GOV-CONSUMPTION-002 best practice).
+
+### ADR-031: Phantom Task Resurrection Requires Formal Caller Integration Requirement
+**Context:** PAP Chief Architect confirmed `generate_test_cases_deep_dive` as FUTURE (MVP-3 target) in PAP-ASP-REQ-ASP-03 v1.0 Section 3. The task was previously deleted as a phantom (ASP-NOTE-004). Informal re-introduction without formal specification caused the original contract drift.
+**Decision:** A task deleted from ASP cannot be resurrected by informal request, conversation, or implicit assumption. Resurrection requires a new or amended caller integration requirement document (`{CALLER}-ASP-REQ-{SERVICE-ID}`) with full payload schema, result schema, prompt template draft, and use case justification. Prevents the contract drift class of failure documented in ASP-NOTE-004.
 
 ## Last Updated
 2026-04-11
