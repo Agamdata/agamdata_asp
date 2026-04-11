@@ -118,6 +118,7 @@ Migrations 002–005 were active in the codebase but untracked in ASP-INDEX prio
 - **ADR-024:** Pydantic schemas in `app/schemas/`, ORM models in `app/models/`. Clean separation. Applies to all ASP services. Locked during ASP-FEAT-ASP-01 v1.2 dev team review.
 - **ADR-025:** Cross-cutting LLM utilities (JSON parsing, prompt building) in `app/utils/`. Shared across services. Not duplicated per service module. `extract_json()` lives in `app/utils/json_parser.py`. Locked during ASP-FEAT-ASP-01 v1.2 dev team review.
 - **ADR-026:** ASP-INDEX.md is maintained by the ASP Development Team in the repo. Chief Architect reviews at every deployment. Specs, rulings, and notes flow from Architect → Dev Team → ASP-INDEX. Gaps found at deployment review are corrected before next deployment. See Maintenance Protocol section above.
+- **ADR-026.1 (Addendum):** Living governance documents have an authoritative repo location and a coordination working copy. Both must be updated in the same operation. Working copy is the location used for Chief Architect review and consumer coordination; repo is the location used for production deployment and CI. Working copy refresh is performed automatically by the ASP Development Team after migration completes. Applies to: ASP-INDEX.md, ASP-SCHEMA-CURRENT.md, ASP-ADR.md, ASP-DEFECT-REGISTER.md, and any future living governance document.
 
 ## Service status
 
