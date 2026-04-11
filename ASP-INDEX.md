@@ -160,6 +160,7 @@ Migrations 002–005 were active in the codebase but untracked in ASP-INDEX prio
 |---|---|---|---|---|---|
 | PAP-ASP-REQ-ASP-01 | PAP | ASP-01 NLP | classify_probe_result | IMPLEMENTED — 25/25 ACs PASS | PAP-ASP-REQ-ASP-01 v1.0 |
 | PAP-ASP-REQ-ASP-03 | PAP | ASP-03 Generation | generate_test_cases, generate_test_cases_with_inventory | IMPLEMENTED — AC verification pending | PAP-ASP-REQ-ASP-03 v1.0 |
+| PAP-ASP-REQ-ASP-00 | PAP | ASP-00 Gateway | (auth/keys, capabilities, error specificity) | INBOUND — filing in parallel with ASP-FEAT-ASP-00 v1.0 drafting | TBD |
 
 ## Consumer Register
 
@@ -180,7 +181,7 @@ Next TSCD: ASP-TSCD-001
 
 1. **ADR-020 — DQE Option A vs B decision OPEN.** Cube.dev integration (Option A) vs custom build (Option B). Full decision matrix in LogiCRM DQE Spec v1.0 Section 13. Owner: Product Owner / Chief Architect. BLOCKING implementation sprint.
 2. **Governance spec writing.** 1/14 services GOVERNED (ASP-01). ASP-03 SPEC APPROVED — pending 29-AC verification + AC-Close-01 evidence. Next spec per build phase order: ASP-00 (Gateway), deferred one sprint per ASP-NOTE-004.
-4. **ASP-03 AC verification.** 29-AC test suite execution pending. AC-Close-01 requires (a) PAP written revert confirmation from snapshot_text workaround to with_inventory, (b) ASP-side smoke test log against Phase 2 fixture (4 elements: first_name/email/phone/submit → 5 test cases, locators verbatim, missing_locators populated). Closure note ASP-NOTE-005 gated on this.
+4. **ASP-03 closure — AC-Close-01(b) SCHEDULED.** PAP accepted ASP-NOTE-005 evidence on 2026-04-11. Atomic revert committed by PAP (task → generate_test_cases_with_inventory + locator_source → verified, single commit). Staging validation → 24h soak → production promotion → formal confirmation (commit SHA + 10 production call log evidence) expected Day 5–6. ASP-NOTE-005 gated flips fire on receipt. No further authorization required from Chief Architect — pre-authorized in ASP-NOTE-005 §4.
 5. **ADR-032 mechanics.** API key rotation SOP locked as principle (ADR-032). Code-level mechanics — multi-key support, overlap window, key management endpoint — deferred to ASP-FEAT-ASP-00 v1.0 next sprint.
 6. **ASP-NOTE-004 closure.** Phase 2 reconstitution complete; ASP-FEAT-ASP-03 v1.1 deployed. Closure (ASP-NOTE-005) gated on AC-Close-01 evidence per blocker 4.
 3. ~~**Migration 001 formalisation.**~~ RESOLVED — migration chain 001–006 confirmed and tracked. Corrected during ASP-01 governance closure.

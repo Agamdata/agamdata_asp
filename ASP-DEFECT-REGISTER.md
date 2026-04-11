@@ -249,6 +249,7 @@ Migration 0018 (`ban_lambda_in_playwright_python`) amends the python_playwright_
 - 2026-04-11: Migration 0018 applied (commit 580dbe1)
 - 2026-04-11: AC-Lambda-01..03 PASS (commit e8e3896, 32/32 suite)
 - 2026-04-11: RESOLVED (verified) — per ASP-NOTE-005 Section 4 immediate flip
+- 2026-04-11: PAP confirms downstream removal — execution.py regex sanitizer will be removed once Gate 8 integration test confirms lambda absence in generated scripts. Sanitizer was a band-aid for this exact prompt defect.
 
 ---
 
