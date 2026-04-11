@@ -2,13 +2,15 @@
 ASP-01 NLP Service
 
 Supported tasks:
-- nl_to_sql
+- nl_to_sql          (uses RAG — ASP-02)
 - intent_extraction
 - entity_recognition
 - sentiment
 - language_detection
+- classify_probe_result  (NEW — ASP-FEAT-ASP-01 v1.2)
 """
 import json
+import time
 from typing import Optional
 
 import structlog
@@ -18,16 +20,28 @@ from pydantic import BaseModel
 from app.models.request import ConversationTurn, InvokeRequest
 from app.models.response import InvokeResponse
 from app.registry import prompt_registry, context_store
+from app.schemas.nlp_schemas import (
+    ClassifyProbeResultPayload,
+    ClassifyProbeResultOutput,
+)
 from app.services._shared import anthropic_client, build_messages, build_invoke_response, strip_json
 from app.services import rag
 from app.services.rag import format_chunks
+from app.utils.json_parser import extract_json, LLMParseError
 
 log = structlog.get_logger()
 
-VALID_TASKS = {"nl_to_sql", "intent_extraction", "entity_recognition", "sentiment", "language_detection"}
+VALID_TASKS = {
+    "nl_to_sql",
+    "intent_extraction",
+    "entity_recognition",
+    "sentiment",
+    "language_detection",
+    "classify_probe_result",
+}
 
 
-# --- Output schemas ---
+# --- Output schemas (existing tasks) ---
 
 class NLtoSQLOutput(BaseModel):
     sql: str
@@ -68,13 +82,15 @@ TASK_OUTPUT_SCHEMAS = {
 
 async def handle(req: InvokeRequest, model: str, request_id: str) -> InvokeResponse:
     if req.task not in VALID_TASKS:
-        raise HTTPException(status_code=400, detail=f"Unknown nlp task: {req.task}")
+        raise HTTPException(status_code=422, detail=f"Unknown task: '{req.task}'")
 
     log.info("nlp_invoke_start", request_id=request_id, tenant_id=req.tenant_id,
              caller_module=req.caller_module, task=req.task, model=model)
 
     if req.task == "nl_to_sql":
         return await _handle_nl_to_sql(req, model, request_id)
+    elif req.task == "classify_probe_result":
+        return await _handle_classify_probe_result(req, model, request_id)
     else:
         return await _handle_generic(req, model, request_id)
 
@@ -82,7 +98,7 @@ async def handle(req: InvokeRequest, model: str, request_id: str) -> InvokeRespo
 async def _handle_nl_to_sql(req: InvokeRequest, model: str, request_id: str) -> InvokeResponse:
     query_text = req.payload.get("query")
     if not query_text:
-        raise HTTPException(status_code=400, detail="payload.query is required for nl_to_sql")
+        raise HTTPException(status_code=422, detail="payload.query is required for nl_to_sql")
 
     # Step 1: Retrieve schema context from RAG (ASP-02)
     schema_chunks = await rag.retrieve(
@@ -141,6 +157,94 @@ async def _handle_nl_to_sql(req: InvokeRequest, model: str, request_id: str) -> 
         await context_store.set_context(req.tenant_id, req.caller_module, req.session_id, updated)
 
     return build_invoke_response(request_id, "nlp", "nl_to_sql", output, response.usage, model)
+
+
+async def _handle_classify_probe_result(
+    req: InvokeRequest, model: str, request_id: str
+) -> InvokeResponse:
+    """Handle classify_probe_result task (ASP-FEAT-ASP-01 v1.2, Section 11.6).
+
+    1. Validate payload via ClassifyProbeResultPayload
+    2. Defensive log if visible_text > 2000 chars [v1.2 M-2]
+    3. Lookup prompt from ASP-06
+    4. Build prompt with variable substitution (None → 'N/A')
+    5. Call LLM via Anthropic
+    6. Parse JSON via extract_json() (ADR-025)
+    7. Validate → ClassifyProbeResultOutput
+    """
+    # Validate payload
+    try:
+        payload = ClassifyProbeResultPayload(**req.payload)
+    except Exception as e:
+        raise HTTPException(status_code=422, detail=f"Validation error: {str(e)}")
+
+    # [v1.2 M-2] Defensive warning if visible_text exceeds caller contract limit
+    if len(payload.visible_text) > 2000:
+        log.warning(
+            "visible_text_exceeds_limit",
+            request_id=request_id,
+            tenant_id=req.tenant_id,
+            caller_module=req.caller_module,
+            actual_length=len(payload.visible_text),
+            limit=2000,
+        )
+
+    # Step 1: Lookup prompt from ASP-06
+    prompt = await prompt_registry.get_prompt(
+        "nlp", "classify_probe_result", req.caller_module, "*"
+    )
+
+    # Step 2: Build prompt with variable substitution
+    # None values rendered as 'N/A' per spec Section 11.6
+    user_message = prompt.user_prompt_template.format(
+        page_url=payload.page_url,
+        page_type=payload.page_type,
+        submitted_fields=json.dumps(payload.submitted_fields),
+        post_submit_url=payload.post_submit_url or "N/A",
+        post_submit_status=payload.post_submit_status if payload.post_submit_status is not None else "N/A",
+        visible_text=payload.visible_text,
+    )
+
+    # Step 3: Call Claude via ASP-11 Model Router
+    response = await anthropic_client.messages.create(
+        model=model,
+        max_tokens=512,
+        system=prompt.system_prompt,
+        messages=[{"role": "user", "content": user_message}],
+    )
+    raw = response.content[0].text
+
+    # Step 4: Parse JSON via extract_json() (ADR-025)
+    try:
+        parsed = extract_json(raw)
+        output = ClassifyProbeResultOutput(**parsed)
+    except LLMParseError as e:
+        log.error(
+            "nlp_parse_failed",
+            request_id=request_id,
+            task="classify_probe_result",
+            error=str(e),
+            raw=raw[:200],
+        )
+        raise HTTPException(
+            status_code=500,
+            detail={"detail": "Internal error", "request_id": request_id},
+        )
+    except Exception as e:
+        log.error(
+            "nlp_validation_failed",
+            request_id=request_id,
+            task="classify_probe_result",
+            error=str(e),
+        )
+        raise HTTPException(
+            status_code=500,
+            detail={"detail": "Internal error", "request_id": request_id},
+        )
+
+    return build_invoke_response(
+        request_id, "nlp", "classify_probe_result", output, response.usage, model
+    )
 
 
 async def _handle_generic(req: InvokeRequest, model: str, request_id: str) -> InvokeResponse:

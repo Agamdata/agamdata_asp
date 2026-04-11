@@ -59,6 +59,7 @@ class InteractiveElement(BaseModel):
     role: str
     name: str = ""
     type: str = ""
+    placeholder: str = ""
     testid: str = ""
     id: str = ""
     forLabel: str = ""
@@ -66,7 +67,7 @@ class InteractiveElement(BaseModel):
 
 class GenerateTestCasesPayload(BaseModel):
     """Validated payload for generate_test_cases task."""
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="ignore")   # caller may send metadata fields; ignore unknown
     url: str
     snapshot_text: Optional[str] = None
     interactive_elements: Optional[List[InteractiveElement]] = None
@@ -76,10 +77,44 @@ class GenerateTestCasesPayload(BaseModel):
 
 class GeneratePlaywrightScriptPayload(BaseModel):
     """Validated payload for generate_playwright_script task."""
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="ignore")   # caller may send metadata fields; ignore unknown
     url: str
     test_cases: List[dict]
     script_variant: str = "playwright_typescript_pom"
+    # Title format fields sent by script_generator.py (v1.1) — declared
+    # explicitly for documentation; extra fields are ignored anyway.
+    title_format: Optional[str] = None          # e.g. '[{tc_id}] {test_name}'
+    title_format_example: Optional[str] = None  # e.g. '[TC-PI-001] Create invoice ...'
+
+
+class LocatorInventoryLocators(BaseModel):
+    """Verified locator set for one inventory element."""
+    model_config = ConfigDict(extra="ignore")
+    recommended: str                    # verbatim Playwright call — LLM must copy this
+    all_verified: dict[str, str] = {}   # every strategy that resolved to exactly 1 element
+    is_fragile: bool = False            # true when recommended is css_fallback only
+
+
+class LocatorInventoryItem(BaseModel):
+    """One element entry in the verified locator inventory."""
+    model_config = ConfigDict(extra="ignore")
+    element_name: str                   # snake_case identifier, e.g. email_input
+    tag: str                            # HTML tag: input | button | a | select | textarea
+    type: str = ""                      # input type attr; empty for buttons/links
+    label_text: str = ""               # text from <label> or aria-label; empty if none
+    placeholder: str = ""              # placeholder attr value; empty if none
+    button_text: str = ""              # visible text of button/link (trimmed to 80 chars)
+    is_visible: bool = True            # element has non-zero bounding box on page
+    locators: LocatorInventoryLocators
+
+
+class GenerateTestCasesWithInventoryPayload(BaseModel):
+    """Validated payload for generate_test_cases_with_inventory task."""
+    model_config = ConfigDict(extra="ignore")   # caller may send metadata fields; ignore unknown
+    url: str
+    page_title: Optional[str] = None
+    locator_source: Literal["verified"] = "verified"
+    locator_inventory: List[LocatorInventoryItem]
 
 
 class WebhookRegisterRequest(BaseModel):

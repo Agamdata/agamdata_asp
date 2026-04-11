@@ -7,17 +7,10 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import bcrypt
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine, event
-from sqlalchemy.orm import sessionmaker
-
-from app.main import app
-from app.models.db_models import Base, Tenant
 
 
 # ---------------------------------------------------------------------------
-# In-memory SQLite engine for unit tests
-# Note: SQLite doesn't support all PostgreSQL features.
-# For full integration tests, use a real PostgreSQL instance.
+# In-memory mocks — no DB, no Redis, no external services needed
 # ---------------------------------------------------------------------------
 
 @pytest.fixture(scope="session")
@@ -46,6 +39,8 @@ def mock_db_session(test_api_key_hash):
     """
     Mock database session that returns a valid tenant for auth.
     """
+    from app.models.db_models import Tenant
+
     tenant = Tenant(
         id=uuid.uuid4(),
         tenant_code="test_tenant",
@@ -72,7 +67,10 @@ def client(test_api_key, mock_db_session, mock_redis):
     """FastAPI test client with mocked infra."""
     session_mock, tenant = mock_db_session
 
-    with patch("app.infra.db.init_db", new_callable=AsyncMock), \
+    # Patch at all locations where init_db/init_redis are referenced
+    with patch("app.main.init_db", new_callable=AsyncMock), \
+         patch("app.main.init_redis", new_callable=AsyncMock), \
+         patch("app.infra.db.init_db", new_callable=AsyncMock), \
          patch("app.infra.redis.init_redis", new_callable=AsyncMock), \
          patch("app.infra.db.get_session") as mock_get_session, \
          patch("app.gateway.auth.get_session") as mock_auth_session, \
@@ -83,6 +81,7 @@ def client(test_api_key, mock_db_session, mock_redis):
         mock_auth_session.return_value.__aenter__ = AsyncMock(return_value=session_mock)
         mock_auth_session.return_value.__aexit__ = AsyncMock(return_value=False)
 
+        from app.main import app
         with TestClient(app, raise_server_exceptions=True) as c:
             yield c
 
@@ -97,8 +96,9 @@ def authed_client(client, test_api_key):
 @pytest.fixture(scope="function")
 def mock_anthropic():
     """Patch anthropic client to return a controlled response."""
-    with patch("app.services._shared.anthropic_client") as mock_client:
-        yield mock_client
+    with patch("app.services._shared.anthropic_client") as mock_shared, \
+         patch("app.services.nlp.anthropic_client", mock_shared):
+        yield mock_shared
 
 
 @pytest.fixture(scope="function")
@@ -110,9 +110,13 @@ def mock_rag():
 
 @pytest.fixture(scope="function")
 def mock_prompt_registry():
-    """Patch prompt registry to return a test prompt."""
+    """Patch prompt registry to return a test prompt.
+
+    Returns different prompts based on task name to support all NLP tasks.
+    """
     from app.registry.prompt_registry import PromptTemplateDTO
-    prompt = PromptTemplateDTO(
+
+    nl_to_sql_prompt = PromptTemplateDTO(
         id=str(uuid.uuid4()),
         service_type="nlp",
         task="nl_to_sql",
@@ -125,6 +129,56 @@ def mock_prompt_registry():
         ),
         user_prompt_template="Convert this query to SQL: {query}",
     )
-    with patch("app.registry.prompt_registry.get_prompt", new_callable=AsyncMock, return_value=prompt), \
-         patch("app.registry.prompt_registry.get_prompt_variant", new_callable=AsyncMock, return_value=prompt) as mock:
+
+    classify_prompt = PromptTemplateDTO(
+        id=str(uuid.uuid4()),
+        service_type="nlp",
+        task="classify_probe_result",
+        caller_module="playwright_runner",
+        maturity_level="*",
+        version=1,
+        system_prompt="You are a web form behavior classifier.",
+        user_prompt_template=(
+            "Form URL: {page_url}\nPage type: {page_type}\n"
+            "Fields submitted: {submitted_fields}\n"
+            "Post-submit URL: {post_submit_url}\n"
+            "Post-submit HTTP status: {post_submit_status}\n"
+            "Visible page text after submission (max 2000 chars):\n{visible_text}\n\n"
+            "Classify the form submission outcome."
+        ),
+    )
+
+    generic_prompt = PromptTemplateDTO(
+        id=str(uuid.uuid4()),
+        service_type="nlp",
+        task="generic",
+        caller_module="*",
+        maturity_level="*",
+        version=1,
+        system_prompt="You are an NLP assistant.",
+        user_prompt_template="{query}{text}",
+    )
+
+    async def _get_prompt(service_type, task, caller_module, maturity_level):
+        if task == "classify_probe_result":
+            return classify_prompt
+        elif task == "nl_to_sql":
+            return nl_to_sql_prompt
+        else:
+            # Generic: user_prompt_template uses **payload, so accept any key
+            # Generic tasks: intent_extraction uses {query}, others use {text}
+            tpl = "{query}" if "intent" in task else "{text}"
+            return PromptTemplateDTO(
+                id=str(uuid.uuid4()),
+                service_type=service_type,
+                task=task,
+                caller_module=caller_module,
+                maturity_level=maturity_level,
+                version=1,
+                system_prompt="You are an NLP assistant.",
+                user_prompt_template=tpl,
+            )
+
+    with patch("app.registry.prompt_registry.get_prompt", side_effect=_get_prompt), \
+         patch("app.registry.prompt_registry.get_prompt_variant", new_callable=AsyncMock, return_value=nl_to_sql_prompt) as mock:
         yield mock

@@ -8,11 +8,35 @@ from app.cost.meter import calculate_cost
 
 
 def strip_json(raw: str) -> str:
-    """Strip markdown code fences that Claude sometimes wraps around JSON responses."""
+    """Extract a JSON object/array from an LLM response.
+
+    Handles three patterns Claude emits:
+      1. Clean JSON          {  ...  }
+      2. Fenced JSON         ```json\\n{...}\\n```
+      3. Prose + fenced JSON  # Analysis\\n...\\n```json\\n{...}\\n```
+
+    For case 3 the fence is not at position 0, so anchor-based regexes fail.
+    After fence removal, we scan forward to the first { or [ so that any
+    leading prose, headers, or explanation text is discarded.
+    """
     text = raw.strip()
-    # Remove ```json ... ``` or ``` ... ``` fences
-    text = re.sub(r"^```(?:json)?\s*", "", text)
-    text = re.sub(r"\s*```$", "", text)
+
+    # Step 1: remove opening fence (``` or ```json) wherever it appears
+    text = re.sub(r"```(?:json)?\s*", "", text)
+    # Step 2: remove closing fence
+    text = re.sub(r"\s*```", "", text)
+    text = text.strip()
+
+    # Step 3: if the result still has prose before the JSON object, discard it.
+    # Find the first { or [ — everything before it is preamble.
+    first_brace = len(text)
+    for ch in ('{', '['):
+        idx = text.find(ch)
+        if idx != -1 and idx < first_brace:
+            first_brace = idx
+    if first_brace > 0:
+        text = text[first_brace:]
+
     return text.strip()
 
 
