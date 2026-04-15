@@ -32,6 +32,7 @@ from app.models.generation_outputs import (
 )
 from app.registry import prompt_registry
 from app.services._shared import anthropic_client, build_invoke_response, strip_json, strip_script, repair_json
+from app.utils.llm_retry import llm_call_with_retry
 
 log = structlog.get_logger()
 
@@ -100,7 +101,7 @@ TASK_MAX_TOKENS = {
     "suggest_fields":                         512,
     "draft_whatsapp":                         512,
     "generate_test_cases":                    32000,
-    "generate_test_cases_with_inventory":     8192,   # ASP-TSCD-001 CHG-04. Observed max: 6428 tokens.
+    "generate_test_cases_with_inventory":     12288,  # DEFECT-017: raised from 8192. Truncation confirmed at 8192 for complex inventories.
     "generate_playwright_script":             32000,
 }
 
@@ -213,11 +214,14 @@ async def handle(req: InvokeRequest, model: str, request_id: str) -> InvokeRespo
             raise HTTPException(status_code=400, detail=f"Missing required payload field: {e}")
 
     max_tokens = TASK_MAX_TOKENS.get(effective_task, 2048)
-    response = await anthropic_client.messages.create(
+    # DEFECT-016: Use shared retry utility for 529/overload handling
+    response = await llm_call_with_retry(
+        anthropic_client,
         model=model,
         max_tokens=max_tokens,
         system=prompt.system_prompt,
         messages=[{"role": "user", "content": user_message}],
+        request_id=request_id,
     )
     raw = response.content[0].text
 
@@ -230,6 +234,27 @@ async def handle(req: InvokeRequest, model: str, request_id: str) -> InvokeRespo
         # not GenerateTestCasesWithInventoryOutput, because the snapshot prompt doesn't
         # emit missing_locators and the caller's GenerationResponse defaults it to [].
         schema_cls = TASK_OUTPUT_SCHEMAS[effective_task]
+
+        # DEFECT-017: Truncation guard — distinguish max_tokens truncation from organic parse error
+        stop_reason = getattr(response, 'stop_reason', None)
+        if stop_reason == 'max_tokens':
+            log.error(
+                "generation_truncated",
+                request_id=request_id,
+                task=task,
+                max_tokens=max_tokens,
+                raw_length=len(raw),
+                stop_reason=stop_reason,
+            )
+            _write_failed_response(request_id, task, raw, f"Truncated at max_tokens={max_tokens}")
+            raise HTTPException(
+                status_code=500,
+                detail={
+                    "detail": f"Generation output exceeded token limit ({max_tokens}). Response truncated.",
+                    "request_id": request_id,
+                },
+            )
+
         try:
             output = schema_cls.model_validate_json(strip_json(raw))
         except Exception as first_err:
@@ -240,7 +265,8 @@ async def handle(req: InvokeRequest, model: str, request_id: str) -> InvokeRespo
             except Exception as e:
                 _write_failed_response(request_id, task, raw, str(e))
                 log.error("generation_parse_failed", request_id=request_id,
-                          task=task, raw=raw[:500], error=str(e))
+                          task=task, raw=raw[:500], error=str(e),
+                          raw_length=len(raw), max_tokens=max_tokens)
                 raise HTTPException(status_code=500, detail={"detail": "Internal error", "request_id": request_id})
 
     return build_invoke_response(request_id, "generation", task, output, response.usage, model)

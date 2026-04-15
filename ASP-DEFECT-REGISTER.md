@@ -1,6 +1,6 @@
 # ASP Defect Register
 
-Last updated: 2026-04-15 (post-DEFECT-012 rulings) | Total: 13 | Open: 1 | Mitigated: 1 | Resolved: 9 | Already Fixed: 2
+Last updated: 2026-04-16 | Total: 15 | Open: 0 | Mitigated: 1 | Resolved: 12 | Already Fixed: 2
 
 ## Summary
 
@@ -19,6 +19,8 @@ Last updated: 2026-04-15 (post-DEFECT-012 rulings) | Total: 13 | Open: 1 | Mitig
 | ASP-DEFECT-011 | classify_probe_result task not available to PAP | CONSUMER | ASP-01 | BLOCKING | RESOLVED (asp-v2) | PAP Team | 2026-04-11 |
 | ASP-DEFECT-012 | generate_test_cases_with_inventory latency 74-86s — outside ADR-018 envelope | INTERNAL | ASP-03 | HIGH | MITIGATED — pending Option 4 (async) | ASP Dev Team | 2026-04-15 |
 | ASP-DEFECT-013 | TestCaseOutput.seed_data rejects LLM null — coerce to {} | INTERNAL | ASP-03 | LOW | RESOLVED (1c3d655) | ASP Dev Team | 2026-04-15 |
+| ASP-DEFECT-016 | Anthropic 529 Overloaded surfaced to caller as 500 (no retry) | CONSUMER | ASP-03/ASP-00 | MEDIUM | RESOLVED | PAP Operations | 2026-04-16 |
+| ASP-DEFECT-017 | generation_parse_failed at line 918 — max_tokens truncation | CONSUMER | ASP-03 | HIGH | RESOLVED | PAP Operations | 2026-04-16 |
 
 ---
 
@@ -520,3 +522,53 @@ Applied inline during TSCD-001 AC-T07 verification. No migration required.
 - 2026-04-15: Discovered during AC-T07 (tag=unknown payload produced null seed_data)
 - 2026-04-15: Fixed in commit 1c3d655 (coerce_seed_data validator)
 - 2026-04-15: RESOLVED
+
+---
+
+### ASP-DEFECT-016 — Anthropic 529 Overloaded surfaced to caller as 500
+
+- **ID:** ASP-DEFECT-016
+- **Filed:** 2026-04-16
+- **Source:** CONSUMER (PAP Operations, 18:03:45Z)
+- **Domain:** ASP-03 / ASP-00 Gateway
+- **Severity:** MEDIUM
+- **Status:** RESOLVED
+
+**Root cause:** ASP had zero retry logic for Anthropic 529 (Overloaded) responses. HTTP 529 is a documented transient Anthropic capacity condition. Instead of retrying with backoff and returning 502 when exhausted, ASP passed the error through as unhandled 500. PAP's retry logic was miscalibrated — they backed off from ASP when they should have retried.
+
+**Fix:** Created `app/utils/llm_retry.py` — shared retry utility wrapping all Anthropic API calls. Pattern: 3 retries, exponential backoff [1s, 2s, 4s], retryable statuses: 529, 500, 502, 503, 504, connection errors. Non-retryable: 400, 401, 422 (fail immediately). On exhaustion: 502 with RFC 7807 detail. Applied to both `app/services/generation.py` and `app/services/nlp.py`.
+
+**Atrium-transition relevance:** REPLICATE — platform-level concern in LLM client layer, not per-service.
+
+**Timeline:**
+- 2026-04-16: Filed from PAP Operations report
+- 2026-04-16: Investigation confirmed zero 529 handling in codebase
+- 2026-04-16: Shared llm_retry.py utility created, both services updated
+- 2026-04-16: RESOLVED — 58/58 regression PASS
+
+---
+
+### ASP-DEFECT-017 — generation_parse_failed at line 918 — max_tokens truncation
+
+- **ID:** ASP-DEFECT-017
+- **Filed:** 2026-04-16
+- **Source:** CONSUMER (PAP Operations, 18:19:49Z)
+- **Domain:** ASP-03
+- **Severity:** HIGH
+- **Status:** RESOLVED
+
+**Root cause:** LLM output for complex inventory (GitHub homepage, 8+ elements) produced 30,532 chars (~8,000+ tokens), hitting the 8,192 max_tokens ceiling. Output was truncated mid-JSON at line 918 (139 open braces, 136 close braces — 3 unclosed). The truncation guard specified in TSCD-001 CHG-04 was NOT implemented — the code had only the generic `generation_parse_failed` log with no distinction between truncation and organic parse errors.
+
+**Fix (two parts):**
+1. **Truncation guard implemented:** Checks `response.stop_reason == 'max_tokens'` before attempting JSON parse. Logs `generation_truncated` (distinct from `generation_parse_failed`) with max_tokens and raw_length. Returns 500 with explicit "Generation output exceeded token limit" detail.
+2. **max_tokens raised:** 8,192 → 12,288 for `generate_test_cases_with_inventory`. The 8,192 ceiling was calibrated from Phase 2 (6,428 tokens) but complex inventories exceed it. 12,288 covers observed 8,000+ token outputs with headroom.
+
+**Connection to DEFECT-012:** Further evidence that complex generation calls need async conversion. Truncation risk + latency together make synchronous untenable for complex assets.
+
+**Atrium-transition relevance:** REPLICATE — distinguish truncation from organic parse errors as separate structlog events with different responses.
+
+**Timeline:**
+- 2026-04-16: Filed from PAP Operations report (18:19:49Z failure)
+- 2026-04-16: Investigation confirmed truncation (30,532 chars, 139 vs 136 braces)
+- 2026-04-16: Truncation guard + max_tokens=12288 implemented
+- 2026-04-16: RESOLVED — 58/58 regression PASS

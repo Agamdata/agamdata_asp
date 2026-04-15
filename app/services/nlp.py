@@ -28,6 +28,7 @@ from app.services._shared import anthropic_client, build_messages, build_invoke_
 from app.services import rag
 from app.services.rag import format_chunks
 from app.utils.json_parser import extract_json, LLMParseError
+from app.utils.llm_retry import llm_call_with_retry
 
 log = structlog.get_logger()
 
@@ -127,12 +128,14 @@ async def _handle_nl_to_sql(req: InvokeRequest, model: str, request_id: str) -> 
     )
     messages = build_messages(history, query_text)
 
-    # Step 5: Call Claude
-    response = await anthropic_client.messages.create(
+    # Step 5: Call Claude (DEFECT-016: 529 retry via shared utility)
+    response = await llm_call_with_retry(
+        anthropic_client,
         model=model,
         max_tokens=1024,
         system=system,
         messages=messages,
+        request_id=request_id,
     )
     raw = response.content[0].text
 
@@ -205,12 +208,14 @@ async def _handle_classify_probe_result(
         visible_text=payload.visible_text,
     )
 
-    # Step 3: Call Claude via ASP-11 Model Router
-    response = await anthropic_client.messages.create(
+    # Step 3: Call Claude via ASP-11 Model Router (DEFECT-016: 529 retry)
+    response = await llm_call_with_retry(
+        anthropic_client,
         model=model,
         max_tokens=512,
         system=prompt.system_prompt,
         messages=[{"role": "user", "content": user_message}],
+        request_id=request_id,
     )
     raw = response.content[0].text
 
@@ -252,11 +257,13 @@ async def _handle_generic(req: InvokeRequest, model: str, request_id: str) -> In
     prompt = await prompt_registry.get_prompt("nlp", req.task, req.caller_module, maturity)
 
     user_message = prompt.user_prompt_template.format(**req.payload)
-    response = await anthropic_client.messages.create(
+    response = await llm_call_with_retry(
+        anthropic_client,
         model=model,
         max_tokens=512,
         system=prompt.system_prompt,
         messages=[{"role": "user", "content": user_message}],
+        request_id=request_id,
     )
     raw = response.content[0].text
 

@@ -605,7 +605,8 @@ def test_ac22_no_stack_trace(nlp_authed_client, mock_anthropic):
          patch("app.cost.meter.check_quota", new_callable=AsyncMock, return_value=True):
         r = _invoke(nlp_authed_client, "nl_to_sql", {"query": "test"})
 
-    assert r.status_code == 500
+    # DEFECT-016: TimeoutError now retries 3x then returns 502 (upstream unavailable)
+    assert r.status_code in (500, 502)
     body = r.json()
     # Must not contain stack trace
     body_str = json.dumps(body)

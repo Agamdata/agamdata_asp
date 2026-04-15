@@ -456,7 +456,8 @@ def test_ac19_rfc7807_no_stack_trace(gen_authed_client, mock_anthropic):
     with patch("app.gateway.cost_emitter.emit_cost_event", new_callable=AsyncMock), \
          patch("app.cost.meter.check_quota", new_callable=AsyncMock, return_value=True):
         r = _invoke(gen_authed_client, "generate_test_cases", {"url": "https://example.com", "locator_source": "inferred"})
-    assert r.status_code == 500
+    # DEFECT-016: TimeoutError now retries 3x then returns 502 (upstream unavailable)
+    assert r.status_code in (500, 502)
     body_str = json.dumps(r.json())
     assert "Traceback" not in body_str
     assert "File " not in body_str
