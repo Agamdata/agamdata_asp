@@ -194,6 +194,7 @@ Next TSCD: ASP-TSCD-002
 | ASP-NOTE-003 | ASP-INDEX maintenance protocol established. ADR-026 locked. Dev team owns repo updates; Chief Architect reviews at deployment. | PROCESS | 2026-04-10 |
 | ASP-NOTE-004 | Contract drift + migration branch conflict — Phase 1/2 complete, deployed 580dbe1. CLOSED by ASP-NOTE-005. | CLOSED | 2026-04-10 |
 | ASP-NOTE-005 | ASP-03 governance closure + ASP-NOTE-004 closeout. 32/32 AC PASS. AC-Close-01(b) confirmed by PAP (commit 1b32600). 2/14 GOVERNED. ADR-026.2 locked. | CLOSURE | 2026-04-12 |
+| ASP-NOTE-006 | TSCD-001 completion. Migration 019, 11/11 AC PASS, 58/58 regression. DEFECT-012 MITIGATED, DEFECT-013 RESOLVED. Two production deployment gates tracked. | PROCESS | 2026-04-15 |
 
 ### ASP-NOTE-002 — ASP-01 Governance Closure
 
