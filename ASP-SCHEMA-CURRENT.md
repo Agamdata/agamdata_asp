@@ -1,7 +1,7 @@
 # ASP-SCHEMA-CURRENT — Database Schema Reference
 
 ## Migration Head
-**Current:** `0018` (ban_lambda_in_playwright_python — ASP-FEAT-ASP-03 v1.1 / DEFECT-006)
+**Current:** `0019` (update_generation_with_inventory_prompt_v2 — ASP-TSCD-001 CHG-03)
 
 ## Tables
 
@@ -48,6 +48,7 @@ Aggregated monthly cost rollups (idempotent).
 | 0016 | Reconstitute with_inventory prompt from archive | ASP-NOTE-004 Phase 2 |
 | 0017 | Seed classify_probe_result prompt (NLP, PAP canonical) | Renumbered from 0006 |
 | 0018 | Ban lambda in Python Playwright script prompts | ASP-FEAT-ASP-03 v1.1 / DEFECT-006 |
+| 0019 | Update generate_test_cases_with_inventory prompt to v2 (dual-mode: F-03-08 + F-03-04) | ASP-TSCD-001 CHG-03 |
 
 ## Last Updated
-2026-04-11
+2026-04-15

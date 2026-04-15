@@ -1,6 +1,6 @@
 # ASP Defect Register
 
-Last updated: 2026-04-12 (post-PAP-confirmation) | Total: 11 | Open: 1 | Resolved: 8 | Already Fixed: 2
+Last updated: 2026-04-15 (post-TSCD-001) | Total: 12 | Open: 2 | Resolved: 8 | Already Fixed: 2
 
 ## Summary
 
@@ -17,6 +17,7 @@ Last updated: 2026-04-12 (post-PAP-confirmation) | Total: 11 | Open: 1 | Resolve
 | ASP-DEFECT-009 | Extra payload fields cause 422 on generate_test_cases | CONSUMER | ASP-03 | LOW | RESOLVED (serene-shtern) | PAP Team | 2026-04-11 |
 | ASP-DEFECT-010 | API key rotation without consumer notification | CONSUMER | PROCESS | HIGH | OPEN | PAP Team | 2026-04-11 |
 | ASP-DEFECT-011 | classify_probe_result task not available to PAP | CONSUMER | ASP-01 | BLOCKING | RESOLVED (asp-v2) | PAP Team | 2026-04-11 |
+| ASP-DEFECT-012 | generate_test_cases_with_inventory latency 74-86s (spec: 1-10s) | INTERNAL | ASP-03 | HIGH | OPEN | ASP Dev Team | 2026-04-15 |
 
 ---
 
@@ -419,3 +420,42 @@ Task is live. PAP can begin F-02-13 Pass 2. Use `caller_module='playwright_runne
 **Timeline:**
 - 2026-04-11: Filed from PAP defect report
 - 2026-04-11: RESOLVED — task is GOVERNED (ASP-NOTE-002), live on asp-v2
+
+---
+
+### ASP-DEFECT-012 — generate_test_cases_with_inventory latency 74-86s (spec: 1-10s)
+
+- **ID:** ASP-DEFECT-012
+- **Filed:** 2026-04-15
+- **Source:** INTERNAL (I-TSCD001-05 investigation, Finding F-01)
+- **Reporter:** ASP Dev Team
+- **Domain:** ASP-03
+- **Severity:** HIGH
+- **Status:** OPEN
+- **Affected consumers:** PAP
+- **Affected services:** ASP-03 Generation (generate_test_cases_with_inventory)
+
+**Description:**
+ASP-FEAT-ASP-03 v1.1 states typical latency of 1-10 seconds. Measured wall-clock latency across 3 consecutive calls: 85.7s, 74.2s, 74.0s. Consistently 7-8x outside spec range. PAP previously reported 69.155s (Finding F-01 in ASP-TSCD-001).
+
+**Measurements (post-migration 019, max_tokens=8192):**
+
+| Call | Wall Time | Input Tokens | Output Tokens | Model |
+|------|-----------|-------------|---------------|-------|
+| 1/3 | 85.7s | ~1505 | ~6388 | claude-sonnet-4-6 |
+| 2/3 | 74.2s | ~1505 | ~6388 | claude-sonnet-4-6 |
+| 3/3 | 74.0s | ~1505 | ~6388 | claude-sonnet-4-6 |
+
+**Root cause analysis:**
+The output volume (~6400 tokens) at Sonnet's throughput (~50-80 tokens/sec) requires 80-130s of generation time. The max_tokens reduction from 32000 to 8192 (CHG-04) does not reduce generation time — it only caps the maximum. The latency is inherent to the output volume and model speed, not a code defect.
+
+**Potential mitigations (for Principal Architect review):**
+1. **Reduce output volume:** Simpler TestCaseOutput schema (fewer fields, shorter steps) would reduce tokens.
+2. **Use Haiku instead of Sonnet:** 3-5x faster generation but lower quality.
+3. **quality_tier=standard for with_inventory:** PAP currently uses enhanced (Sonnet). Standard (Haiku) would reduce to ~15-25s.
+4. **Async processing:** Convert to Celery task like Doc Intelligence/Prediction. PAP polls for result.
+5. **Accept the latency:** 74s for 5 structured test cases with Playwright scripts is within LLM generation norms for this output volume.
+
+**Timeline:**
+- 2026-04-15: Filed from I-TSCD001-05 latency investigation
+- Status: OPEN — awaiting Principal Architect ruling on mitigation approach

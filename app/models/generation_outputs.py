@@ -80,11 +80,20 @@ class TestCaseOutput(BaseModel):
     # FIXED: LLM omits locators on pre-0015 prompts. OUTPUT CONTRACT mandates
     # the key is present (may be {}). Default to {} so parsing never fails.
     # Same pattern as seed_data below.
-    seed_data:        dict = Field(default_factory=dict)
-    # FIXED: was required dict — LLM omits this field when no seed data is
-    # needed (e.g. read-only pages). Default to {} so parsing never fails.
+    seed_data:        dict | None = Field(default_factory=dict)
+    # FIXED: was required dict — LLM omits this field or returns null when no
+    # seed data is needed (e.g. read-only pages). Default to {} so parsing never fails.
+    # Accepts None (LLM returns null) — coerced to {} by validator below.
     expected_result:  str
     playwright_notes: Optional[str] = None
+
+    @field_validator('seed_data', mode='before')
+    @classmethod
+    def coerce_seed_data(cls, v):
+        """Coerce null → {} so LLM returning seed_data:null doesn't fail parsing."""
+        if v is None:
+            return {}
+        return v
 
     @field_validator('priority', mode='before')
     @classmethod

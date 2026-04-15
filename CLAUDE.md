@@ -12,8 +12,8 @@ AI Service Platform (ASP) — A FastAPI/Python backend providing a unified gatew
 - DB: PostgreSQL 16 — `postgresql+asyncpg://asp:asp_secret@postgres:5432/asp_db` (port 5434 external)
 
 ## Current State
-- Migration head: `0018` (ban_lambda_in_playwright_python — ASP-FEAT-ASP-03 v1.1)
-- Applied chain: 0001 → 0002 → 0003 → 0004 → 0005 → 0012 → 0013 → 0014 → 0015 → 0016 → 0017 → 0018
+- Migration head: `0019` (update_generation_with_inventory_prompt_v2 — ASP-TSCD-001)
+- Applied chain: 0001 → 0002 → 0003 → 0004 → 0005 → 0012 → 0013 → 0014 → 0015 → 0016 → 0017 → 0018 → 0019
 - ADRs: ADR-001 through ADR-033 (see ASP-ADR.md)
 - Branch: `claude/asp-v2` (governance + new features)
 - Phase: Governance Onboarding

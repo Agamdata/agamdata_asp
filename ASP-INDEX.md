@@ -1,6 +1,6 @@
 # ASP-INDEX
 
-Last updated: 2026-04-12 | Migration head: 018 | Phase: ASP-00 Gateway Governance
+Last updated: 2026-04-15 | Migration head: 019 | Phase: ASP-00 Gateway Governance
 
 ## ASP-INDEX Maintenance Protocol (ADR-026 — BINDING)
 
@@ -60,9 +60,9 @@ If a gap is found: Chief Architect raises it with the ASP Development Team lead.
 
 ## Current migration head
 
-**018 — ban_lambda_in_playwright_python** (ASP-FEAT-ASP-03 v1.1 / DEFECT-006)
+**019 — update_generation_with_inventory_prompt_v2** (ASP-TSCD-001 CHG-03)
 
-Applied chain: 001 → 002 → 003 → 004 → 005 → 012 → 013 → 014 → 015 → 016 → 017 → 018
+Applied chain: 001 → 002 → 003 → 004 → 005 → 012 → 013 → 014 → 015 → 016 → 017 → 018 → 019
 
 | Migration | Description | Feature |
 |---|---|---|
@@ -78,8 +78,9 @@ Applied chain: 001 → 002 → 003 → 004 → 005 → 012 → 013 → 014 → 0
 | 016 | reconstitute_generation_prompts (with_inventory from volume archive c52be9c) | ASP-NOTE-004 Phase 2 |
 | 017 | seed_classify_probe_result_prompt (renumbered from 006) | ASP-FEAT-ASP-01 v1.2 |
 | 018 | ban_lambda_in_playwright_python (patch Python script prompt) | ASP-FEAT-ASP-03 v1.1 / DEFECT-006 |
+| 019 | update_generation_with_inventory_prompt_v2 (dual-mode F-03-08/F-03-04, VARIANT B INSERT at *) | ASP-TSCD-001 CHG-03 |
 
-No pending migrations. Chain is linear. Single head: 018.
+No pending migrations. Chain is linear. Single head: 019.
 
 ### Note on migration gap (006-011)
 Migrations 006-011 were never committed to git. They existed only in the serene-shtern Docker volume. Production prompt state was recovered via Phase 1 archive (c52be9c) and reconstituted into migration 016. 0012's down_revision was healed from '0011' to '0005'. See ASP-NOTE-004.
@@ -159,7 +160,7 @@ Migrations 002–005 were active in the codebase but untracked in ASP-INDEX prio
 | Req ID | Caller | Target Service | Task | Status | Spec Doc |
 |---|---|---|---|---|---|
 | PAP-ASP-REQ-ASP-01 | PAP | ASP-01 NLP | classify_probe_result | IMPLEMENTED — 25/25 ACs PASS | PAP-ASP-REQ-ASP-01 v1.0 |
-| PAP-ASP-REQ-ASP-03 | PAP | ASP-03 Generation | generate_test_cases, generate_test_cases_with_inventory | IMPLEMENTED — AC verification pending | PAP-ASP-REQ-ASP-03 v1.0 |
+| PAP-ASP-REQ-ASP-03 | PAP | ASP-03 Generation | generate_test_cases, generate_test_cases_with_inventory | ACCEPTED — v1.1 implemented via ASP-TSCD-001 | PAP-ASP-REQ-ASP-03 v1.1 |
 | PAP-ASP-REQ-ASP-00 | PAP | ASP-00 Gateway | (auth/keys, capabilities, error specificity) | INBOUND — filing in parallel with ASP-FEAT-ASP-00 v1.0 drafting | TBD |
 
 ## Consumer Register
@@ -173,9 +174,9 @@ Migrations 002–005 were active in the codebase but untracked in ASP-INDEX prio
 
 | TSCD | Amends | Issues | Status |
 |---|---|---|---|
-| _(none yet — no TSCDs required so far. All amendments absorbed into spec versions before implementation.)_ | | | |
+| ASP-TSCD-001 | ASP-FEAT-ASP-03 v1.1 | CHG-01..06: missing_locators formal, LocatorInventoryLocators schema, prompt v2 (dual-mode), max_tokens=8192, page_type/screen_key added. Migration 019. | IMPLEMENTED | 2026-04-15 |
 
-Next TSCD: ASP-TSCD-001
+Next TSCD: ASP-TSCD-002
 
 ## Open blockers
 
