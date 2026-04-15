@@ -100,7 +100,7 @@ TASK_MAX_TOKENS = {
     "suggest_fields":                         512,
     "draft_whatsapp":                         512,
     "generate_test_cases":                    32000,
-    "generate_test_cases_with_inventory":     32000,
+    "generate_test_cases_with_inventory":     8192,   # ASP-TSCD-001 CHG-04. Observed max: 6428 tokens.
     "generate_playwright_script":             32000,
 }
 
@@ -195,7 +195,13 @@ async def handle(req: InvokeRequest, model: str, request_id: str) -> InvokeRespo
         user_message = _build_test_cases_message(validated_payload, prompt)
 
     elif task == "generate_test_cases_with_inventory":
-        user_message = _build_inventory_message(validated_payload, prompt)
+        # V2 prompt (migration 019) uses template substitution with all fields.
+        # V1 prompt (migration 016) uses _build_inventory_message() legacy builder.
+        # Detect v2 by checking for {page_type} placeholder in user_prompt_template.
+        if "{page_type}" in prompt.user_prompt_template:
+            user_message = _build_inventory_message_v2(validated_payload, prompt)
+        else:
+            user_message = _build_inventory_message(validated_payload, prompt)
 
     elif task == "generate_playwright_script":
         user_message = _build_script_message(validated_payload, prompt)
@@ -446,6 +452,69 @@ def _build_inventory_message(payload: dict, prompt) -> str:
         f"VERIFIED LOCATOR INVENTORY (use RECOMMENDED strings verbatim):\n"
         f"{inventory_text}\n"
     )
+
+
+def _build_inventory_message_v2(payload: dict, prompt) -> str:
+    """Build the user message for generate_test_cases_with_inventory v2 prompt.
+
+    ASP-TSCD-001 CHG-03: Uses prompt template substitution with all F-03-08 and F-03-04
+    optional fields. Absent fields render as 'N/A' (same pattern as classify_probe_result).
+    """
+    import json as _json
+
+    # Format locator inventory as structured text for the prompt
+    inventory = payload.get("locator_inventory", [])
+    inv_lines = []
+    for item in inventory:
+        if hasattr(item, "model_dump"):
+            item = item.model_dump()
+        name = item.get("element_name", "unknown")
+        tag = item.get("tag", "")
+        locators = item.get("locators", {})
+        if hasattr(locators, "model_dump"):
+            locators = locators.model_dump()
+        recommended = locators.get("recommended", "")
+        fallback = locators.get("fallback") or locators.get("all_verified", {})
+        inv_lines.append(f"  [{name}] <{tag}> → RECOMMENDED: {recommended}")
+        if fallback and isinstance(fallback, dict):
+            fbs = [v for v in fallback.values() if v and v != recommended]
+            if fbs:
+                inv_lines.append(f"    FALLBACK: {fbs[0]}")
+        elif fallback and isinstance(fallback, str):
+            inv_lines.append(f"    FALLBACK: {fallback}")
+
+    inventory_text = "\n".join(inv_lines) if inv_lines else "(no inventory provided)"
+
+    # F-03-08 probe context — optional
+    probe_outcome = payload.get("probe_outcome") or "N/A"
+    probe_error_messages = str(payload.get("probe_error_messages")) if payload.get("probe_error_messages") else "N/A"
+    probe_success_indicators = str(payload.get("probe_success_indicators")) if payload.get("probe_success_indicators") else "N/A"
+    submitted_fields = str(payload.get("submitted_fields")) if payload.get("submitted_fields") else "N/A"
+
+    # F-03-04 asset context — optional
+    tc_id = payload.get("tc_id") or "N/A"
+    test_steps = payload.get("test_steps") or "N/A"
+    preconditions_val = payload.get("preconditions") or "N/A"
+    expected_result = payload.get("expected_result") or "N/A"
+    language = payload.get("language") or "typescript"
+
+    prompt_vars = {
+        "url":                      payload.get("url", ""),
+        "page_type":                payload.get("page_type", "FORM"),
+        "screen_key":               payload.get("screen_key", ""),
+        "locator_inventory":        inventory_text,
+        "probe_outcome":            probe_outcome,
+        "probe_error_messages":     probe_error_messages,
+        "probe_success_indicators": probe_success_indicators,
+        "submitted_fields":         submitted_fields,
+        "tc_id":                    tc_id,
+        "test_steps":               test_steps,
+        "preconditions":            preconditions_val,
+        "expected_result":          expected_result,
+        "language":                 language,
+    }
+
+    return prompt.user_prompt_template.format(**prompt_vars)
 
 
 def _write_failed_response(request_id: str, task: str, raw: str, error: str) -> None:

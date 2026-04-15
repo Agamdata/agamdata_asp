@@ -37,9 +37,15 @@ class InteractiveElement(BaseModel):
 
 
 class LocatorInventoryLocators(BaseModel):
-    """Verified locator set for one inventory element."""
+    """Verified locator set for one inventory element.
+
+    CHG-02: formally governed fields are recommended (required) and fallback (optional).
+    all_verified and is_fragile are retained for backward compatibility with
+    _build_inventory_message() handler.
+    """
     model_config = ConfigDict(extra="ignore")  # ADR-033
-    recommended: str                    # verbatim Playwright call — LLM must copy this
+    recommended: str                    # Required. verbatim Playwright call — LLM must copy
+    fallback: Optional[str] = None      # CHG-02: Optional second-best strategy
     all_verified: dict[str, str] = {}   # every strategy that resolved to exactly 1 element
     is_fragile: bool = False            # true when recommended is css_fallback only
 
@@ -83,13 +89,35 @@ class GenerateTestCasesWithInventoryPayload(BaseModel):
     """Validated payload for generate_test_cases_with_inventory task.
 
     locator_source: Always 'verified' — by-design per-task restriction.
-    The whole point of with_inventory is that locators are verified.
+    Supports two call modes:
+      F-03-08 (probe context): probe_outcome, probe_error_messages, etc.
+      F-03-04 (asset context): test_steps, preconditions, tc_id, language, etc.
+    All mode-specific fields are optional — handler renders absent fields as 'N/A'.
     """
     model_config = ConfigDict(extra="ignore")  # ADR-033
+
+    # --- Always required (both features) ---
     url: str
-    page_title: Optional[str] = None
+    page_type: str = "FORM"                     # CHG-06: was missing, sent by PAP as 'FORM'
+    screen_key: str = ""                         # CHG-06: was missing, sent by PAP always
     locator_source: Literal["verified"] = "verified"
     locator_inventory: List[LocatorInventoryItem] = Field(min_length=1)
+
+    # --- Optional: present in current model, keep ---
+    page_title: Optional[str] = None             # Optional metadata; retain for compat
+
+    # --- F-03-08 only (probe context) ---
+    probe_outcome: Optional[str] = None
+    probe_error_messages: Optional[List[str]] = None
+    probe_success_indicators: Optional[List[str]] = None
+    submitted_fields: Optional[dict] = None
+
+    # --- F-03-04 only (asset context) ---
+    test_steps: Optional[str] = None
+    preconditions: Optional[str] = None
+    expected_result: Optional[str] = None
+    tc_id: Optional[str] = None
+    language: Optional[Literal["typescript", "python"]] = None
 
 
 class GeneratePlaywrightScriptPayload(BaseModel):
