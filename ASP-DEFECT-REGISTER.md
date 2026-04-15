@@ -1,6 +1,6 @@
 # ASP Defect Register
 
-Last updated: 2026-04-15 (post-TSCD-001) | Total: 12 | Open: 2 | Resolved: 8 | Already Fixed: 2
+Last updated: 2026-04-15 (post-DEFECT-012 rulings) | Total: 13 | Open: 1 | Mitigated: 1 | Resolved: 9 | Already Fixed: 2
 
 ## Summary
 
@@ -17,7 +17,8 @@ Last updated: 2026-04-15 (post-TSCD-001) | Total: 12 | Open: 2 | Resolved: 8 | A
 | ASP-DEFECT-009 | Extra payload fields cause 422 on generate_test_cases | CONSUMER | ASP-03 | LOW | RESOLVED (serene-shtern) | PAP Team | 2026-04-11 |
 | ASP-DEFECT-010 | API key rotation without consumer notification | CONSUMER | PROCESS | HIGH | OPEN | PAP Team | 2026-04-11 |
 | ASP-DEFECT-011 | classify_probe_result task not available to PAP | CONSUMER | ASP-01 | BLOCKING | RESOLVED (asp-v2) | PAP Team | 2026-04-11 |
-| ASP-DEFECT-012 | generate_test_cases_with_inventory latency 74-86s (spec: 1-10s) | INTERNAL | ASP-03 | HIGH | OPEN | ASP Dev Team | 2026-04-15 |
+| ASP-DEFECT-012 | generate_test_cases_with_inventory latency 74-86s — outside ADR-018 envelope | INTERNAL | ASP-03 | HIGH | MITIGATED — pending Option 4 (async) | ASP Dev Team | 2026-04-15 |
+| ASP-DEFECT-013 | TestCaseOutput.seed_data rejects LLM null — coerce to {} | INTERNAL | ASP-03 | LOW | RESOLVED (1c3d655) | ASP Dev Team | 2026-04-15 |
 
 ---
 
@@ -423,20 +424,20 @@ Task is live. PAP can begin F-02-13 Pass 2. Use `caller_module='playwright_runne
 
 ---
 
-### ASP-DEFECT-012 — generate_test_cases_with_inventory latency 74-86s (spec: 1-10s)
+### ASP-DEFECT-012 — generate_test_cases_with_inventory latency 74-86s — outside ADR-018 envelope
 
 - **ID:** ASP-DEFECT-012
 - **Filed:** 2026-04-15
-- **Source:** INTERNAL (I-TSCD001-05 investigation, Finding F-01)
+- **Source:** INTERNAL (discovered I-TSCD001-05, Finding F-01)
 - **Reporter:** ASP Dev Team
 - **Domain:** ASP-03
 - **Severity:** HIGH
-- **Status:** OPEN
+- **Status:** MITIGATED — pending Option 4 (async conversion)
 - **Affected consumers:** PAP
 - **Affected services:** ASP-03 Generation (generate_test_cases_with_inventory)
 
-**Description:**
-ASP-FEAT-ASP-03 v1.1 states typical latency of 1-10 seconds. Measured wall-clock latency across 3 consecutive calls: 85.7s, 74.2s, 74.0s. Consistently 7-8x outside spec range. PAP previously reported 69.155s (Finding F-01 in ASP-TSCD-001).
+**Root cause:**
+Task generates ~6,400 output tokens (5 test cases + Playwright scripts). At claude-sonnet-4-6 throughput, this is structurally 74-86s. The task was classified as synchronous (inheriting ASP-03 general profile) without measuring output volume. ADR-018 synchronous envelope (2-10s) was set against NLP-class calls, not generation-class calls of this volume.
 
 **Measurements (post-migration 019, max_tokens=8192):**
 
@@ -446,16 +447,76 @@ ASP-FEAT-ASP-03 v1.1 states typical latency of 1-10 seconds. Measured wall-clock
 | 2/3 | 74.2s | ~1505 | ~6388 | claude-sonnet-4-6 |
 | 3/3 | 74.0s | ~1505 | ~6388 | claude-sonnet-4-6 |
 
-**Root cause analysis:**
-The output volume (~6400 tokens) at Sonnet's throughput (~50-80 tokens/sec) requires 80-130s of generation time. The max_tokens reduction from 32000 to 8192 (CHG-04) does not reduce generation time — it only caps the maximum. The latency is inherent to the output volume and model speed, not a code defect.
+**Immediate mitigation (applied):**
+max_tokens reduced from 32,000 to 8,192 (ASP-TSCD-001 CHG-04). Does not change throughput; removes runaway ceiling. Gateway timeout increase to 120s pending PAP notification and acknowledgement.
 
-**Potential mitigations (for Principal Architect review):**
-1. **Reduce output volume:** Simpler TestCaseOutput schema (fewer fields, shorter steps) would reduce tokens.
-2. **Use Haiku instead of Sonnet:** 3-5x faster generation but lower quality.
-3. **quality_tier=standard for with_inventory:** PAP currently uses enhanced (Sonnet). Standard (Haiku) would reduce to ~15-25s.
-4. **Async processing:** Convert to Celery task like Doc Intelligence/Prediction. PAP polls for result.
-5. **Accept the latency:** 74s for 5 structured test cases with Playwright scripts is within LLM generation norms for this output volume.
+**Temporary operating state:**
+74-86s latency documented in ASP-FEAT-ASP-03 spec as known non-conformance. PAP operates with 120s HTTP client timeout (Gate 8 already demonstrated operation at this latency). ASP-GOV-CONSUMPTION-002 notification required.
+
+**Short-term path:**
+PAP A/B test at quality_tier=standard (Haiku). If quality acceptable, latency drops to ~15-25s. PAP-initiated, no ASP code change. (Option 2 — conditionally accepted by Principal Architect.)
+
+**Long-term resolution (DEFECT closes here):**
+Option 4 — async conversion of generate_test_cases_with_inventory. Requires PAP-ASP-REQ-ASP-03 v1.2. Type C change, 90-day deprecation. Scoped for future sprint. DEFECT-012 remains MITIGATED until GOVERNED.
+
+**Mitigation options ruled by Principal Architect (2026-04-15):**
+
+| Option | Verdict |
+|---|---|
+| 1 — Reduce output volume | REJECTED — insufficient improvement, adds PAP coordination for no envelope gain |
+| 2 — Haiku A/B test | CONDITIONALLY ACCEPTED — PAP-initiated, quality validation required |
+| 3 — Parallel generation | REJECTED — 5× cost amplification unjustifiable |
+| 4 — Convert to async | ACCEPTED — long-term, formally queued. Type C change. |
+| 5 — Accept + document | ACCEPTED with conditions — honest documentation, PAP notification, DEFECT not closed |
+
+**PAP communication:** REQUIRED before Gateway timeout change goes to production. Zone 2 shared contract change per ASP-GOV-CONSUMPTION-002.
+
+**Atrium-transition relevance:** AVOID — Atrium should classify generate_test_cases_equivalent as async from day one. Do not inherit ASP's synchronous misclassification.
 
 **Timeline:**
 - 2026-04-15: Filed from I-TSCD001-05 latency investigation
-- Status: OPEN — awaiting Principal Architect ruling on mitigation approach
+- 2026-04-15: 5 mitigation options submitted to Principal Architect
+- 2026-04-15: Rulings received. Options 1,3 REJECTED. Options 2,4,5 ACCEPTED.
+- 2026-04-15: Status → MITIGATED. Pending Option 4 (async conversion).
+
+**Queued work item:**
+```
+QUEUED: generate_test_cases_with_inventory async conversion
+Trigger: PAP files PAP-ASP-REQ-ASP-03 v1.2 requesting async pattern
+Owner: ASP Dev Team (implementation); Chief Architect Atrium (TSCD authorship)
+ADR: ADR-018 compliant resolution
+Defect: DEFECT-012 closes when this is GOVERNED
+Note: If PAP bundles with deep_dive (ADR-031 activation), scope as v2.0 not v1.2
+```
+
+---
+
+### ASP-DEFECT-013 — TestCaseOutput.seed_data rejects LLM null — coerce to {}
+
+- **ID:** ASP-DEFECT-013
+- **Filed:** 2026-04-15
+- **Source:** INTERNAL (discovered during TSCD-001 AC-T07 verification)
+- **Reporter:** ASP Dev Team
+- **Domain:** ASP-03
+- **Severity:** LOW
+- **Status:** RESOLVED (commit 1c3d655 — coerce_seed_data validator)
+- **Affected consumers:** PAP (intermittent 500 on with_inventory calls)
+- **Affected services:** ASP-03 Generation
+
+**Description:**
+`TestCaseOutput.seed_data` typed as `dict` with `Field(default_factory=dict)`. When the LLM explicitly returns `seed_data: null` (common for tag=unknown payloads or read-only pages), Pydantic rejected with `ValidationError: Input should be an object, input_value=None`. This caused intermittent 500s depending on LLM output variability.
+
+**Root cause:**
+`default_factory=dict` only applies when the field is absent from input. When the LLM explicitly includes `"seed_data": null`, Pydantic receives `None` as input and rejects it because the type is `dict`, not `dict | None`.
+
+**Fix:**
+1. Changed type to `dict | None = Field(default_factory=dict)`
+2. Added `coerce_seed_data` field_validator: `None → {}`
+Applied inline during TSCD-001 AC-T07 verification. No migration required.
+
+**Atrium-transition relevance:** REPLICATE — Atrium generation response models should default all optional dict fields to `{}` rather than rejecting null LLM output.
+
+**Timeline:**
+- 2026-04-15: Discovered during AC-T07 (tag=unknown payload produced null seed_data)
+- 2026-04-15: Fixed in commit 1c3d655 (coerce_seed_data validator)
+- 2026-04-15: RESOLVED
