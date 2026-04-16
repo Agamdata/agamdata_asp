@@ -60,9 +60,9 @@ If a gap is found: Chief Architect raises it with the ASP Development Team lead.
 
 ## Current migration head
 
-**019 — update_generation_with_inventory_prompt_v2** (ASP-TSCD-001 CHG-03)
+**022 — neutral_rule3_count_not_prompt_enforced** (OPS-003 resolution, Principal Architect ruling)
 
-Applied chain: 001 → 002 → 003 → 004 → 005 → 012 → 013 → 014 → 015 → 016 → 017 → 018 → 019
+Applied chain: 001 → 002 → 003 → 004 → 005 → 012 → 013 → 014 → 015 → 016 → 017 → 018 → 019 → 020 → 021 → 022
 
 | Migration | Description | Feature |
 |---|---|---|
@@ -80,7 +80,7 @@ Applied chain: 001 → 002 → 003 → 004 → 005 → 012 → 013 → 014 → 0
 | 018 | ban_lambda_in_playwright_python (patch Python script prompt) | ASP-FEAT-ASP-03 v1.1 / DEFECT-006 |
 | 019 | update_generation_with_inventory_prompt_v2 (dual-mode F-03-08/F-03-04, VARIANT B INSERT at *) | ASP-TSCD-001 CHG-03 |
 
-No pending migrations. Chain is linear. Single head: 019.
+No pending migrations. Chain is linear. Single head: 022.
 
 ### Note on migration gap (006-011)
 Migrations 006-011 were never committed to git. They existed only in the serene-shtern Docker volume. Production prompt state was recovered via Phase 1 archive (c52be9c) and reconstituted into migration 016. 0012's down_revision was healed from '0011' to '0005'. See ASP-NOTE-004.

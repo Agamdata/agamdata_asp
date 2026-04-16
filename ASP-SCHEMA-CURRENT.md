@@ -1,7 +1,7 @@
 # ASP-SCHEMA-CURRENT — Database Schema Reference
 
 ## Migration Head
-**Current:** `0019` (update_generation_with_inventory_prompt_v2 — ASP-TSCD-001 CHG-03)
+**Current:** `0022` (neutral_rule3_count_not_prompt_enforced — OPS-003 resolution)
 
 ## Tables
 
@@ -49,6 +49,9 @@ Aggregated monthly cost rollups (idempotent).
 | 0017 | Seed classify_probe_result prompt (NLP, PAP canonical) | Renumbered from 0006 |
 | 0018 | Ban lambda in Python Playwright script prompts | ASP-FEAT-ASP-03 v1.1 / DEFECT-006 |
 | 0019 | Update generate_test_cases_with_inventory prompt to v2 (dual-mode: F-03-08 + F-03-04) | ASP-TSCD-001 CHG-03 |
+| 0020 | Redesign with_inventory prompt v3 — simplified schema, F-03-04/F-03-08 modes | OPS-003 resolution |
+| 0021 | Elevate count enforcement to system prompt (Rule 3 hard-constraint) | Superseded by 0022 |
+| 0022 | Neutral Rule 3 — count enforcement moved to handler post-processing | Principal Architect ruling |
 
 ## Last Updated
-2026-04-15
+2026-04-16

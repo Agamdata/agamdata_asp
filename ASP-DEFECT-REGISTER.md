@@ -1,6 +1,6 @@
 # ASP Defect Register
 
-Last updated: 2026-04-16 | Total: 16 | Open: 0 | Mitigated: 1 | Resolved: 13 | Already Fixed: 2
+Last updated: 2026-04-16 | Total: 17 | Open: 0 | Mitigated: 1 | Resolved: 14 | Already Fixed: 2
 
 ## Summary
 
@@ -22,6 +22,7 @@ Last updated: 2026-04-16 | Total: 16 | Open: 0 | Mitigated: 1 | Resolved: 13 | A
 | ASP-DEFECT-016 | Anthropic 529 Overloaded surfaced to caller as 500 (no retry) | CONSUMER | ASP-03/ASP-00 | MEDIUM | RESOLVED | PAP Operations | 2026-04-16 |
 | ASP-DEFECT-017 | generation_parse_failed at line 918 — max_tokens truncation | CONSUMER | ASP-03 | HIGH | RESOLVED | PAP Operations | 2026-04-16 |
 | ASP-DEFECT-018 | StepOutput.locator rejects null — non-element steps fail validation | CONSUMER | ASP-03 | CRITICAL | RESOLVED | PAP Operations | 2026-04-16 |
+| ASP-DEFECT-019 | LLM ignores test case count instruction — handler enforcement required | INTERNAL | ASP-03 | HIGH | RESOLVED (migration 022 + handler) | ASP Dev Team | 2026-04-16 |
 
 ---
 
@@ -599,4 +600,41 @@ Applied inline during TSCD-001 AC-T07 verification. No migration required.
 - 2026-04-16: Filed from PAP Operations OPS-004
 - 2026-04-16: Schema fix applied (Optional[str] = None)
 - 2026-04-16: ab_variant mismatch discovered and fixed
+- 2026-04-16: RESOLVED
+
+---
+
+### ASP-DEFECT-019 — LLM ignores test case count instruction — handler enforcement required
+
+- **ID:** ASP-DEFECT-019
+- **Filed:** 2026-04-16
+- **Source:** INTERNAL (AC-020-02 verification failure)
+- **Domain:** ASP-03
+- **Severity:** HIGH
+- **Status:** RESOLVED (migration 022 + handler enforcement, commit 141b34f)
+
+**Root cause:** LLM (Sonnet) does not reliably follow count instructions regardless of placement or framing. Tested: user prompt variable (v3 migration 020), system prompt hard-constraint (migration 021), system prompt schema-violation framing (migration 021). All three approaches produced 5 test cases when "EXACTLY ONE" was specified.
+
+**Investigation sequence:**
+1. Migration 020: `{generation_instructions}` in user prompt → 5 TCs (FAIL)
+2. Migration 021: Rule 3 hard-constraint framing in system prompt → 5 TCs (FAIL)
+3. max_tokens=800: Truncated mid-JSON, `repair_json()` couldn't recover (FAIL)
+4. max_tokens=2048: Still truncated mid-JSON at 7,657 chars (FAIL)
+
+**Principal Architect ruling:** "The fix is not stronger wording. LLM count instructions are unreliable. Count enforcement moves to handler post-processing."
+
+**Fix (migration 022 + handler):**
+- Migration 022: Rule 3 reverted to neutral wording. Prompt guides, doesn't enforce.
+- `_enforce_test_case_count()`: F-03-04 → truncate to 1 TC post-parse. Logs `test_case_count_truncated`.
+- max_tokens stays at 12,288 for all modes. Per-mode cap abandoned (truncated JSON unparseable).
+
+**Atrium-transition relevance:** REPLICATE — never rely on LLM instructions for count enforcement. Always use handler post-processing for output count constraints.
+
+**Timeline:**
+- 2026-04-16: AC-020-02 failed (5 TCs instead of 1)
+- 2026-04-16: Migration 021 (system prompt hard-constraint) — still failed
+- 2026-04-16: max_tokens caps tested (800, 2048) — truncated JSON unparseable
+- 2026-04-16: Principal Architect ruling: handler enforcement
+- 2026-04-16: Migration 022 + handler _enforce_test_case_count()
+- 2026-04-16: AC-020-02 PASS (1 TC), AC-TRUNC-01 PASS (truncation logged)
 - 2026-04-16: RESOLVED
