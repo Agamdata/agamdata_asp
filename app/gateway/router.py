@@ -50,7 +50,7 @@ async def invoke(
 
     handler = SERVICE_MAP.get(req.service_type)
     if not handler:
-        raise HTTPException(status_code=400, detail=f"Unknown service_type: {req.service_type}")
+        raise HTTPException(status_code=422, detail=f"Unknown service_type: '{req.service_type}'. Supported: {sorted(SERVICE_MAP.keys())}")
 
     # Quota check before invoking LLM
     from app.cost.meter import check_quota
@@ -79,19 +79,30 @@ async def invoke(
     latency_ms = int((time.monotonic() - start) * 1000)
 
     if req.service_type not in ASYNC_SERVICES:
-        await emit_cost_event_from_gateway(
-            request_id=request_id,
-            tenant_id=tenant.id,
-            caller_module=req.caller_module,
-            service_type=req.service_type,
-            task=req.task,
-            model=model,
-            quality_tier=req.quality_tier,
-            input_tokens=result.meta.input_tokens,
-            output_tokens=result.meta.output_tokens,
-            cost_usd=result.meta.cost_usd,
-            latency_ms=latency_ms,
-        )
+        try:
+            await emit_cost_event_from_gateway(
+                request_id=request_id,
+                tenant_id=tenant.id,
+                caller_module=req.caller_module,
+                service_type=req.service_type,
+                task=req.task,
+                model=model,
+                quality_tier=req.quality_tier,
+                input_tokens=result.meta.input_tokens,
+                output_tokens=result.meta.output_tokens,
+                cost_usd=result.meta.cost_usd,
+                latency_ms=latency_ms,
+            )
+        except Exception as e:
+            log.error(
+                "gateway_cost_emission_failed",
+                error=str(e),
+                request_id=request_id,
+                tenant_id=str(tenant.id),
+                caller_module=req.caller_module,
+            )
+            # ADR-006: cost logging failure must NOT fail the request
+            # Response already computed — return it regardless
 
     log.info(
         "invoke_complete",

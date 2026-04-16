@@ -1,6 +1,6 @@
 # ASP Defect Register
 
-Last updated: 2026-04-16 | Total: 17 | Open: 0 | Mitigated: 1 | Resolved: 14 | Already Fixed: 2
+Last updated: 2026-04-16 | Total: 18 | Open: 0 | Mitigated: 1 | Resolved: 15 | Already Fixed: 2
 
 ## Summary
 
@@ -23,6 +23,7 @@ Last updated: 2026-04-16 | Total: 17 | Open: 0 | Mitigated: 1 | Resolved: 14 | A
 | ASP-DEFECT-017 | generation_parse_failed at line 918 — max_tokens truncation | CONSUMER | ASP-03 | HIGH | RESOLVED | PAP Operations | 2026-04-16 |
 | ASP-DEFECT-018 | StepOutput.locator rejects null — non-element steps fail validation | CONSUMER | ASP-03 | CRITICAL | RESOLVED | PAP Operations | 2026-04-16 |
 | ASP-DEFECT-019 | LLM ignores test case count instruction — handler enforcement required | INTERNAL | ASP-03 | HIGH | RESOLVED (migration 022 + handler) | ASP Dev Team | 2026-04-16 |
+| ASP-DEFECT-020 | Gateway cost emission not wrapped in try/except — ADR-006 violation | INTERNAL | ASP-00 | HIGH | RESOLVED | ASP Dev Team | 2026-04-16 |
 
 ---
 
@@ -637,4 +638,27 @@ Applied inline during TSCD-001 AC-T07 verification. No migration required.
 - 2026-04-16: Principal Architect ruling: handler enforcement
 - 2026-04-16: Migration 022 + handler _enforce_test_case_count()
 - 2026-04-16: AC-020-02 PASS (1 TC), AC-TRUNC-01 PASS (truncation logged)
+- 2026-04-16: RESOLVED
+
+---
+
+### ASP-DEFECT-020 — Gateway cost emission not wrapped in try/except — ADR-006 violation
+
+- **ID:** ASP-DEFECT-020
+- **Filed:** 2026-04-16
+- **Source:** INTERNAL (pre-spec codebase survey for ASP-FEAT-ASP-00)
+- **Domain:** ASP-00 Gateway
+- **Severity:** HIGH
+- **Status:** RESOLVED
+
+**Root cause:** `emit_cost_event_from_gateway()` in `app/gateway/router.py` was called outside any try/except block after the handler returned successfully. If cost logging threw an exception (DB connection failure, serialization error), the client received HTTP 500 even though their AI request completed successfully. This violates ADR-006: cost logging failure must NOT fail the request.
+
+**Fix:** Wrapped the `emit_cost_event_from_gateway()` call in try/except. On exception: log `gateway_cost_emission_failed` with request_id, tenant_id, caller_module. Response returns regardless.
+
+**Additional fix in same commit:** Unknown `service_type` error changed from 400 to 422 with supported list, aligning with ASP-01/ASP-03 convention.
+
+**Timeline:**
+- 2026-04-16: Discovered during ASP-00 pre-spec codebase survey
+- 2026-04-16: Fix applied — 3 lines of try/except
+- 2026-04-16: Regression 58/58 PASS
 - 2026-04-16: RESOLVED
