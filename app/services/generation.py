@@ -214,6 +214,9 @@ async def handle(req: InvokeRequest, model: str, request_id: str) -> InvokeRespo
             raise HTTPException(status_code=400, detail=f"Missing required payload field: {e}")
 
     max_tokens = TASK_MAX_TOKENS.get(effective_task, 2048)
+    # F-03-04 uses same max_tokens as F-03-08 — LLM generates freely,
+    # handler truncates to 1 TC post-parse. max_tokens cap doesn't help
+    # because truncated JSON is unparseable.
     # DEFECT-016: Use shared retry utility for 529/overload handling
     response = await llm_call_with_retry(
         anthropic_client,
@@ -236,6 +239,8 @@ async def handle(req: InvokeRequest, model: str, request_id: str) -> InvokeRespo
         schema_cls = TASK_OUTPUT_SCHEMAS[effective_task]
 
         # DEFECT-017: Truncation guard — distinguish max_tokens truncation from organic parse error
+        # DEFECT-017: Truncation guard — max_tokens=12288 for all modes now.
+        # F-03-04 count enforcement is handler post-processing, not max_tokens cap.
         stop_reason = getattr(response, 'stop_reason', None)
         if stop_reason == 'max_tokens':
             log.error(
@@ -269,7 +274,41 @@ async def handle(req: InvokeRequest, model: str, request_id: str) -> InvokeRespo
                           raw_length=len(raw), max_tokens=max_tokens)
                 raise HTTPException(status_code=500, detail={"detail": "Internal error", "request_id": request_id})
 
+    # Post-processing: enforce test case count for with_inventory task
+    if task == "generate_test_cases_with_inventory":
+        output = _enforce_test_case_count(output, validated_payload, request_id)
+
     return build_invoke_response(request_id, "generation", task, output, response.usage, model)
+
+
+# ── Count enforcement ─────────────────────────────────────────────────────────
+
+def _enforce_test_case_count(result, payload: dict, request_id: str):
+    """Enforce test case count per caller mode. Post-processing — LLM count
+    instructions are unreliable.
+
+    F-03-04 (tc_id or test_steps present): exactly 1 test case.
+    F-03-08 (probe context): up to 5, no truncation needed.
+    """
+    from app.models.generation_outputs import GenerateTestCasesWithInventoryOutput
+
+    is_f03_04 = bool(payload.get("tc_id") or payload.get("test_steps"))
+
+    if is_f03_04 and len(result.test_cases) > 1:
+        log.info(
+            "test_case_count_truncated",
+            request_id=request_id,
+            original_count=len(result.test_cases),
+            enforced_count=1,
+            mode="F-03-04",
+            reason="F-03-04 requires exactly one test case; LLM generated more",
+        )
+        return GenerateTestCasesWithInventoryOutput(
+            test_cases=[result.test_cases[0]],
+            missing_locators=result.missing_locators,
+        )
+
+    return result
 
 
 # ── Message builders ──────────────────────────────────────────────────────────
