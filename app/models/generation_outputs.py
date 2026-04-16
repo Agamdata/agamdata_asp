@@ -47,11 +47,11 @@ class StepOutput(BaseModel):
     step_number: int
     action:      str
     # Allowed: fill | click | navigate | assert | select | hover
-    locator:     str = ""
-    # Must match a locator from locator_inventory input
+    locator:     Optional[str] = None
+    # Must match a locator from locator_inventory input (null for navigate/assert steps)
     value:       Optional[str] = None
     # Required for fill/select, null otherwise
-    description: str = ""
+    description: Optional[str] = None
     # Human-readable step description
     # REMOVED in v3 (migration 020): target — redundant with locator (PAP Q-2)
 

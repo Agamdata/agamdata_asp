@@ -1,6 +1,6 @@
 # ASP Defect Register
 
-Last updated: 2026-04-16 | Total: 15 | Open: 0 | Mitigated: 1 | Resolved: 12 | Already Fixed: 2
+Last updated: 2026-04-16 | Total: 16 | Open: 0 | Mitigated: 1 | Resolved: 13 | Already Fixed: 2
 
 ## Summary
 
@@ -21,6 +21,7 @@ Last updated: 2026-04-16 | Total: 15 | Open: 0 | Mitigated: 1 | Resolved: 12 | A
 | ASP-DEFECT-013 | TestCaseOutput.seed_data rejects LLM null — coerce to {} | INTERNAL | ASP-03 | LOW | RESOLVED (1c3d655) | ASP Dev Team | 2026-04-15 |
 | ASP-DEFECT-016 | Anthropic 529 Overloaded surfaced to caller as 500 (no retry) | CONSUMER | ASP-03/ASP-00 | MEDIUM | RESOLVED | PAP Operations | 2026-04-16 |
 | ASP-DEFECT-017 | generation_parse_failed at line 918 — max_tokens truncation | CONSUMER | ASP-03 | HIGH | RESOLVED | PAP Operations | 2026-04-16 |
+| ASP-DEFECT-018 | StepOutput.locator rejects null — non-element steps fail validation | CONSUMER | ASP-03 | CRITICAL | RESOLVED | PAP Operations | 2026-04-16 |
 
 ---
 
@@ -572,3 +573,30 @@ Applied inline during TSCD-001 AC-T07 verification. No migration required.
 - 2026-04-16: Investigation confirmed truncation (30,532 chars, 139 vs 136 braces)
 - 2026-04-16: Truncation guard + max_tokens=12288 implemented
 - 2026-04-16: RESOLVED — 58/58 regression PASS
+
+---
+
+### ASP-DEFECT-018 — StepOutput.locator rejects null — non-element steps fail validation
+
+- **ID:** ASP-DEFECT-018
+- **Filed:** 2026-04-16
+- **Source:** CONSUMER (PAP Operations OPS-004)
+- **Domain:** ASP-03
+- **Severity:** CRITICAL (blocks all test generation)
+- **Status:** RESOLVED
+
+**Root cause:** `StepOutput.locator` typed as `str` (non-nullable) in the v3 schema changes (migration 020). LLM correctly returns `null` for navigate/assert/wait steps that have no element locator. Pydantic rejected with `Input should be a valid string, input_value=None`. Migration 020 prompt schema did not specify null as valid for non-element steps. AC suite lacked null-locator test coverage.
+
+**Fix:** Changed `locator: str = ""` to `locator: Optional[str] = None` in `StepOutput`. Also fixed `description: str = ""` to `description: Optional[str] = None` for the same reason.
+
+**Additional fix found during investigation:** Migration 019 inserted the `*` row without `ab_variant='inventory'`. The handler resolves via `get_prompt_variant(ab_variant="inventory")` which couldn't find the `*` row, falling back to the L2/v1 row. Fixed by setting `ab_variant='inventory'` on the `*` row. Migration 020 updated to include `ab_variant='inventory'` in the SET clause.
+
+**Prevention:** Add null-locator ACs to permanent regression suite.
+
+**Atrium-transition relevance:** REPLICATE — all step/action schemas must allow null locators for non-element actions from day one.
+
+**Timeline:**
+- 2026-04-16: Filed from PAP Operations OPS-004
+- 2026-04-16: Schema fix applied (Optional[str] = None)
+- 2026-04-16: ab_variant mismatch discovered and fixed
+- 2026-04-16: RESOLVED

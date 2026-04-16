@@ -173,7 +173,8 @@ def upgrade():
             SET
                 system_prompt        = :system_prompt,
                 user_prompt_template = :user_prompt_template,
-                version              = 3
+                version              = 3,
+                ab_variant           = 'inventory'
             WHERE
                 service_type     = 'generation'
                 AND task         = 'generate_test_cases_with_inventory'
