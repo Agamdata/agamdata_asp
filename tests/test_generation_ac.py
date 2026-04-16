@@ -23,84 +23,60 @@ MOCK_TEST_CASES_RESPONSE = json.dumps({
     },
     "test_cases": [
         {
-            "id": "[TC-001]",
-            "name": "[TC-001] Create lead with valid data",
+            "name": "Create lead with valid data",
             "priority": "Critical",
             "category": "Form",
             "description": "Submit valid lead data.",
             "preconditions": ["User is authenticated"],
             "steps": [
-                {"step_number": 1, "action": "navigate", "target": "https://app.example.com/leads/new", "locator": None, "value": None, "description": "Navigate to form"},
-                {"step_number": 2, "action": "fill", "target": "first_name", "locator": "getByLabel('First Name')", "value": "Jane", "description": "Enter first name"},
+                {"step_number": 1, "action": "navigate", "locator": "https://app.example.com/leads/new", "value": None, "description": "Navigate to form"},
+                {"step_number": 2, "action": "fill", "locator": "getByLabel('First Name')", "value": "Jane", "description": "Enter first name"},
             ],
-            "locators": {
-                "first_name": {"primary": "getByLabel('First Name')", "fallback": None, "strategy": "label", "locator_type": "label", "confidence": "high"}
-            },
-            "seed_data": {"valid": {"first_name": "Jane"}},
             "expected_result": "Lead created",
-            "playwright_notes": None,
         },
     ],
 })
 
 MOCK_INVENTORY_RESPONSE = json.dumps({
-    "page_analysis": {
-        "page_type": "lead-creation-form",
-        "complexity": "low",
-        "summary": "A form page for creating new leads.",
-        "primary_flows": ["Fill and submit lead form", "Validate inputs", "Keyboard navigation"],
-    },
     "test_cases": [
         {
-            "id": "[TC-001]",
-            "name": "[TC-001] Create lead with valid data",
+            "name": "Create lead with valid data",
             "priority": "Critical",
             "category": "Form",
             "description": "Submit all required fields with valid data.",
             "preconditions": ["User is authenticated"],
             "steps": [
-                {"step_number": 1, "action": "navigate", "target": "https://app.example.com/leads/new", "locator": None, "value": None, "description": "Navigate to form"},
-                {"step_number": 2, "action": "fill", "target": "first_name_input", "locator": "getByLabel('First Name')", "value": "Jane", "description": "Enter first name"},
-                {"step_number": 3, "action": "fill", "target": "email_input", "locator": "getByLabel('Email Address')", "value": "jane@example.com", "description": "Enter email"},
-                {"step_number": 4, "action": "fill", "target": "phone_input", "locator": "getByLabel('Phone Number')", "value": "+1555123456", "description": "Enter phone"},
-                {"step_number": 5, "action": "click", "target": "submit_button", "locator": "getByRole('button', {name: 'Create Lead'})", "value": None, "description": "Click submit"},
+                {"step_number": 1, "action": "navigate", "locator": "https://app.example.com/leads/new", "value": None, "description": "Navigate to form"},
+                {"step_number": 2, "action": "fill", "locator": "getByLabel('First Name')", "value": "Jane", "description": "Enter first name"},
+                {"step_number": 3, "action": "fill", "locator": "getByLabel('Email Address')", "value": "jane@example.com", "description": "Enter email"},
+                {"step_number": 4, "action": "fill", "locator": "getByLabel('Phone Number')", "value": "+1555123456", "description": "Enter phone"},
+                {"step_number": 5, "action": "click", "locator": "getByRole('button', {name: 'Create Lead'})", "value": None, "description": "Click submit"},
             ],
-            "locators": {
-                "first_name_input": {"primary": "getByLabel('First Name')", "fallback": "getByPlaceholder('Enter first name')", "strategy": "label", "locator_type": "label", "confidence": "high"},
-                "email_input": {"primary": "getByLabel('Email Address')", "fallback": "getByPlaceholder('email@example.com')", "strategy": "label", "locator_type": "label", "confidence": "high"},
-                "phone_input": {"primary": "getByLabel('Phone Number')", "fallback": None, "strategy": "label", "locator_type": "label", "confidence": "high"},
-                "submit_button": {"primary": "getByRole('button', {name: 'Create Lead'})", "fallback": "button[type='submit']", "strategy": "role", "locator_type": "role", "confidence": "high"},
-            },
-            "seed_data": {"valid": {"first_name": "Jane", "email": "jane@example.com", "phone": "+1555123456"}},
             "expected_result": "Lead created successfully",
-            "playwright_notes": None,
         },
         {
-            "id": "[TC-002]", "name": "[TC-002] Reject empty form", "priority": "Critical", "category": "Negative",
+            "name": "Reject empty form", "priority": "Critical", "category": "Negative",
             "description": "Submit empty form.", "preconditions": ["User is authenticated"],
-            "steps": [{"step_number": 1, "action": "click", "target": "submit_button", "locator": "getByRole('button', {name: 'Create Lead'})", "value": None, "description": "Click submit without filling"}],
-            "locators": {"submit_button": {"primary": "getByRole('button', {name: 'Create Lead'})", "fallback": None, "strategy": "role", "locator_type": "role", "confidence": "high"}},
-            "seed_data": {}, "expected_result": "Validation errors shown", "playwright_notes": None,
+            "steps": [{"step_number": 1, "action": "click", "locator": "getByRole('button', {name: 'Create Lead'})", "value": None, "description": "Click submit without filling"}],
+            "expected_result": "Validation errors shown",
         },
         {
-            "id": "[TC-003]", "name": "[TC-003] Invalid email", "priority": "High", "category": "Validation",
+            "name": "Invalid email", "priority": "High", "category": "Validation",
             "description": "Submit invalid email.", "preconditions": ["User is authenticated"],
-            "steps": [{"step_number": 1, "action": "fill", "target": "email_input", "locator": "getByLabel('Email Address')", "value": "not-an-email", "description": "Enter invalid email"}],
-            "locators": {"email_input": {"primary": "getByLabel('Email Address')", "fallback": None, "strategy": "label", "locator_type": "label", "confidence": "high"}},
-            "seed_data": {}, "expected_result": "Email validation error", "playwright_notes": None,
+            "steps": [{"step_number": 1, "action": "fill", "locator": "getByLabel('Email Address')", "value": "not-an-email", "description": "Enter invalid email"}],
+            "expected_result": "Email validation error",
         },
         {
-            "id": "[TC-004]", "name": "[TC-004] Keyboard navigation", "priority": "High", "category": "Accessibility",
+            "name": "Keyboard navigation", "priority": "High", "category": "Accessibility",
             "description": "Navigate form with keyboard only.", "preconditions": ["User is authenticated"],
-            "steps": [{"step_number": 1, "action": "press", "target": "first_name_input", "locator": "getByLabel('First Name')", "value": "Tab", "description": "Tab to next field"}],
-            "locators": {"first_name_input": {"primary": "getByLabel('First Name')", "fallback": None, "strategy": "label", "locator_type": "label", "confidence": "high"}},
-            "seed_data": {}, "expected_result": "Focus moves correctly", "playwright_notes": None,
+            "steps": [{"step_number": 1, "action": "hover", "locator": "getByLabel('First Name')", "value": None, "description": "Focus first field"}],
+            "expected_result": "Focus moves correctly",
         },
         {
-            "id": "[TC-005]", "name": "[TC-005] End-to-end lead creation", "priority": "High", "category": "E2E",
+            "name": "End-to-end lead creation", "priority": "High", "category": "E2E",
             "description": "Full lead creation journey.", "preconditions": ["User is authenticated"],
-            "steps": [{"step_number": 1, "action": "navigate", "target": "https://app.example.com/leads/new", "locator": None, "value": None, "description": "Navigate"}],
-            "locators": {}, "seed_data": {}, "expected_result": "Lead visible in list", "playwright_notes": None,
+            "steps": [{"step_number": 1, "action": "navigate", "locator": "https://app.example.com/leads/new", "value": None, "description": "Navigate"}],
+            "expected_result": "Lead visible in list",
         },
     ],
     "missing_locators": ["Success toast element — renders dynamically post-submission"],
@@ -264,9 +240,11 @@ def test_ac07_inventory_locators_verbatim(gen_authed_client, mock_anthropic):
     inventory_locators = {"getByLabel('First Name')", "getByLabel('Email Address')", "getByLabel('Phone Number')", "getByRole('button', {name: 'Create Lead'})"}
     for tc in result["test_cases"]:
         for step in tc["steps"]:
-            if step.get("locator"):
-                assert step["locator"] in inventory_locators or step["locator"] is None, \
-                    f"Locator '{step['locator']}' not from inventory"
+            loc = step.get("locator", "")
+            # Skip navigate/assert steps where locator is a URL, not an inventory reference
+            if loc and not loc.startswith("http") and loc != "":
+                assert loc in inventory_locators, \
+                    f"Locator '{loc}' not from inventory"
 
 
 def test_ac08_missing_locators_populated(gen_authed_client, mock_anthropic):

@@ -480,15 +480,60 @@ def _build_inventory_message(payload: dict, prompt) -> str:
     )
 
 
-def _build_inventory_message_v2(payload: dict, prompt) -> str:
-    """Build the user message for generate_test_cases_with_inventory v2 prompt.
+def _build_generation_instructions(payload: dict) -> str:
+    """Determine call mode from payload context and return explicit count instruction.
 
-    ASP-TSCD-001 CHG-03: Uses prompt template substitution with all F-03-08 and F-03-04
-    optional fields. Absent fields render as 'N/A' (same pattern as classify_probe_result).
+    F-03-04 mode: test_steps or tc_id present → engineer-triggered, 1 test case.
+    F-03-08 mode: probe context or default → background pipeline, 5 test cases.
     """
-    import json as _json
+    is_f03_04 = bool(payload.get("tc_id") or payload.get("test_steps"))
 
-    # Format locator inventory as structured text for the prompt
+    if is_f03_04:
+        return (
+            "MODE: Engineer-triggered script generation (F-03-04).\n"
+            "Generate EXACTLY ONE test case covering the primary happy path.\n"
+            "Do not generate edge cases, negative tests, or validation scenarios.\n"
+            "The engineer will add those manually if needed.\n"
+            f"Test case ID for reference: {payload.get('tc_id') or 'N/A'}"
+        )
+
+    # F-03-08 mode — always 5 test cases, UAT-validated categories
+    probe_context_note = ""
+    if payload.get("probe_error_messages"):
+        probe_context_note = (
+            f"\nProbe observed these errors — use them to sharpen TC-2 and TC-3: "
+            f"{payload.get('probe_error_messages')}"
+        )
+
+    return (
+        "MODE: Automated probe-context generation (F-03-08).\n"
+        "Generate EXACTLY FIVE test cases in this order:\n"
+        "TC-1: Happy path — correct data, all required fields, successful submission.\n"
+        "TC-2: Required field validation — omit required fields, verify error response.\n"
+        "TC-3: Invalid data format — malformed inputs (bad email, invalid phone format).\n"
+        "TC-4: Boundary values — empty strings, maximum length, special characters.\n"
+        "TC-5: Unauthorised access — session expiry or missing auth, verify redirect.\n"
+        "Do not generate fewer than five test cases. Do not generate more than five."
+        + probe_context_note
+    )
+
+
+def _build_probe_context(payload: dict) -> str:
+    """Render probe context section. N/A when fields absent (F-03-04 mode)."""
+    if not any([payload.get("probe_outcome"), payload.get("probe_error_messages"),
+                payload.get("probe_success_indicators"), payload.get("submitted_fields")]):
+        return "No probe context — engineer-triggered generation."
+
+    return (
+        f"Probe outcome: {payload.get('probe_outcome') or 'N/A'}\n"
+        f"Error messages observed: {payload.get('probe_error_messages') or 'N/A'}\n"
+        f"Success indicators observed: {payload.get('probe_success_indicators') or 'N/A'}\n"
+        f"Fields submitted during probe: {payload.get('submitted_fields') or 'N/A'}"
+    )
+
+
+def _format_inventory_text(payload: dict) -> str:
+    """Format locator inventory as structured text for prompt substitution."""
     inventory = payload.get("locator_inventory", [])
     inv_lines = []
     for item in inventory:
@@ -501,23 +546,42 @@ def _build_inventory_message_v2(payload: dict, prompt) -> str:
             locators = locators.model_dump()
         recommended = locators.get("recommended", "")
         fallback = locators.get("fallback") or locators.get("all_verified", {})
-        inv_lines.append(f"  [{name}] <{tag}> → RECOMMENDED: {recommended}")
+        inv_lines.append(f"  [{name}] <{tag}> \u2192 RECOMMENDED: {recommended}")
         if fallback and isinstance(fallback, dict):
             fbs = [v for v in fallback.values() if v and v != recommended]
             if fbs:
                 inv_lines.append(f"    FALLBACK: {fbs[0]}")
         elif fallback and isinstance(fallback, str):
             inv_lines.append(f"    FALLBACK: {fallback}")
+    return "\n".join(inv_lines) if inv_lines else "(no inventory provided)"
 
-    inventory_text = "\n".join(inv_lines) if inv_lines else "(no inventory provided)"
 
-    # F-03-08 probe context — optional
+def _build_inventory_message_v2(payload: dict, prompt) -> str:
+    """Build the user message for generate_test_cases_with_inventory v2/v3 prompt.
+
+    v3 (migration 020): Uses {generation_instructions} + {probe_context} template vars.
+    v2 (migration 019): Uses individual field substitution (legacy).
+    Detection: v3 template contains {generation_instructions}.
+    """
+    inventory_text = _format_inventory_text(payload)
+
+    # v3 prompt (migration 020) — uses generation_instructions + probe_context
+    if "{generation_instructions}" in prompt.user_prompt_template:
+        prompt_vars = {
+            "url":                      payload.get("url", ""),
+            "page_type":                payload.get("page_type", "FORM"),
+            "screen_key":               payload.get("screen_key", ""),
+            "locator_inventory":        inventory_text,
+            "generation_instructions":  _build_generation_instructions(payload),
+            "probe_context":            _build_probe_context(payload),
+        }
+        return prompt.user_prompt_template.format(**prompt_vars)
+
+    # v2 prompt (migration 019) — individual field substitution
     probe_outcome = payload.get("probe_outcome") or "N/A"
     probe_error_messages = str(payload.get("probe_error_messages")) if payload.get("probe_error_messages") else "N/A"
     probe_success_indicators = str(payload.get("probe_success_indicators")) if payload.get("probe_success_indicators") else "N/A"
     submitted_fields = str(payload.get("submitted_fields")) if payload.get("submitted_fields") else "N/A"
-
-    # F-03-04 asset context — optional
     tc_id = payload.get("tc_id") or "N/A"
     test_steps = payload.get("test_steps") or "N/A"
     preconditions_val = payload.get("preconditions") or "N/A"

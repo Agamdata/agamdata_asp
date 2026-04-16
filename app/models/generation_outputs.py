@@ -46,54 +46,35 @@ class StepOutput(BaseModel):
 
     step_number: int
     action:      str
-    # Allowed: navigate | fill | click | press | select |
-    #          assert_url | assert_visible | assert_text | screenshot
-    target:      Optional[str] = None
-    locator:     Optional[str] = None
-    # FIXED (Issue 2): was missing entirely — must match recommended string verbatim
+    # Allowed: fill | click | navigate | assert | select | hover
+    locator:     str = ""
+    # Must match a locator from locator_inventory input
     value:       Optional[str] = None
-    description: Optional[str] = None
-    # FIXED (Issue 2): was required str — now Optional so old and new responses both validate
+    # Required for fill/select, null otherwise
+    description: str = ""
+    # Human-readable step description
+    # REMOVED in v3 (migration 020): target — redundant with locator (PAP Q-2)
 
 
 # ── Test Case ─────────────────────────────────────────────────────────────────
 
 class TestCaseOutput(BaseModel):
+    """v3 schema (migration 020) — simplified per PAP field consumption audit.
+
+    REMOVED in v3: id (not stored), seed_data (never consumed, DEFECT-013),
+    playwright_notes (broken DEFECT-015, never consumed), locators dict (redundant).
+    extra='ignore' during migration window — old-format LLM responses with removed
+    fields won't 422. Change to 'forbid' after 1 sprint stability confirmation.
+    """
     model_config = ConfigDict(extra='ignore')
 
-    id:          str
-    name:        str
-    priority:    Literal['Critical', 'High', 'Medium', 'Low']
-    category:    str = "Functional"
-    # Allowed: Authentication | Form | Navigation | E2E | Accessibility
-    #        | Grid | Validation | API | Functional | Performance | Negative
-    # (Canonical 11-value list — PAP-TSCD-005 v1.1 CORR-04)
-    # Default: "Functional" — used when the LLM omits the field (pre-migration-0015).
-    # Once OUTPUT CONTRACT (0015) is deployed the LLM will always supply it.
-    description: str
-    preconditions: list[str]
-    # FIXED (Issue 3): was str — now list[str].
-    # Validator below coerces bare strings so old-task responses still parse.
-
-    steps:            list[StepOutput]
-    locators:         dict[str, LocatorOutput] = Field(default_factory=dict)
-    # FIXED: LLM omits locators on pre-0015 prompts. OUTPUT CONTRACT mandates
-    # the key is present (may be {}). Default to {} so parsing never fails.
-    # Same pattern as seed_data below.
-    seed_data:        dict | None = Field(default_factory=dict)
-    # FIXED: was required dict — LLM omits this field or returns null when no
-    # seed data is needed (e.g. read-only pages). Default to {} so parsing never fails.
-    # Accepts None (LLM returns null) — coerced to {} by validator below.
-    expected_result:  str
-    playwright_notes: Optional[str] = None
-
-    @field_validator('seed_data', mode='before')
-    @classmethod
-    def coerce_seed_data(cls, v):
-        """Coerce null → {} so LLM returning seed_data:null doesn't fail parsing."""
-        if v is None:
-            return {}
-        return v
+    name:            str
+    priority:        Literal['Critical', 'High', 'Medium', 'Low']
+    category:        str = "Functional"
+    description:     str
+    preconditions:   list[str]
+    steps:           list[StepOutput]
+    expected_result: str
 
     @field_validator('priority', mode='before')
     @classmethod
@@ -121,18 +102,8 @@ class TestCaseOutput(BaseModel):
             return [v]
         return v
 
-    @field_validator('playwright_notes', mode='before')
-    @classmethod
-    def coerce_playwright_notes(cls, v):
-        """Coerce [] → None and [str, ...] → newline-joined string.
-
-        The inventory prompt returns playwright_notes as a JSON array.
-        The schema declares it Optional[str]. Accept both forms so the
-        response always parses regardless of how the LLM serialises it.
-        """
-        if isinstance(v, list):
-            return '\n'.join(str(item) for item in v) if v else None
-        return v
+    # REMOVED: coerce_playwright_notes — field removed in v3 (migration 020)
+    # REMOVED: coerce_seed_data — field removed in v3 (migration 020)
 
 
 # ── Page Analysis ─────────────────────────────────────────────────────────────
@@ -244,7 +215,7 @@ class GenerateTestCasesWithInventoryOutput(BaseModel):
     """
     model_config = ConfigDict(extra='ignore')
 
-    page_analysis:    PageAnalysisOutput
+    # v3 (migration 020): page_analysis removed — not in redesigned schema
     test_cases:       list[TestCaseOutput] = Field(min_length=1, max_length=20)
     missing_locators: list[str] = []
 
