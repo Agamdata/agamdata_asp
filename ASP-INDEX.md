@@ -184,6 +184,7 @@ Next TSCD: ASP-TSCD-002
 2. **Governance spec writing.** 2/14 services GOVERNED (ASP-01, ASP-03). Next spec per build phase order: ASP-00 (Gateway). ASP-FEAT-ASP-00 v1.0 in progress with Chief Architect.
 3. **ADR-032 mechanics.** API key rotation SOP locked as principle (ADR-032). Code-level mechanics — multi-key support, overlap window, key management endpoint — deferred to ASP-FEAT-ASP-00 v1.0 this sprint.
 3. ~~**Migration 001 formalisation.**~~ RESOLVED — migration chain 001–006 confirmed and tracked. Corrected during ASP-01 governance closure.
+4. **Unregistered caller features in cost_events.** PAP sent `caller_feature=F-01-10` on a call today (2026-04-16, req d7633490). ASP does not currently capture `caller_feature` in `InvokeRequest` or structlog — only `caller_module`. When PAP files PAP-ASP-REQ-ASP-03 v2.0, spec must account for all three calling features: F-03-08, F-03-04, F-01-10. Logged as open question for v2.0 review.
 
 ## ASP-NOTE Register
 
