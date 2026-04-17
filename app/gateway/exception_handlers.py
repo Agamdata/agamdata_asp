@@ -49,6 +49,11 @@ async def http_exception_handler(request: Request, exc: HTTPException) -> JSONRe
     if exc.headers:
         headers.update(exc.headers)
 
+    # I-13 — mirror request_id into X-Request-Id header when present.
+    rid = getattr(request.state, "request_id", None)
+    if rid is not None:
+        headers["X-Request-Id"] = rid
+
     return JSONResponse(
         status_code=exc.status_code,
         content={

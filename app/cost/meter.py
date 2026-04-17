@@ -45,6 +45,7 @@ async def emit_cost_event(**kwargs) -> None:
                 request_id=uuid.UUID(kwargs["request_id"]) if isinstance(kwargs["request_id"], str) else kwargs["request_id"],
                 tenant_id=uuid.UUID(kwargs["tenant_id"]) if isinstance(kwargs["tenant_id"], str) else kwargs["tenant_id"],
                 caller_module=kwargs["caller_module"],
+                caller_feature=kwargs.get("caller_feature"),  # F-01-10 — NULL when absent
                 service_type=kwargs["service_type"],
                 task=kwargs["task"],
                 model=model,

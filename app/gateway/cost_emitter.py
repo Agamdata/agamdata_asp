@@ -1,3 +1,12 @@
+"""Gateway cost-emission adapter.
+
+Thin wrapper that forwards the Gateway's sync-service cost event into
+app.cost.meter.emit_cost_event. Accepts caller_feature as an explicit
+parameter (ASP-FEAT-ASP-00 v1.0 §11 I-07) so the field travels through
+the pipeline with no kwargs opacity.
+"""
+from typing import Optional
+
 from app.cost.meter import emit_cost_event
 
 
@@ -6,6 +15,7 @@ async def emit_cost_event_from_gateway(
     request_id: str,
     tenant_id,
     caller_module: str,
+    caller_feature: Optional[str],
     service_type: str,
     task: str,
     model: str,
@@ -21,6 +31,7 @@ async def emit_cost_event_from_gateway(
         request_id=request_id,
         tenant_id=str(tenant_id),
         caller_module=caller_module,
+        caller_feature=caller_feature,
         service_type=service_type,
         task=task,
         model=model,
