@@ -1,13 +1,22 @@
 # ASP-SCHEMA-CURRENT — Database Schema Reference
 
 ## Migration Head
-**Current:** `0022` (neutral_rule3_count_not_prompt_enforced — OPS-003 resolution)
+**Current:** `0023` (add_tenant_api_keys_and_key_prefix — ASP-FEAT-ASP-00 v1.0 Gateway governance)
 
 ## Tables
 
 ### tenants
-Stores API client configuration and keys.
+Stores API client configuration. API keys moved to `tenant_api_keys` in 0023.
 - Created in: 0001
+- Amended in: 0023 (dropped `api_key_hash` column; authoritative key source is `tenant_api_keys`)
+
+### tenant_api_keys
+Multi-key junction table per tenant. Supports rotation with overlap windows, revocation audit, optional expiry. ADR-032 mechanics locked by ASP-FEAT-ASP-00 v1.0.
+- Created in: 0023
+- Columns: `id, tenant_id (FK CASCADE), key_prefix VARCHAR(12) UNIQUE, api_key_hash VARCHAR(255), issued_at, expires_at NULL, revoked_at NULL, is_active, label NULL, created_at, updated_at`
+- Indexes: `ix_tenant_api_keys_prefix` (UNIQUE), `ix_tenant_api_keys_tenant` (tenant_id, is_active)
+- CHECK: `ck_tenant_api_keys_revocation_consistency`, `ck_tenant_api_keys_expiry_order`
+- Backfill: legacy rows have `key_prefix` = `'leg_' || substr(tenant_id::text, 1, 8)`; matched in auth via `func.left(key_prefix, 4) == 'leg_'` (deterministic, no LIKE wildcard)
 
 ### prompt_templates
 Prompt templates for all AI services with variant support.
@@ -20,6 +29,7 @@ Prompt templates for all AI services with variant support.
 ### cost_events
 Per-call cost tracking records.
 - Created in: 0001
+- Amended in: 0023 (added `caller_feature VARCHAR(128) NULL` + `ix_cost_events_caller_feature` — F-01-10 governance. NULL means pre-feature or non-PAP caller, NOT a data quality issue.)
 
 ### async_jobs
 Tracks Celery async job status for Doc Intelligence and Prediction services.
@@ -52,6 +62,7 @@ Aggregated monthly cost rollups (idempotent).
 | 0020 | Redesign with_inventory prompt v3 — simplified schema, F-03-04/F-03-08 modes | OPS-003 resolution |
 | 0021 | Elevate count enforcement to system prompt (Rule 3 hard-constraint) | Superseded by 0022 |
 | 0022 | Neutral Rule 3 — count enforcement moved to handler post-processing | Principal Architect ruling |
+| 0023 | Create `tenant_api_keys` junction; backfill legacy rows; drop `tenants.api_key_hash`; add `cost_events.caller_feature` | ASP-FEAT-ASP-00 v1.0 Gateway governance |
 
 ## Last Updated
-2026-04-16
+2026-04-18

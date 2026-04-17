@@ -73,7 +73,8 @@ After writing/applying any migration or completing a feature:
 2. Update `ASP-INDEX.md` — migration head, feature status
 3. Update `ASP-ADR.md` — if architectural decision was locked
 4. Update this `CLAUDE.md` — migration head + applied chain
-5. **Do NOT wait to be asked. This is part of the implementation.**
+5. **OpenAPI export (ADR-034):** after applying any migration, dump the live FastAPI OpenAPI schema (`app.main.app.openapi()`) to `docs/openapi/asp-openapi-<migration_head>.json` and commit the snapshot alongside the migration. PAP CI consumes these for contract drift detection. The migration head is the version identifier — it ties the schema snapshot to the exact DB state it describes.
+6. **Do NOT wait to be asked. This is part of the implementation.**
 
 ## Document Management
 - `ASP-INDEX.md` — Single canonical file. Updated in-place. No version suffix.

@@ -60,7 +60,7 @@ If a gap is found: Chief Architect raises it with the ASP Development Team lead.
 
 ## Current migration head
 
-**022 — neutral_rule3_count_not_prompt_enforced** (OPS-003 resolution, Principal Architect ruling)
+**023 — add_tenant_api_keys_and_key_prefix** (ASP-FEAT-ASP-00 v1.0 Gateway governance — ADR-032 multi-key junction + F-01-10 caller_feature on cost_events)
 
 Applied chain: 001 → 002 → 003 → 004 → 005 → 012 → 013 → 014 → 015 → 016 → 017 → 018 → 019 → 020 → 021 → 022
 
@@ -105,7 +105,7 @@ Migrations 002–005 were active in the codebase but untracked in ASP-INDEX prio
 - **ADR-009:** All timestamps are `TIMESTAMPTZ` (UTC). Never `TIMESTAMP WITHOUT TIME ZONE`.
 - **ADR-010:** `structlog` throughout. Never `print()`. Every log entry must include `request_id`, `tenant_id`, `caller_module` where available.
 - **ADR-011:** Stack traces must never be returned to the client. Log internally, return `{"detail":"Internal error","request_id":"..."}` externally. RFC 7807 Problem Detail format.
-- **ADR-012:** API keys stored as bcrypt hashes in `tenants.api_key_hash`. Never plaintext, never logged.
+- **ADR-012:** API keys stored as bcrypt hashes. Never plaintext, never logged. (As of ASP-FEAT-ASP-00 v1.0, authoritative storage is `tenant_api_keys.api_key_hash`; `tenants.api_key_hash` was dropped in migration 023 in favour of the multi-key junction table per ADR-032.)
 - **ADR-013:** S3/MinIO file keys must be prefixed with `{tenant_id}/` to prevent cross-tenant file access.
 - **ADR-014:** Context Store Redis keys scoped to `ctx:{tenant_id}:{caller_module}:{session_id}`. Cross-tenant reads are impossible by key design.
 - **ADR-015:** Webhook callbacks must be signed with HMAC-SHA256 when a secret is registered. Receiving module must verify the signature.
@@ -124,11 +124,12 @@ Migrations 002–005 were active in the codebase but untracked in ASP-INDEX prio
 - **ADR-027:** All prompt templates MUST be seeded via committed Alembic migrations. Production DB state is never a source of truth for prompts. Volume-only or manually-inserted prompts are Critical defects. Strengthens ADR-005. (ASP-NOTE-004)
 - **ADR-028:** Pre-writing migrations for unimplemented tasks (aspirational OUTPUT CONTRACTs, schema stubs) is forbidden. A migration in the chain is executed reality, not planned work. (ASP-NOTE-004)
 - **ADR-029:** Every PR that touches the migration chain must verify `alembic upgrade head` succeeds on a fresh empty DB and `alembic heads` returns exactly one head. CI gate. No exceptions. (ASP-NOTE-004)
-- **ADR-030:** `GET /api/v1/ai/capabilities` is a Zone 2 Shared Contract surface. Every consumer is entitled to query supported tasks and schemas at runtime. Consumers should validate at startup (ASP-GOV-CONSUMPTION-002 best practice). (ASP-NOTE-004)
+- **ADR-030:** `GET /api/v1/ai/capabilities` and `GET /api/v1/ai/schemas/{service_type}/{task}` are Zone 2 Shared Contract surfaces. Every authenticated consumer is entitled to query supported tasks and Pydantic payload schemas at runtime. Consumers should validate at startup (ASP-GOV-CONSUMPTION-002 best practice). Amended by ASP-FEAT-ASP-00 v1.0: auth required on both endpoints; `migration_head` intentionally excluded (Zone 1 operational); additive changes Type B, removals/retypes Type C.
 - **ADR-031:** Phantom task resurrection requires formal caller integration requirement.
 - **ADR-026.2 (Addendum):** Living governance documents may have more than two locations. The authoritative repo location and any coordination working copies (currently `00-index/` and `00-index/communication/`, plus any future targets) must all be updated in the same operation. The ASP Development Team maintains the canonical list of sync targets in ENGINEERING-PLAYBOOK.md and adds new targets to that list before the first sync to them. A "synced" claim is only valid when every listed target has been updated and verified identical (checksum or diff). (ASP-NOTE-005)
-- **ADR-032:** API key rotation requires (1) advance written notification to all affected consumers, (2) overlap window where both old and new keys are valid for minimum 5 business days, (3) explicit consumer acknowledgement before old key is revoked. Mechanics deferred to ASP-FEAT-ASP-00 v1.0 (next sprint). QUEUED. (ASP-DEFECT-010)
+- **ADR-032:** API key rotation requires (1) advance written notification to all affected consumers, (2) overlap window where both old and new keys are valid for minimum 5 business days, (3) explicit consumer acknowledgement before old key is revoked. **ACCEPTED** — code mechanics locked by ASP-FEAT-ASP-00 v1.0: `tenant_api_keys` junction table (migration 023), new key format `asp_<prefix12>_<secret32>` (49 chars), dual-path `verify_api_key` during 90-day Type C window, 5-step rotation protocol (issue → overlap → consumer ack → revoke → audit), post-sunset cleanup migration as AC-Close. (ASP-DEFECT-010)
 - **ADR-033:** Per-service Pydantic strictness — generation service payload models (`GenerateTestCasesPayload`, `GenerateTestCasesWithInventoryPayload`, `LocatorInventoryItem`, `LocatorInventoryLocators`) use `ConfigDict(extra="ignore")` as a documented exception to ADR-008. All other services retain `extra="forbid"`. INFO log emitted on every dropped field for observability. Locked during ASP-FEAT-ASP-03 v1.1 dev team review. (ASP-DEFECT-009)
+- **ADR-034:** OpenAPI schema export artifact on every migration. ASP exports an OpenAPI 3.x JSON snapshot at each migration apply, stored at `docs/openapi/asp-openapi-<migration_head>.json`, consumed by PAP CI for contract drift detection. Step added to `CLAUDE.md` Post-Implementation Checklist. Locked by ASP-FEAT-ASP-00 v1.0.
 
 ## Service status
 
@@ -236,7 +237,7 @@ Next TSCD: ASP-TSCD-002
 | ASP-FEAT-ASP-01 | NLP Service Detailed Spec | v1.2 | GOVERNED | 2026-04-10 |
 | ASP-FEAT-ASP-03 | Generation Service Detailed Spec | v1.0 | SUPERSEDED by v1.1 | 2026-04-11 |
 | ASP-FEAT-ASP-03 | Generation Service Detailed Spec | v1.1 | GOVERNED — 32/32 AC PASS (e8e3896), PAP confirmed (1b32600) | 2026-04-12 |
-| ASP-FEAT-ASP-00 | Gateway Service Detailed Spec | v1.0 | IN SPEC (v1.0-draft complete, awaiting Product Leadership review). 36 ACs across 8 scope items. Source: `asp-projects/04-features/00-Gateway/ASP-FEAT-ASP-00-v1_0.docx` · draft: `asp/docs/spec-drafts/ASP-FEAT-ASP-00-v1_0.md` | 2026-04-17 |
+| ASP-FEAT-ASP-00 | Gateway Service Detailed Spec | v1.0 | SPEC APPROVED — pending AC verification. Phases 1–4 implemented. Migration 023 applied. 25/36 ACs verified via Phase 3+4 gates (14/14 + 11/11 PASS). AC-S2 (ADR-032 mechanics, 8), AC-S4 (OpenAPI export, 3) run in Phase 5 I-16/I-17. | 2026-04-18 |
 
 ## Naming quick-ref
 
