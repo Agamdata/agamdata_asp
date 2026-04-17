@@ -775,7 +775,7 @@ def _not_expired(row: "TenantApiKey") -> bool:
 
 ### Key format and generation (S-1)
 
-- **Format:** `asp_<prefix12>_<secret32>` — 50 chars total.
+- **Format:** `asp_<prefix12>_<secret32>` — 49 chars total (3-char scheme + `_` + 12-char prefix + `_` + 32-char secret).
 - **Prefix:** 12 chars, charset `[a-z0-9]` (base36), ~62 bits, UNIQUE enforced at DB.
 - **Secret:** 32 chars, charset `[A-Za-z0-9]` (base62), ~190 bits.
 - **Generation (operator-side, not exposed in v1.0):**
@@ -931,7 +931,7 @@ Validation AC: AC-S5-01 through AC-S5-06 (§12).
   - `def issue_new_key() -> tuple[str, str]` using `secrets.choice` over base36 (prefix) and base62 (secret). Returns `(full_key_plaintext, prefix)`.
 - Unit tests in `tests/gateway/test_keys.py` covering:
   - Format regex accepts well-formed keys and rejects malformed variants.
-  - `issue_new_key()` always returns a 50-char key with the expected structure.
+  - `issue_new_key()` always returns a 49-char key with the expected structure.
   - Prefix-only logging never contains the secret portion.
 
 ### I-04 — Dual-path `verify_api_key` (`app/gateway/auth.py`)

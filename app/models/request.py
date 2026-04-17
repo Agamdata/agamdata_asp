@@ -42,6 +42,10 @@ class InvokeRequest(BaseModel):
     ]
     task: str                           # validated per service in service layer
     caller_module: str
+    caller_feature: Optional[str] = Field(default=None, max_length=128)
+    # ^ ASP-FEAT-ASP-00 v1.0 §7 / AC-S6-01..05. Opaque to ASP routing; logged
+    #   to structlog and persisted verbatim to cost_events.caller_feature.
+    #   Not validated against any registry; NULL = pre-feature or non-PAP caller.
     tenant_id: str
     quality_tier: Literal["standard", "enhanced", "premium"] = "standard"
     session_id: Optional[str] = None
