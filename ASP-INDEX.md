@@ -180,11 +180,15 @@ Next TSCD: ASP-TSCD-002
 
 ## Open blockers
 
-1. **ADR-020 — DQE Option A vs B decision OPEN.** Cube.dev integration (Option A) vs custom build (Option B). Full decision matrix in LogiCRM DQE Spec v1.0 Section 13. Owner: Product Owner / Chief Architect. BLOCKING implementation sprint.
-2. **Governance spec writing.** 2/14 services GOVERNED (ASP-01, ASP-03). Next spec per build phase order: ASP-00 (Gateway). ASP-FEAT-ASP-00 v1.0 in progress with Chief Architect.
-3. **ADR-032 mechanics.** API key rotation SOP locked as principle (ADR-032). Code-level mechanics — multi-key support, overlap window, key management endpoint — deferred to ASP-FEAT-ASP-00 v1.0 this sprint.
-3. ~~**Migration 001 formalisation.**~~ RESOLVED — migration chain 001–006 confirmed and tracked. Corrected during ASP-01 governance closure.
-4. **Unregistered caller features in cost_events.** PAP sent `caller_feature=F-01-10` on a call today (2026-04-16, req d7633490). ASP does not currently capture `caller_feature` in `InvokeRequest` or structlog — only `caller_module`. When PAP files PAP-ASP-REQ-ASP-03 v2.0, spec must account for all three calling features: F-03-08, F-03-04, F-01-10. Logged as open question for v2.0 review.
+1. **W-5 — Governance spec writing: ASP-00 Gateway.** 2/14 services GOVERNED (ASP-01, ASP-03). Next spec per build phase order is ASP-00 (Gateway). ASP-FEAT-ASP-00 v1.0 in progress with Chief Architect. Rate limiting scope ruling pending from Product Leadership. Dev Team recommendation on O(N) auth scan fix ready for spec authoring (see ADR queue — key_prefix column vs Redis-cached tenant map). Stays open until Gateway spec is issued.
+
+### Recently closed (archive)
+
+- ~~**ADR-020 DQE Option A vs B.**~~ LogiCRM scope, not ASP-owned. Removed from ASP blockers. Tracking moves to LogiCRM governance docs.
+- ~~**ADR-032 mechanics.**~~ RESOLVED — API key rotation code mechanics (multi-key, overlap window, key management endpoint) folded into ASP-FEAT-ASP-00 v1.0 spec scope (W-5). No longer a standalone blocker.
+- ~~**Migration 001 formalisation.**~~ RESOLVED — migration chain 001–022 confirmed and tracked. Corrected during ASP-01 governance closure; superseded by ASP-NOTE-004/005.
+- ~~**Pilot vs production environment.**~~ CLOSED — "production" in PAP context = ASP pilot environment; no separate production environment exists. Clarified during pilot setup (tenant key creation 2026-04-16).
+- ~~**F-01-10 unregistered caller_feature.**~~ Not an open blocker — logged as an open question for PAP-ASP-REQ-ASP-03 v2.0 spec review. Tracked under Task 2 (migration 023 coverage-aware generation) pending PAP confirmations.
 
 ## ASP-NOTE Register
 
