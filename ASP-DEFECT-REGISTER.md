@@ -1,6 +1,6 @@
 # ASP Defect Register
 
-Last updated: 2026-04-17 | Total: 19 | Open: 0 | Mitigated: 1 | Resolved: 16 | Already Fixed: 2
+Last updated: 2026-04-18 | Total: 19 | Open: 0 | Mitigated: 1 | Resolved: 17 | Already Fixed: 2
 
 ## Summary
 
@@ -15,7 +15,7 @@ Last updated: 2026-04-17 | Total: 19 | Open: 0 | Mitigated: 1 | Resolved: 16 | A
 | ASP-DEFECT-007 | Unknown task names return generic 400 instead of supported task list | CONSUMER | ASP-03 | MEDIUM | ALREADY FIXED (asp-v2) | PAP Team | 2026-04-11 |
 | ASP-DEFECT-008 | locator_source restricted to 2 values on generate_test_cases | CONSUMER | ASP-03 | MEDIUM | ALREADY FIXED (asp-v2) | PAP Team | 2026-04-11 |
 | ASP-DEFECT-009 | Extra payload fields cause 422 on generate_test_cases | CONSUMER | ASP-03 | LOW | RESOLVED (serene-shtern) | PAP Team | 2026-04-11 |
-| ASP-DEFECT-010 | API key rotation without consumer notification | CONSUMER | PROCESS | HIGH | OPEN | PAP Team | 2026-04-11 |
+| ASP-DEFECT-010 | API key rotation without consumer notification | CONSUMER | PROCESS | HIGH | RESOLVED | PAP Team | 2026-04-11 |
 | ASP-DEFECT-011 | classify_probe_result task not available to PAP | CONSUMER | ASP-01 | BLOCKING | RESOLVED (asp-v2) | PAP Team | 2026-04-11 |
 | ASP-DEFECT-012 | generate_test_cases_with_inventory latency 74-86s — outside ADR-018 envelope | INTERNAL | ASP-03 | HIGH | MITIGATED — pending Option 4 (async) | ASP Dev Team | 2026-04-15 |
 | ASP-DEFECT-013 | TestCaseOutput.seed_data rejects LLM null — coerce to {} | INTERNAL | ASP-03 | LOW | RESOLVED (1c3d655) | ASP Dev Team | 2026-04-15 |
@@ -360,7 +360,7 @@ Same applies to `GeneratePlaywrightScriptPayload` and `GenerateTestCasesWithInve
 - **Reporter:** PAP Team
 - **Domain:** PROCESS
 - **Severity:** HIGH
-- **Status:** OPEN
+- **Status:** RESOLVED (ASP-FEAT-ASP-00 v1.0, ASP-NOTE-008, 2026-04-18)
 - **Affected consumers:** PAP (all consumers)
 - **Affected services:** ASP-00 Gateway (auth)
 
@@ -390,9 +390,11 @@ Multi-key support or key overlap period requires ASP-00 Gateway governance spec 
 
 **Timeline:**
 - 2026-04-11: Filed from PAP defect report
-- Status: OPEN — immediate SOP to be added to playbook; code-level fix deferred to ASP-00 spec
+- 2026-04-11: ADR-032 principle locked (ASP-FEAT-ASP-03 v1.1 cycle) — mechanics deferred
+- 2026-04-17/18: ASP-FEAT-ASP-00 v1.0 Phases 1–5 implemented — multi-key junction table, 49-char new key format, dual-path `verify_api_key`, 5-step rotation protocol, opaque 401 envelope
+- 2026-04-18: RESOLVED — ASP-00 governance closure (ASP-NOTE-008). AC-S2-01..08 verified (8/8 PASS) covering multi-key auth, revocation/expiry/uniqueness CHECK constraints, CASCADE semantics, and the full 5-step rotation protocol end-to-end. PE-1 Type C window open; sunset date pending Product Leadership.
 
-**Governance trail:** Principle locked as ADR-032 (ASP-FEAT-ASP-03 v1.1 cycle, 2026-04-11). Mechanics deferred to ASP-FEAT-ASP-00 v1.0 next sprint. Defect remains OPEN until ASP-00 spec implements multi-key support and notification SOP.
+**Governance trail:** Principle locked as ADR-032 (ASP-FEAT-ASP-03 v1.1 cycle, 2026-04-11). Mechanics locked and accepted (ADR-032 QUEUED → ACCEPTED) in ASP-FEAT-ASP-00 v1.0 (ASP-NOTE-008, 2026-04-18).
 
 ---
 

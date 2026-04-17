@@ -135,7 +135,7 @@ Migrations 002–005 were active in the codebase but untracked in ASP-INDEX prio
 
 | ID | Name | Type | Status | Spec Doc | TSCDs |
 |---|---|---|---|---|---|
-| ASP-00 | Gateway | Synchronous | ACTIVE (pre-governance) | — | — |
+| ASP-00 | Gateway | Synchronous | **GOVERNED** | ASP-FEAT-ASP-00 v1.0 | — |
 | ASP-01 | NLP Service | Synchronous | **GOVERNED** | ASP-FEAT-ASP-01 v1.2 | — |
 | ASP-02 | RAG Service | Synchronous | ACTIVE (pre-governance) | — | — |
 | ASP-03 | Generation Service | Synchronous | **GOVERNED** | ASP-FEAT-ASP-03 v1.1 | — |
@@ -181,7 +181,7 @@ Next TSCD: ASP-TSCD-002
 
 ## Open blockers
 
-1. **W-5 — Governance spec writing: ASP-00 Gateway.** 2/14 services GOVERNED (ASP-01, ASP-03). ASP-FEAT-ASP-00 v1.0-draft COMPLETE (2026-04-17) — all 14 sections populated, 36 ACs, migration 023 allocated. **Status: IN REVIEW** with Product Leadership. Implementation (I-01..I-17) held until review acceptance. Blocker closes when Gateway AC verification passes and status flips to GOVERNED.
+*(No open blockers. W-5 closed — ASP-00 Gateway reached GOVERNED per ASP-NOTE-008 on 2026-04-18.)*
 
 ### Recently closed (archive)
 
@@ -201,6 +201,7 @@ Next TSCD: ASP-TSCD-002
 | ASP-NOTE-004 | Contract drift + migration branch conflict — Phase 1/2 complete, deployed 580dbe1. CLOSED by ASP-NOTE-005. | CLOSED | 2026-04-10 |
 | ASP-NOTE-005 | ASP-03 governance closure + ASP-NOTE-004 closeout. 32/32 AC PASS. AC-Close-01(b) confirmed by PAP (commit 1b32600). 2/14 GOVERNED. ADR-026.2 locked. | CLOSURE | 2026-04-12 |
 | ASP-NOTE-006 | TSCD-001 completion. Migration 019, 11/11 AC PASS, 58/58 regression. DEFECT-012 MITIGATED, DEFECT-013 RESOLVED. Two production deployment gates tracked. | PROCESS | 2026-04-15 |
+| ASP-NOTE-008 | ASP-00 Gateway governance closure. 36/36 AC PASS. Migration 023. ADR-030 amended, ADR-032 QUEUED→ACCEPTED, ADR-034 new. DEFECT-010/021 RESOLVED. 3/14 GOVERNED. PE-1 Type C sunset pending. | CLOSURE | 2026-04-18 |
 
 ### ASP-NOTE-002 — ASP-01 Governance Closure
 
@@ -228,6 +229,37 @@ Next TSCD: ASP-TSCD-002
 **Issued by:** Chief Architect
 **Date:** 2026-04-10
 
+### ASP-NOTE-008 — ASP-00 Gateway Governance Closure
+
+**Service:** ASP-00 Gateway
+**Spec:** ASP-FEAT-ASP-00 v1.0
+**AC Result:** 36/36 PASS
+
+**Commit chain:** `3bef047` → `fb46fc7` → `1e1cea1` → `028131b` → `ecaa1ce`
+
+**Migration:** 023 applied. Head: 0023.
+
+**ADRs locked:**
+- ADR-030 (ACCEPTED; amended — auth required on `/capabilities` and `/schemas/*`; `migration_head` excluded as Zone 1; Type B/C rules for response shape)
+- ADR-032 (QUEUED → ACCEPTED; code mechanics: `tenant_api_keys` junction, `asp_<prefix12>_<secret32>` 49-char format, dual-path `verify_api_key`, 5-step rotation protocol)
+- ADR-034 (new, ACCEPTED; OpenAPI schema export artefact per migration at `docs/openapi/asp-openapi-<migration_head>.json`)
+
+**Defects resolved:**
+- ASP-DEFECT-010 (multi-key support + rotation SOP mechanics)
+- ASP-DEFECT-021 (`alembic/env.py` `load_dotenv(override=True)` defeats shell-level DATABASE_URL overrides; fixed to `override=False`)
+
+**Verification harnesses:**
+- `tests/phase3_gate.py` — 14/14 PASS (dual-path auth, caller_feature, 202/404/X-Request-Id)
+- `tests/phase4_gate.py` — 11/11 PASS (rate limiter, capabilities, schemas)
+- `tests/test_gateway.py` — 16/16 PASS (AC-S2 rotation mechanics, AC-S4 OpenAPI, AC-CC cross-cutting)
+
+**Status:** ASP-00 → **GOVERNED**
+
+**PE-1:** Type C window open. Sunset date pending Product Leadership confirmation. Single-touch edit to `app/gateway/auth.py` replaces the `_ADR032_SUNSET_PLACEHOLDER = "PE-1-pending"` value when the date is set.
+
+**Issued by:** Principal Architect, ASP
+**Date:** 2026-04-18
+
 ## Governance Documents
 
 | Document ID | Title | Version | Status | Date |
@@ -237,7 +269,7 @@ Next TSCD: ASP-TSCD-002
 | ASP-FEAT-ASP-01 | NLP Service Detailed Spec | v1.2 | GOVERNED | 2026-04-10 |
 | ASP-FEAT-ASP-03 | Generation Service Detailed Spec | v1.0 | SUPERSEDED by v1.1 | 2026-04-11 |
 | ASP-FEAT-ASP-03 | Generation Service Detailed Spec | v1.1 | GOVERNED — 32/32 AC PASS (e8e3896), PAP confirmed (1b32600) | 2026-04-12 |
-| ASP-FEAT-ASP-00 | Gateway Service Detailed Spec | v1.0 | SPEC APPROVED — pending AC verification. Phases 1–4 implemented. Migration 023 applied. 25/36 ACs verified via Phase 3+4 gates (14/14 + 11/11 PASS). AC-S2 (ADR-032 mechanics, 8), AC-S4 (OpenAPI export, 3) run in Phase 5 I-16/I-17. | 2026-04-18 |
+| ASP-FEAT-ASP-00 | Gateway Service Detailed Spec | v1.0 | **GOVERNED** — 36/36 AC PASS (ecaa1ce). Migration 023 applied. ADR-030/032/034 locked. DEFECT-010/021 RESOLVED. ASP-NOTE-008 issued 2026-04-18. | 2026-04-18 |
 
 ## Naming quick-ref
 
