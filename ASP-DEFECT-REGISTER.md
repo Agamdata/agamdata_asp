@@ -1,6 +1,6 @@
 # ASP Defect Register
 
-Last updated: 2026-04-16 | Total: 18 | Open: 0 | Mitigated: 1 | Resolved: 15 | Already Fixed: 2
+Last updated: 2026-04-17 | Total: 19 | Open: 0 | Mitigated: 1 | Resolved: 16 | Already Fixed: 2
 
 ## Summary
 
@@ -24,6 +24,7 @@ Last updated: 2026-04-16 | Total: 18 | Open: 0 | Mitigated: 1 | Resolved: 15 | A
 | ASP-DEFECT-018 | StepOutput.locator rejects null — non-element steps fail validation | CONSUMER | ASP-03 | CRITICAL | RESOLVED | PAP Operations | 2026-04-16 |
 | ASP-DEFECT-019 | LLM ignores test case count instruction — handler enforcement required | INTERNAL | ASP-03 | HIGH | RESOLVED (migration 022 + handler) | ASP Dev Team | 2026-04-16 |
 | ASP-DEFECT-020 | Gateway cost emission not wrapped in try/except — ADR-006 violation | INTERNAL | ASP-00 | HIGH | RESOLVED | ASP Dev Team | 2026-04-16 |
+| ASP-DEFECT-021 | alembic/env.py load_dotenv(override=True) defeats shell-level DATABASE_URL overrides | INTERNAL | INFRASTRUCTURE | LOW | RESOLVED | ASP Dev Team | 2026-04-17 |
 
 ---
 
@@ -662,3 +663,30 @@ Applied inline during TSCD-001 AC-T07 verification. No migration required.
 - 2026-04-16: Fix applied — 3 lines of try/except
 - 2026-04-16: Regression 58/58 PASS
 - 2026-04-16: RESOLVED
+
+---
+
+### ASP-DEFECT-021 — alembic/env.py load_dotenv(override=True) defeats shell-level DATABASE_URL overrides
+
+- **ID:** ASP-DEFECT-021
+- **Filed:** 2026-04-17
+- **Source:** INTERNAL (discovered during Phase 2 fresh-DB test for ASP-FEAT-ASP-00 v1.0 migration 023)
+- **Domain:** INFRASTRUCTURE
+- **Severity:** LOW (no production impact — Docker container env and `.env` point to the same DB in normal operation)
+- **Status:** RESOLVED
+
+**Root cause:** `alembic/env.py` line 14 calls `load_dotenv(override=True)`. The `override=True` flag causes `python-dotenv` to overwrite already-set environment variables with the values from `.env`. Shell-level `DATABASE_URL=... alembic ...` and `docker compose exec -e DATABASE_URL=...` overrides are silently defeated — alembic resets the value from `.env` during its own startup, before reading `os.environ.get("DATABASE_URL", "")`.
+
+**Symptom:** Fresh-DB round-trip test for migration 023 appeared to hit the fresh database (env var was observably set at shell level) but alembic connected to the live database instead. The diagnostic signal was the absence of `"Running upgrade X -> Y"` lines on a DB that should have been empty.
+
+**Fix:** `alembic/env.py` line 14: `load_dotenv(override=False)`. `.env` provides defaults; explicit env vars win. Matches the standard `python-dotenv` idiom and restores the expected environment-variable contract.
+
+**Atrium-transition relevance: AVOID.** Atrium must use `load_dotenv(override=False)` as the standard. The `override=True` pattern violates the environment-variable contract and defeats CI, test isolation, and ad-hoc ops overrides.
+
+**Timeline:**
+- 2026-04-17: Discovered during Phase 2 fresh-DB round-trip test attempt
+- 2026-04-17: Initially misdiagnosed as Git Bash / msys argument handling
+- 2026-04-17: Root cause identified as `load_dotenv(override=True)` in env.py
+- 2026-04-17: Fix applied (one-line change)
+- 2026-04-17: Fresh-DB round-trip successful with override respected
+- 2026-04-17: RESOLVED

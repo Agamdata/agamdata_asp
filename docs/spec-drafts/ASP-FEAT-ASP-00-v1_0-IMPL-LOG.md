@@ -50,3 +50,109 @@ incorrectly failed the pre-auth-null assertion.
 Production code unaffected — each real HTTP request has its own ASGI scope.
 
 **Status.** CLOSED — test-only bug.
+
+## 2026-04-17 · Phase 2 pre-migration — legacy-prefix match approach for I-04
+
+**Context.** The legacy backfill uses `'leg_' || substr(id::text, 1, 8)` as the
+`key_prefix` value on backfilled rows. The spec draft §10 auth.py snippet
+used `TenantApiKey.key_prefix.like("legacy%")` because the earlier backfill
+prefix was `'legacy' || substr(...)`. After the Architect's prefix change
+to `'leg_<hex8>'`, a naive `.like("leg_%")` would be incorrect: `_` is a
+SQL LIKE single-char wildcard, so the pattern matches any 12-char prefix
+starting `leg` + one arbitrary char — including valid new-format prefixes
+like `legabc123def`.
+
+**Ruling (Chief Architect, 2026-04-17).** Use
+`func.left(TenantApiKey.key_prefix, 4) == "leg_"` in I-04. Deterministic,
+no LIKE wildcard escaping, explicit. Locked as the I-04 implementation
+approach; no separate ruling required when Phase 3 begins.
+
+**Status.** OPEN — will close when I-04 ships in Phase 3.
+
+## 2026-04-17 · Phase 2 pre-migration verification
+
+**Live DB state at Phase 2 entry.**
+
+- `alembic current`: **`0022 (head)`**
+- `tenants.api_key_hash`: present, `VARCHAR(255) NOT NULL`
+- Active tenants with hash: **1** (`pap_runner`, id `daa3f639-8cac-4136-b8ab-5ea336be5233`)
+- Backfill will produce one `tenant_api_keys` row with
+  `key_prefix = 'leg_daa3f639'` (12 chars, fits VARCHAR(12)).
+
+**Status.** Informational; Phase 2 green-lit to proceed.
+
+## 2026-04-17 · v2.0 forward-note — `form_data` amendment (migration 024, NOT 023)
+
+**Context.** Chief Architect accepted PAP's `form_data` request into
+PAP-ASP-REQ-ASP-03 v2.0 as Type B additive. Consumer-isolated (ADR-033
+`extra="ignore"` covers PAP's immediate usage). Response schema unchanged.
+No cross-consumer review required.
+
+**Ruling (Chief Architect, 2026-04-17).** form_data lands with migration 024
+(coverage-aware generation), not 023. Amendment scope:
+
+- Schema: add `form_data: dict[str, str] | None = None` to
+  `GenerateTestCasesWithInventoryPayload`.
+- Handler renders into the v4 prompt as a new section:
+
+      --- Form Data Context ---
+      {form_data}
+
+  When absent/null: render `"No form data provided — generate realistic test
+  values from field names and context."`
+  When present: render the dict via `str(payload.form_data)`.
+- Two ACs added to v2.0 suite:
+  - **AC-FORM-01** — call with `form_data={"first_name": "Alice", "email":
+    "alice@example.com"}` yields at least one step whose `value` contains
+    `"Alice"` or `"alice@example.com"`.
+  - **AC-FORM-02** — call without `form_data` → 200, no 422, behaviour
+    unchanged from v1.1.
+- Amendment log entry: add **C-15** to PAP-ASP-REQ-ASP-03 v2.0 change table
+  before formal acceptance (PAP-side document).
+
+**Status.** DEFERRED to migration 024. No action in Phase 2. Tracked here so
+it is not lost when Phase 6 begins on PAP confirmations for Q-1 / Q-2.
+
+## 2026-04-17 · Phase 2 I-01 — migration 023 applied; fresh-DB test passed after ASP-DEFECT-021 fix
+
+**Tooling gap.** The ADR-029 fresh-DB upgrade gate initially appeared to run
+against `aiservice_fresh` but was actually hitting LIVE because
+`alembic/env.py` had `load_dotenv(override=True)` — explicit env var
+overrides on `docker exec` or shell level were silently reset to `.env`
+values during alembic startup. Filed as **ASP-DEFECT-021 (RESOLVED)**.
+Fix: `load_dotenv(override=False)` — `.env` provides defaults; explicit env
+vars win. Standard python-dotenv idiom.
+
+**Atrium-transition note.** `load_dotenv(override=False)` is the required
+pattern. `override=True` violates the environment-variable contract and
+defeats CI, test isolation, and ad-hoc ops overrides.
+
+**Fresh-DB round-trip result (after fix).** All five mandated steps
+produced the expected output:
+
+1. `alembic upgrade head` on empty DB: 23 `"Running upgrade"` lines
+   (`-> 0001` through `0022 -> 0023`).
+2. `alembic current`: `0023 (head)`.
+3. `alembic heads`: `0023 (head)` (single head).
+4. `alembic downgrade -1`: `Running downgrade 0023 -> 0022`; `current` → `0022`.
+5. `alembic upgrade head`: `Running upgrade 0022 -> 0023`; `current` → `0023 (head)`.
+
+Fresh DB dropped post-test. Live DB unchanged (already at 0023 from earlier apply).
+
+**Live DB state post-migration 023** (verified via `\d tenant_api_keys` and
+`\d+ tenants` — recorded in migration phase report):
+
+- `tenant_api_keys`: 11 columns, UNIQUE index on `key_prefix`, composite
+  index on `(tenant_id, is_active)`, CHECK `ck_tenant_api_keys_revocation_consistency`
+  and `ck_tenant_api_keys_expiry_order`, FK to `tenants(id)` ON DELETE CASCADE.
+- Backfill: 1 row — `tenant_id = daa3f639-…`, `key_prefix = 'leg_daa3f639'`,
+  `label = 'legacy'`, `is_active = TRUE`, `issued_at = 2026-04-11 03:34:18.557458+00`
+  (matches pap_runner's `created_at`).
+- `tenants.api_key_hash`: DROPPED.
+- `cost_events.caller_feature`: VARCHAR(128) NULL, with index
+  `ix_cost_events_caller_feature`.
+
+**Status.** CLOSED — ADR-029 gate satisfied retroactively; migration is
+both applied correctly on live and proven reversible in isolation.
+Proceeding to I-02 ORM without further ruling per Architect directive.
+

@@ -23,16 +23,62 @@ class Tenant(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     tenant_code = Column(String(64), nullable=False, unique=True)
     name = Column(String(255), nullable=False)
-    api_key_hash = Column(String(255), nullable=False)
+    # api_key_hash dropped in migration 023. Authoritative source is
+    # tenant_api_keys (junction). See ASP-FEAT-ASP-00 v1.0 §5.
     monthly_quota_usd = Column(Numeric(10, 4), nullable=False, default=50.0)
     is_active = Column(Boolean, nullable=False, default=True)
     created_at = Column(DateTime(timezone=True), nullable=False, default=utcnow)
     updated_at = Column(DateTime(timezone=True), nullable=False, default=utcnow, onupdate=utcnow)
 
+    api_keys = relationship(
+        "TenantApiKey", back_populates="tenant", cascade="all, delete-orphan",
+    )
     cost_events = relationship("CostEvent", back_populates="tenant")
     async_jobs = relationship("AsyncJob", back_populates="tenant")
     webhook_registrations = relationship("WebhookRegistration", back_populates="tenant")
     monthly_reports = relationship("CostMonthlyReport", back_populates="tenant")
+
+
+class TenantApiKey(Base):
+    """Multi-key junction per tenant — ASP-FEAT-ASP-00 v1.0 §5 (ADR-032 mechanics).
+
+    Replaces the single tenants.api_key_hash column (dropped in migration 023).
+    Supports rotation with overlap windows, revocation audit, optional expiry,
+    operator-facing labels.
+
+    Legacy rows (backfilled in migration 023) have key_prefix starting 'leg_'.
+    New-format rows have key_prefix matching r'^[a-z0-9]{12}$' (no underscore,
+    by construction — see app.utils.key_generator).
+
+    Invariants enforced by DB CHECK constraints:
+      - ck_tenant_api_keys_revocation_consistency:
+          is_active=FALSE ⇔ revoked_at IS NOT NULL
+      - ck_tenant_api_keys_expiry_order:
+          expires_at IS NULL OR expires_at > issued_at
+    """
+
+    __tablename__ = "tenant_api_keys"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("tenants.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    key_prefix = Column(String(12), nullable=False, unique=True, index=True)
+    api_key_hash = Column(String(255), nullable=False)
+    issued_at = Column(DateTime(timezone=True), nullable=False, default=utcnow)
+    expires_at = Column(DateTime(timezone=True), nullable=True)
+    revoked_at = Column(DateTime(timezone=True), nullable=True)
+    is_active = Column(Boolean, nullable=False, default=True)
+    label = Column(String(64), nullable=True)
+    created_at = Column(DateTime(timezone=True), nullable=False, default=utcnow)
+    updated_at = Column(
+        DateTime(timezone=True), nullable=False, default=utcnow, onupdate=utcnow,
+    )
+
+    tenant = relationship("Tenant", back_populates="api_keys")
 
 
 class PromptTemplate(Base):
@@ -76,6 +122,9 @@ class CostEvent(Base):
     latency_ms = Column(Integer, nullable=False, default=0)
     status = Column(String(32), nullable=False, default="success")
     error_message = Column(Text, nullable=True)
+    # F-01-10 governance — ASP-FEAT-ASP-00 v1.0 §5 / §7.
+    # NULL means pre-feature row or non-PAP caller. NOT a data-quality issue.
+    caller_feature = Column(String(128), nullable=True, index=True)
     created_at = Column(DateTime(timezone=True), nullable=False, default=utcnow)
 
     tenant = relationship("Tenant", back_populates="cost_events")

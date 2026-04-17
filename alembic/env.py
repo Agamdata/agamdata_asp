@@ -8,10 +8,13 @@ from sqlalchemy.ext.asyncio import async_engine_from_config
 
 from alembic import context
 
-# Load .env file so DATABASE_URL is available when running alembic directly
+# Load .env file so DATABASE_URL is available when running alembic directly.
+# override=False: .env provides defaults; explicit env vars win (standard
+# python-dotenv idiom). Per ASP-DEFECT-021 — override=True silently defeats
+# shell-level and `docker exec -e` DATABASE_URL overrides.
 try:
     from dotenv import load_dotenv
-    load_dotenv(override=True)
+    load_dotenv(override=False)
 except ImportError:
     pass
 
