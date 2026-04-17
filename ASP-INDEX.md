@@ -180,7 +180,7 @@ Next TSCD: ASP-TSCD-002
 
 ## Open blockers
 
-1. **W-5 — Governance spec writing: ASP-00 Gateway.** 2/14 services GOVERNED (ASP-01, ASP-03). Next spec per build phase order is ASP-00 (Gateway). ASP-FEAT-ASP-00 v1.0 in progress with Chief Architect. Rate limiting scope ruling pending from Product Leadership. Dev Team recommendation on O(N) auth scan fix ready for spec authoring (see ADR queue — key_prefix column vs Redis-cached tenant map). Stays open until Gateway spec is issued.
+1. **W-5 — Governance spec writing: ASP-00 Gateway.** 2/14 services GOVERNED (ASP-01, ASP-03). ASP-FEAT-ASP-00 v1.0-draft COMPLETE (2026-04-17) — all 14 sections populated, 36 ACs, migration 023 allocated. **Status: IN REVIEW** with Product Leadership. Implementation (I-01..I-17) held until review acceptance. Blocker closes when Gateway AC verification passes and status flips to GOVERNED.
 
 ### Recently closed (archive)
 
@@ -236,6 +236,7 @@ Next TSCD: ASP-TSCD-002
 | ASP-FEAT-ASP-01 | NLP Service Detailed Spec | v1.2 | GOVERNED | 2026-04-10 |
 | ASP-FEAT-ASP-03 | Generation Service Detailed Spec | v1.0 | SUPERSEDED by v1.1 | 2026-04-11 |
 | ASP-FEAT-ASP-03 | Generation Service Detailed Spec | v1.1 | GOVERNED — 32/32 AC PASS (e8e3896), PAP confirmed (1b32600) | 2026-04-12 |
+| ASP-FEAT-ASP-00 | Gateway Service Detailed Spec | v1.0 | IN SPEC (v1.0-draft complete, awaiting Product Leadership review). 36 ACs across 8 scope items. Source: `asp-projects/04-features/00-Gateway/ASP-FEAT-ASP-00-v1_0.docx` · draft: `asp/docs/spec-drafts/ASP-FEAT-ASP-00-v1_0.md` | 2026-04-17 |
 
 ## Naming quick-ref
 
