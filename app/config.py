@@ -39,6 +39,12 @@ class Settings(BaseSettings):
     WEBHOOK_MAX_RETRIES: int = 5
     WEBHOOK_RETRY_DELAY_SECONDS: int = 30
 
+    # Rate limiting (ASP-FEAT-ASP-00 v1.0 §S-3, I-08)
+    # Per-tenant rate limits. Dormant by default; operator enables via env only.
+    RATE_LIMIT_ENABLED: bool = False
+    RATE_LIMIT_INVOKE_RPM: int = 60
+    RATE_LIMIT_JOBS_RPM: int = 120
+
     class Config:
         env_file = ".env"
         extra = "ignore"

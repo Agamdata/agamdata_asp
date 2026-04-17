@@ -24,8 +24,6 @@ Cross-tenant 404 (§11 I-12):
   - GET /ai/jobs/{job_id} filters WHERE job_id = ? AND tenant_id = ?.
   - Missing or cross-tenant job returns 404 (never 403) per ADR-012.
 """
-from __future__ import annotations
-
 import time
 import uuid
 
@@ -36,6 +34,7 @@ from sqlalchemy import select
 
 from app.gateway.auth import verify_api_key
 from app.gateway.cost_emitter import emit_cost_event_from_gateway
+from app.gateway.middleware.rate_limiter import INVOKE_RATE, JOBS_RATE, limiter
 from app.infra.db import get_session
 from app.models.db_models import AsyncJob
 from app.models.request import InvokeRequest
@@ -64,15 +63,19 @@ ASYNC_SERVICES = {"doc_intelligence", "prediction"}
 
 
 @router.post("/ai/invoke", response_model=None)
+@limiter.limit(INVOKE_RATE)   # I-08 — per-tenant RPM; dormant when disabled
 async def invoke(
-    req: InvokeRequest,
     request: Request,
+    req: InvokeRequest,
     tenant=Depends(verify_api_key),
 ):
     request_id = str(uuid.uuid4())
     # I-13 — expose request_id to exception handler and response-header
     # middleware via request.state.
     request.state.request_id = request_id
+    # I-08 — expose tenant_id so the rate limiter key function finds it
+    # (post-auth; the decorator evaluates key_func on the incoming request).
+    request.state.tenant_id = str(tenant.id)
 
     model = resolve_model(req.quality_tier)
 
@@ -165,13 +168,15 @@ async def invoke(
 
 
 @router.get("/ai/jobs/{job_id}", response_model=JobStatusResponse)
+@limiter.limit(JOBS_RATE)   # I-08 — per-tenant RPM; dormant when disabled
 async def get_job_status(
-    job_id: str,
     request: Request,
+    job_id: str,
     tenant=Depends(verify_api_key),
 ):
     request_id = str(uuid.uuid4())
     request.state.request_id = request_id
+    request.state.tenant_id = str(tenant.id)
 
     structlog.contextvars.clear_contextvars()
     structlog.contextvars.bind_contextvars(

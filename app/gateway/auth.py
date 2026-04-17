@@ -25,7 +25,7 @@ from datetime import datetime, timezone
 
 import bcrypt
 import structlog
-from fastapi import Header, HTTPException
+from fastapi import Header, HTTPException, Request
 from sqlalchemy import func, select
 
 from app.infra.db import get_session
@@ -59,14 +59,20 @@ def _unauthenticated() -> HTTPException:
 
 
 async def verify_api_key(
-    x_asp_api_key: str = Header(..., alias="X-ASP-API-Key"),
+    request: Request,
+    x_asp_api_key: str = Header(default=None, alias="X-ASP-API-Key"),
 ) -> Tenant:
     """Authenticate a request and return the owning Tenant.
 
-    Raises HTTPException(401) on any failure. The RFC 7807 envelope is
-    rendered by the global exception handler registered in app.main
-    (app.gateway.exception_handlers.http_exception_handler).
+    Raises HTTPException(401) on any failure, including a missing header.
+    Deliberately NOT using FastAPI `Header(...)` required default — that
+    would surface a 422 RequestValidationError envelope and leak a missing
+    auth header as a schema validation failure rather than an
+    authentication failure. The RFC 7807 envelope is rendered by the
+    global exception handler registered in app.main.
     """
+    if x_asp_api_key is None or x_asp_api_key == "":
+        raise _unauthenticated()
     key = x_asp_api_key
 
     # ---- Fast path: new format -----------------------------------------
@@ -89,6 +95,9 @@ async def verify_api_key(
             ):
                 tenant = await session.get(Tenant, row.tenant_id)
                 if tenant is not None and tenant.is_active:
+                    # Side-effect: surface tenant_id to request.state BEFORE
+                    # the rate-limiter wrapper evaluates its key_func.
+                    request.state.tenant_id = str(tenant.id)
                     log.info(
                         "auth_success",
                         path="new_format",
@@ -123,6 +132,7 @@ async def verify_api_key(
             if bcrypt.checkpw(key.encode("utf-8"), row.api_key_hash.encode("utf-8")):
                 tenant = await session.get(Tenant, row.tenant_id)
                 if tenant is not None and tenant.is_active:
+                    request.state.tenant_id = str(tenant.id)
                     log.info(
                         "auth_success",
                         path="legacy",

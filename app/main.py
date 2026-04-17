@@ -9,6 +9,8 @@ from app.infra.db import init_db
 from app.infra.redis import init_redis
 from app.gateway.router import router as gateway_router
 from app.gateway.exception_handlers import http_exception_handler
+from app.gateway.middleware.rate_limiter import limiter
+from slowapi.errors import RateLimitExceeded
 from app.cost.meter import router as cost_router
 from app.webhook.service import router as webhook_router
 from app.api.capabilities import router as capabilities_router
@@ -40,6 +42,35 @@ app.include_router(capabilities_router, prefix="/api/v1")
 # RFC 7807 global exception handler — renders problem+json envelope at top level.
 # Per ASP-FEAT-ASP-00 v1.0 §11 I-RFC7807.
 app.add_exception_handler(HTTPException, http_exception_handler)
+
+
+# I-08 — Rate limiter wiring.
+# Attach limiter to app so slowapi middleware can find it via app.state.limiter.
+# Translate RateLimitExceeded -> HTTPException(429) so the RFC 7807 handler
+# renders the problem+json envelope. Retry-After header is extracted from the
+# SlowAPI exception and forwarded.
+app.state.limiter = limiter
+
+
+@app.exception_handler(RateLimitExceeded)
+async def _rate_limit_exceeded_handler(request, exc: RateLimitExceeded):
+    # SlowAPI stores the human-readable limit string on exc.detail
+    # (e.g. "5 per 1 minute") and the retry window in exc.limit.
+    retry_after_s = 60  # conservative default — one full minute bucket
+    try:
+        reset = getattr(exc, "limit", None)
+        if reset is not None and hasattr(reset, "limit"):
+            # limits.RateLimitItem carries a GRANULARITY that maps to seconds
+            retry_after_s = int(reset.limit.GRANULARITY.seconds)
+    except Exception:
+        pass
+
+    http_exc = HTTPException(
+        status_code=429,
+        detail=f"Rate limit exceeded: {exc.detail}" if getattr(exc, "detail", None) else "Rate limit exceeded",
+        headers={"Retry-After": str(retry_after_s)},
+    )
+    return await http_exception_handler(request, http_exc)
 
 
 # I-13 — X-Request-Id response header (pure ASGI middleware).

@@ -6,8 +6,10 @@ and payload schemas at runtime.
 
 Spec: ASP-FEAT-ASP-03 v1.1, Section 4.1
 """
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
+
+from app.gateway.auth import verify_api_key
 
 router = APIRouter()
 
@@ -70,17 +72,26 @@ class CapabilitiesResponse(BaseModel):
 # ---------------------------------------------------------------------------
 
 @router.get("/ai/capabilities", response_model=CapabilitiesResponse)
-async def get_capabilities():
-    """List all supported services and their tasks (ADR-030)."""
+async def get_capabilities(tenant=Depends(verify_api_key)):
+    """List all supported services and their tasks (ADR-030).
+
+    Auth required (§S-7). Intentionally does NOT include migration_head
+    per Architect ruling 2026-04-17 — migration head is Zone 1 / operational,
+    not a Zone 2 consumer surface.
+    """
     return CapabilitiesResponse(services=SERVICE_CAPABILITIES)
 
 
 @router.get("/ai/schemas/{service_type}/{task}")
-async def get_task_schema(service_type: str, task: str):
+async def get_task_schema(
+    service_type: str,
+    task: str,
+    tenant=Depends(verify_api_key),
+):
     """Return JSON Schema for a specific task's payload model (ADR-030).
 
-    Returns the Pydantic model's JSON Schema via model_json_schema().
-    422 if service_type/task not in capabilities.
+    Auth required (§S-7). Returns the Pydantic model's JSON Schema via
+    model_json_schema(). 422 if service_type/task not in capabilities.
     """
     model = TASK_SCHEMA_MODELS.get((service_type, task))
     if model is None:

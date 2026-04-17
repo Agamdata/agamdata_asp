@@ -39,8 +39,9 @@ Source: ASP-INDEX.md (Chief Architect). This file mirrors the Locked Decisions s
 | ADR-029 | Fresh-DB alembic upgrade head must pass before any PR merges | ACCEPTED |
 | ADR-030 | Capability discovery endpoint (Zone 2 Shared Contract) | ACCEPTED |
 | ADR-031 | Phantom task resurrection requires formal caller integration req | ACCEPTED |
-| ADR-032 | API key rotation SOP — notify, overlap, acknowledge before revoke | QUEUED |
+| ADR-032 | API key rotation SOP — notify, overlap, acknowledge before revoke; multi-key junction mechanics | ACCEPTED |
 | ADR-033 | Per-service Pydantic strictness (generation=ignore, NLP=forbid) | ACCEPTED |
+| ADR-034 | OpenAPI schema export artifact on every migration | ACCEPTED |
 
 ---
 
@@ -146,7 +147,8 @@ ASP-INDEX.md is maintained by the ASP Development Team in the repo. Chief Archit
 
 ### ADR-030: Capability Discovery Endpoint
 **Context:** PAP called tasks that did not exist, with no runtime way to verify.
-**Decision:** `GET /api/v1/ai/capabilities` is a Zone 2 Shared Contract surface. Every consumer is entitled to query supported tasks and schemas at runtime. Consumers should validate at startup (ASP-GOV-CONSUMPTION-002 best practice).
+**Decision:** `GET /api/v1/ai/capabilities` and `GET /api/v1/ai/schemas/{service_type}/{task}` are Zone 2 Shared Contract surfaces. Every authenticated consumer is entitled to query supported tasks and Pydantic payload schemas at runtime. Consumers should validate at startup (ASP-GOV-CONSUMPTION-002 best practice).
+**Amendment (ASP-FEAT-ASP-00 v1.0, 2026-04-18):** Auth required on both endpoints (X-ASP-API-Key). The response shape is Zone 2: additive changes (new fields, new services, new tasks) are Type B; removals/retypes are Type C with 90-day deprecation. `migration_head` is intentionally NOT part of the capabilities response — it is Zone 1 operational state. Consumers requiring migration head use `GET /health` or a future admin endpoint.
 
 ### ADR-031: Phantom Task Resurrection Requires Formal Caller Integration Requirement
 **Context:** PAP Chief Architect confirmed `generate_test_cases_deep_dive` as FUTURE (MVP-3 target) in PAP-ASP-REQ-ASP-03 v1.0 Section 3. The task was previously deleted as a phantom (ASP-NOTE-004). Informal re-introduction without formal specification caused the original contract drift.
@@ -154,11 +156,23 @@ ASP-INDEX.md is maintained by the ASP Development Team in the repo. Chief Archit
 
 ### ADR-032: API Key Rotation SOP
 **Context:** ASP-DEFECT-010 — PAP experienced two unannounced key rotations (both side-effects of ASP-NOTE-004 remediation), each causing complete generation outage.
-**Decision:** Key rotation requires: (1) advance written notification to all affected consumers, (2) overlap window where both old and new keys are valid for minimum 5 business days, (3) explicit consumer acknowledgement before old key is revoked. **Status: QUEUED** — principle locked, mechanics deferred to ASP-FEAT-ASP-00 v1.0 next sprint.
+**Decision:** Key rotation requires: (1) advance written notification to all affected consumers, (2) overlap window where both old and new keys are valid for minimum 5 business days, (3) explicit consumer acknowledgement before old key is revoked.
+
+**Code mechanics locked (ASP-FEAT-ASP-00 v1.0, 2026-04-18). Status: ACCEPTED.**
+
+1. **Multi-key junction table `tenant_api_keys`** (migration 023) replaces single `tenants.api_key_hash`. Columns: `id`, `tenant_id`, `key_prefix VARCHAR(12)`, `api_key_hash VARCHAR(255)`, `issued_at`, `expires_at NULL`, `revoked_at NULL`, `is_active`, `label NULL`, audit timestamps. CHECK `ck_tenant_api_keys_revocation_consistency` and `ck_tenant_api_keys_expiry_order`. UNIQUE index on `key_prefix`.
+2. **New key format** `asp_<prefix12>_<secret32>` (49 chars). 12-char base36 prefix enables O(1) lookup (replaces pre-v1.0 O(N) scan across all tenants). 32-char base62 secret (~190 bits).
+3. **Dual-path auth** during the 90-day Type C window (PE-1 sunset date pending PAP coordination): new format → O(1) prefix lookup + 1 bcrypt; legacy → O(N) scan restricted to rows with `key_prefix` starting `leg_` (matched with `func.left(key_prefix, 4) == 'leg_'`, not LIKE — avoids `_` wildcard collision).
+4. **5-step rotation protocol**: issue new → overlap → consumer acknowledges success on new prefix → operator revokes (`is_active=FALSE`, `revoked_at=now()`) → audit trail retained (soft delete).
+5. **Post-sunset cleanup migration** (unnumbered per ADR-028 until ready to write) deletes legacy rows and removes the dual-path branch from `auth.py`.
 
 ### ADR-033: Per-Service Pydantic Strictness
 **Context:** ADR-008 mandates `extra="forbid"` globally. PAP filed DEFECT-009 requesting forward compatibility — caller context fields evolve with test scenarios and 422 on unknown fields breaks PAP.
 **Decision:** Generation service payloads use `ConfigDict(extra="ignore")` as a documented exception. NLP and all other services retain `extra="forbid"` per ADR-008. Exception is service-scoped, documented per-model, INFO log emitted on dropped fields for observability.
 
+### ADR-034: OpenAPI Schema Export Artifact on Every Migration
+**Context:** ASP's external contract surface (request/response models, error envelope, capability response) grows with every governed spec. Consumers (notably PAP CI) need a machine-readable, version-pinned record of the contract at each DB state for automated drift detection. Locked by ASP-FEAT-ASP-00 v1.0 2026-04-18.
+**Decision:** ASP exports an OpenAPI 3.x JSON snapshot at each migration apply. Stored at `docs/openapi/asp-openapi-<migration_head>.json`. Migration head is the version identifier — ties the schema snapshot to the exact DB state it describes. Consumed by PAP CI for contract drift detection. Step added to `CLAUDE.md` Post-Implementation Checklist: after applying any migration, run `python scripts/export_openapi.py` and commit the resulting snapshot.
+
 ## Last Updated
-2026-04-11
+2026-04-18

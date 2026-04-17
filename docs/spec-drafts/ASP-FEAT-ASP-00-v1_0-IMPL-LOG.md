@@ -156,3 +156,43 @@ Fresh DB dropped post-test. Live DB unchanged (already at 0023 from earlier appl
 both applied correctly on live and proven reversible in isolation.
 Proceeding to I-02 ORM without further ruling per Architect directive.
 
+## 2026-04-18 · Phase 4 — rate limiter + endpoint auth: three engineering decisions
+
+**D-1 — Rate-limit strings as callables, not pre-computed constants.**
+`@limiter.limit(INVOKE_RATE)` captures the value at decoration time (app
+startup), so mutating `settings.RATE_LIMIT_INVOKE_RPM` at runtime or in
+tests had no effect on already-decorated endpoints. Changed `INVOKE_RATE`
+and `JOBS_RATE` in `app/gateway/middleware/rate_limiter.py` from module-
+level strings to zero-arg functions that read `settings.RATE_LIMIT_*_RPM`
+per request. SlowAPI natively accepts callables in `@limiter.limit(...)`.
+This preserves AC-S3-05's "activation via env var + restart only; no code
+deployment" semantics.
+
+**D-2 — `verify_api_key` is now a side-effecting dependency.**
+`@limiter.limit`'s `key_func` is evaluated by SlowAPI's route wrapper
+*before* the endpoint body runs. The previous design set
+`request.state.tenant_id` inside the endpoint body — by which time the
+limiter had already keyed requests by client IP, not tenant_id, causing
+tenant B to be throttled because tenant A had saturated the shared IP
+bucket (AC-S3-03 FAIL). Fix: `verify_api_key` now accepts `request: Request`
+and writes `request.state.tenant_id = str(tenant.id)` on success, before
+returning. Tenant_id is therefore on state by end of dependency
+resolution — prior to the limiter wrapper — and per-tenant keying works
+correctly.
+
+**D-3 — `Header(default=None)` for `X-ASP-API-Key` (spec compliance, not a defect).**
+With `Header(...)` (required), FastAPI raised a `RequestValidationError`
+for missing headers, handled by the default 422 handler — leaking a
+missing auth header as a schema-validation failure. Spec requires 401
+RFC 7807 for missing keys. Changed to `Header(default=None, alias=...)`
+and added `if x_asp_api_key is None or x_asp_api_key == "": raise
+_unauthenticated()` at the top of `verify_api_key`. Missing auth header
+now returns 401 RFC 7807 (spec requirement) rather than 422
+RequestValidationError (FastAPI default). `Header(default=None)` allows
+auth code to run and emit the correct envelope. This is a spec
+compliance decision, not a defect.
+
+**Status.** All three decisions shipped in Phase 4 commit. Applied to
+`app/gateway/middleware/rate_limiter.py` (D-1), `app/gateway/auth.py`
+(D-2, D-3).
+
