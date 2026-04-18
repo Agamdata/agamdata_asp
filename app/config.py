@@ -37,6 +37,22 @@ class Settings(BaseSettings):
     # (Celery) and RAG read path (FastAPI) see the same collections.
     CHROMA_PERSIST_PATH: str = "/chroma/data"
 
+    # RAG embedding model (ASP-02 — I-RAG-02, Architect 20:10 IST Option C).
+    # Explicit binding replaces ChromaDB's ONNXMiniLM_L6_V2 default. The model
+    # is pre-downloaded into the container image at build time (see Dockerfile
+    # `sentence-transformers preload` step) so first-request latency is zero
+    # and no runtime network fetch is ever required. Collection metadata
+    # snapshots this value as `asp_embedding_model` for drift detection.
+    RAG_EMBEDDING_MODEL: str = "sentence-transformers/all-MiniLM-L6-v2"
+
+    # Chroma client singleton TTL (ASP-02 — I-RAG-02, OQ-RAG-CACHE-01 Option B).
+    # The ai-service `_chroma_client` singleton caches the collection registry
+    # in-memory. After this many seconds, the next `get_chroma_client()` call
+    # re-initialises the client so cross-process writes (from Ontology Manager
+    # in celery-worker) become visible without requiring an ai-service restart.
+    # Pilot default: 5 minutes.
+    CHROMA_CLIENT_TTL_SECONDS: int = 300
+
     # Model routing
     MODEL_STANDARD: str = "claude-haiku-4-5-20251001"
     MODEL_ENHANCED: str = "claude-sonnet-4-5-20251001"

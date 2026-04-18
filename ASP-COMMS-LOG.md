@@ -26,8 +26,10 @@ this log — if PAP references them, we will back-populate them on request.
 | ASP-OUT-003 | `suggest_screen_mapping` lead time (PAP W-5 blocker) | 2026-04-18 | **OPEN** | 2026-04-18 18:47 IST |
 | ASP-OUT-004 | PAP-ASP-REQ-ASP-03 v2.0 acceptance (form_data amendment + coverage-aware scope) | 2026-04-17 | **CLOSED** | 2026-04-18 |
 | ASP-OUT-006 | Communication protocol update — milestone-only reporting + MSG-ID tagging + COMMS-LOG pre-check | 2026-04-18 | **CLOSED** (ACCEPTED, effective immediately) | 2026-04-18 20:30 IST |
+| ASP-OUT-007 | I-RAG-02 rulings + Stream A Batch 1 directive (warmup Option C, OQ-RAG-CACHE-01 Option B, migration 024 pre-write gate rulings, Batch 1 §1–§5 verbatim content, L2-override deactivation) | 2026-04-18 20:35 IST | **CLOSED** | 2026-04-18 (DEV-IN-007 milestone report) |
+| ASP-OUT-008 | Status check — I-RAG-02 build + smoke + two-commit sequence overdue | 2026-04-18 | **CLOSED** | 2026-04-18 (DEV-IN-008 stop-and-report + this milestone report) |
 
-Totals as of 2026-04-18 20:30 IST: **1 OPEN** (ASP-OUT-003), **2 CLOSED** (ASP-OUT-004, ASP-OUT-006).
+Totals as of 2026-04-18 21:00 IST: **1 OPEN** (ASP-OUT-003), **4 CLOSED** (ASP-OUT-004, ASP-OUT-006, ASP-OUT-007, ASP-OUT-008).
 
 ---
 
@@ -81,6 +83,57 @@ Totals as of 2026-04-18 20:30 IST: **1 OPEN** (ASP-OUT-003), **2 CLOSED** (ASP-O
 ---
 
 ## Closed threads
+
+### ASP-OUT-008 — Status check: I-RAG-02 + Stream A milestone overdue — CLOSED 2026-04-18
+
+- **Filed:** 2026-04-18 by Principal Architect, ASP
+- **State at filing:** OPEN (immediate response required)
+- **Scope:** Status verification on four items — build completion, `alembic current` post-build, I-RAG-02 smoke test, commit 1/commit 2 push state.
+
+**Dev Team response (DEV-IN-008, same day):**
+
+Filed a stop-and-report per standing rule reporting "build never ran" based on zero bytes in the background log, stale image creation timestamp (2026-04-16), and no `docker build` process in `ps -ef`. All three signals were consistent with a stalled build BUT were equally consistent with an in-progress BuildKit invocation (BuildKit suppresses non-TTY stdout, tags the image only at export time, and runs in `dockerd` not as a shell child). The build was in fact running the whole time and completed normally 446.8s later with image creation `2026-04-18T08:26:55Z`, sentence-transformers preload present, and `dim=384` load verified.
+
+**Lesson captured in the ASP-FEAT-ASP-02 IMPL-LOG** (routing gaps + recovery-cost entry). For future Dockerfile-rebuild operations: completion is only safe to claim when EITHER (a) `docker compose build` exits in the foreground OR (b) image creation-time changes AND a functional probe against the new image succeeds. Log-file-size and process-listing are not reliable signals.
+
+**Post-build state (this milestone):**
+
+- `alembic current` returns `0023 (head)` cleanly post-swap ✅
+- I-RAG-02 smoke test: **7/7 PASS**
+- Commit 1 (I-RAG-02) + Commit 2 (Stream A pre-write gate + Batch 1 skeleton) pushed — see DEV-IN-007 milestone report for hashes.
+
+**State at closure:** CLOSED. Both items ASP-OUT-007 and ASP-OUT-008 resolve in this milestone report.
+
+---
+
+### ASP-OUT-007 — I-RAG-02 rulings + Stream A Batch 1 directive — CLOSED 2026-04-18
+
+- **Filed:** 2026-04-18 20:35 IST by Principal Architect, ASP
+- **State at filing:** OPEN (awaiting I-RAG-02 completion report + Batch 1 draft)
+- **Scope:** Restated the 19:30 and 20:10 IST directives (neither delivered to this session), locked rulings on warmup, cache TTL, embedding-snapshot disposition, L2-override deactivation, migration 024 shape, and Batch 1 verbatim content for §1–§5.
+
+**Rulings locked:**
+
+1. **Warmup Option C** — sentence-transformers + Dockerfile build-step preload. Implementation on disk matches.
+2. **OQ-RAG-CACHE-01 Option B** — 5-minute TTL (`CHROMA_CLIENT_TTL_SECONDS=300`). Implementation on disk matches.
+3. **`_check_embedding_model_snapshot`** — warn-on-drift, **not** fail-closed. ADR-035 governs fail-closed in the RAG spec (ASP-FEAT-ASP-02), not in the v2.0 Generation amendment.
+4. **L2-override row (`e92c4809`, v1)** — deactivate in migration 024 alongside the v3 canonical row (`e6c88ca5`).
+5. **G-2 `locator_source`** — Pydantic Literal only; no PG enum; no DB type change.
+6. **G-5 `alembic current` pre-build error** — expected; resolves post-build via `COPY . .`. Confirmed `0023 (head)` clean post-build in this milestone.
+7. **Two-commit plan approved.**
+8. **Batch 1 §1–§5 verbatim content** provided by Architect and used as-is in the draft.
+
+**Dev Team response (DEV-IN-007 — this milestone report):**
+
+Completion artefacts:
+
+- Commit 1: I-RAG-02 code + Dockerfile + impl-log routing-gaps entry + impl-log I-RAG-02 entry + ASP-COMMS-LOG updates. Smoke test 7/7 PASS.
+- Commit 2: Stream A pre-write gate logged + Batch 1 skeleton surfaced at `docs/spec-drafts/ASP-FEAT-ASP-03-v2_0.md` with §1–§5 populated per Architect's verbatim content.
+- 3-way sync (ASP-COMMS-LOG and any governance doc touches).
+
+**State at closure:** CLOSED.
+
+---
 
 ### ASP-OUT-006 — Communication protocol update — CLOSED 2026-04-18
 
@@ -143,4 +196,4 @@ Totals as of 2026-04-18 20:30 IST: **1 OPEN** (ASP-OUT-003), **2 CLOSED** (ASP-O
 
 ## Last Updated
 
-2026-04-18 20:30 IST — added ASP-OUT-006 protocol update (CLOSED/ACCEPTED). Totals: 1 OPEN (ASP-OUT-003), 2 CLOSED (ASP-OUT-004, ASP-OUT-006).
+2026-04-18 21:00 IST — added ASP-OUT-007 (I-RAG-02 rulings) and ASP-OUT-008 (status-check) entries; both CLOSED via DEV-IN-007 / DEV-IN-008 milestone reports. Totals: 1 OPEN (ASP-OUT-003), 4 CLOSED (ASP-OUT-004, ASP-OUT-006, ASP-OUT-007, ASP-OUT-008).

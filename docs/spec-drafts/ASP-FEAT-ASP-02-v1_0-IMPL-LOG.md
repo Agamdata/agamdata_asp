@@ -143,3 +143,151 @@ beat becomes less attractive.
 
 These two dependencies will be surfaced explicitly in the Batch 1
 draft of the spec when Stream A completes.
+
+---
+
+## 2026-04-18 · Routing gaps (consolidated)
+
+Per Principal Architect directive ASP-OUT-007 (20:35 IST): log the
+19:30 IST and 20:10 IST routing gaps as a single consolidated entry.
+
+**What was missed.** Two consecutive Architect → ASP Dev Team directives
+did not arrive in this session:
+
+- **19:30 IST** — hold-lift + Stream A (migration 024 spec draft) + Stream B
+  (I-RAG-01, I-RAG-02, I-RAG-03) green lights. Recovered via the 19:55 IST
+  RESUME restatement after I flagged the mis-route.
+- **20:10 IST** — warmup Option C + OQ-RAG-CACHE-01 Option B + I-RAG-02 begin
+  + Stream A pre-write gate in parallel. Recovered via the 20:20 IST
+  duplicate-report handling + 20:35 IST ASP-OUT-007 restatement.
+
+Three related mis-routes in a 2-hour window (the PAP-Dev-Team `DEV-OUT-010`
+packet that arrived at 18:45 IST also appears to have been intended for a
+different session). Root cause per Architect: "session routing issue on
+the forwarding side, not a dev team error."
+
+**Operational impact on this session.** None durable. Every directive was
+recovered via restatement within the same 2-hour window; all rulings are
+now locked (warmup Option C, OQ-RAG-CACHE-01 Option B, L2-override
+deactivation in migration 024, ADR-035 governs fail-closed-later,
+no-DDL migration 024). No code or governance artefact was built on a
+guessed ruling.
+
+**Recovery-cost finding in this session (separate from the routing gaps).**
+At 20:40 IST I filed DEV-IN-008 reporting "build never ran" based on:
+(a) zero bytes in the background log, (b) image creation time still
+2026-04-16, (c) no `docker build` process in `ps -ef`. All three signals
+were consistent with a stalled build BUT were also consistent with an
+in-progress BuildKit invocation: BuildKit suppresses non-TTY stdout,
+tags the image only at export time (the final step — which on this
+build took 240 seconds alone), and runs inside dockerd not as a child of
+my shell. The build was in fact running the whole time and completed
+normally (446.8 seconds). **Lesson for the spec's §11 Implementation
+Checklist:** a Dockerfile-rebuild step is not complete until either
+(a) `docker compose build` exits in the foreground, or (b) background
+completion is confirmed by image creation-time changing AND a functional
+probe against the new image (e.g. `docker run --rm ... python -c ...`),
+not by process-listing or log-file-size heuristics. Added to the
+spec-authoring cross-reference list.
+
+**Status.** CLOSED — rulings applied in I-RAG-02 and Stream A.
+
+---
+
+## 2026-04-18 · I-RAG-02 — Explicit embedding + Dockerfile preload + 5-min TTL
+
+**Scope.** Replace ChromaDB's implicit default embedding (`ONNXMiniLM_L6_V2`)
+with an explicit `SentenceTransformerEmbeddingFunction` bound at both
+ingest and query sites. Pre-download the embedding model into the
+container image at build time so first-request latency is zero.
+Snapshot the embedding model name into collection metadata for drift
+detection. Apply a 5-minute TTL to the `_chroma_client` singleton so
+cross-container writes from celery-worker become visible in ai-service
+without a restart. Closes G-3 and OQ-RAG-CACHE-01 from the pre-spec
+survey.
+
+**Rulings applied** (all locked at ASP-OUT-007, 20:35 IST):
+
+- Warmup policy: **Option C** — sentence-transformers + Dockerfile
+  build-step preload.
+- OQ-RAG-CACHE-01: **Option B** — 5-minute TTL on the singleton.
+- `_check_embedding_model_snapshot`: **warn-on-drift, not fail-closed.**
+  ADR-035 will govern the fail-closed policy when the RAG spec is
+  accepted.
+
+**Code changes.**
+
+- `app/config.py`:
+  - `RAG_EMBEDDING_MODEL: str = "sentence-transformers/all-MiniLM-L6-v2"`
+  - `CHROMA_CLIENT_TTL_SECONDS: int = 300`
+- `app/services/rag.py`:
+  - New `_get_embedding_function()` singleton returning
+    `SentenceTransformerEmbeddingFunction(model_name=settings.RAG_EMBEDDING_MODEL)`.
+  - `get_chroma_client()` now re-initialises after TTL expiry; emits
+    `rag_chroma_client_initialised` with `reason=first_init|stale_ttl`
+    and `ttl_seconds` bound.
+  - Explicit `embedding_function=_get_embedding_function()` passed to both
+    `client.get_collection(...)` (read path in `retrieve`) AND
+    `client.get_or_create_collection(...)` (write path in `upsert_chunks`).
+    Closes the ingest/query consistency gap.
+  - Collection metadata now snapshots `asp_embedding_model` alongside
+    `hnsw:space`.
+  - New `_check_embedding_model_snapshot(collection)` helper — warn-only
+    today; structlog event `rag_embedding_model_mismatch` fires on drift
+    with `stored_model`, `configured_model`, and remediation text.
+  - Module docstring updated to describe the explicit binding,
+    snapshot contract, and I-RAG-01 → I-RAG-02 history.
+- `Dockerfile`:
+  - New `RUN python -c "from sentence_transformers import SentenceTransformer; SentenceTransformer('sentence-transformers/all-MiniLM-L6-v2')"`
+    step between `pip install -r requirements.txt` and `COPY . .`
+  - Must match `settings.RAG_EMBEDDING_MODEL` default. If the two drift,
+    the explicit-EF init will still work but will trigger a runtime
+    network fetch for the new model.
+
+**Build.** `docker compose build ai-service celery-worker` — 446.8s
+wall-clock (first run; subsequent rebuilds hit the `pip install` layer
+cache and only re-run the preload if the model name changes).
+
+**Smoke test matrix (against live ai-service post-swap):**
+
+| # | Check | Result |
+|---|---|---|
+| T1 | Explicit EF class is `SentenceTransformerEmbeddingFunction`; first embedding call has zero network latency; dim=384 | ✅ PASS (1.599 s first call, fully local) |
+| T2 | Upsert creates collection with `asp_embedding_model` snapshot in metadata | ✅ PASS (`{'asp_embedding_model': 'sentence-transformers/all-MiniLM-L6-v2', 'hnsw:space': 'cosine'}`) |
+| T3 | Retrieve produces real results using the same EF at query time | ✅ PASS (2 chunks returned for a semantically-matching query) |
+| T4 | ADR-004 `exclude_tables` filter honoured against real embedding data | ✅ PASS (`leads` excluded; only `customers` returned) |
+| T5 | `_check_embedding_model_snapshot` warns on mismatch, silent on match, silent on absent snapshot | ✅ PASS (one `rag_embedding_model_mismatch` warning logged for the injected mismatch) |
+| T6 | TTL expiry re-initialises the `_chroma_client` singleton | ✅ PASS (Python `id()` differs before/after forced stale) |
+| T7 | Teardown — smoke collection deleted, live state clean | ✅ PASS (`remaining=[]`) |
+
+**Status.** I-RAG-02 COMPLETE. Live DB: migration 0023, 0 ChromaDB
+collections (post-teardown), pap_runner tenant untouched.
+
+---
+
+## 2026-04-18 · Stream A — Migration 024 pre-write gate
+
+**Captured post-build** (alembic current returned `0023 (head)` cleanly
+after the image swap — Gate 5 closed).
+
+| Gate | Finding |
+|---|---|
+| G-1 Schema | No new tables; no new columns. Migration 024 is prompt-row UPDATE/INSERT only (same pattern as 019/020). |
+| G-2 Types | No DB type changes. `locator_source` extension is Pydantic `Literal` only — Python-side, no PG enum. Architect confirmed at 20:35 IST. |
+| G-3 Contract | Batch 1 (§1–§5) drafted per Architect's verbatim content for this spec (§5 locks deactivation of BOTH the v3 canonical row AND the v1 L2-override row). Ready to surface for review. |
+| G-4 Audit | No CHECK constraints on `prompt_templates`. `UNIQUE(service_type, task, caller_module, maturity_level, version, ab_variant)` — the new v4 row tuple (`generation`, `generate_test_cases_with_inventory`, `playwright_runner`, `*`, `4`, `inventory`) is unique. No collision. |
+| G-5 Migration | **`alembic current` returns `0023 (head)` cleanly post-build** (the "Can't locate revision identified by '0023'" error from the mid-session pre-build state is resolved; post-swap image contains the 0023 migration file via `COPY . .`). `down_revision = "0023"` for 024. Single head after apply expected. |
+| G-6 Frontend | N/A |
+| G-7 Dependency | `GenerateTestCasesWithInventoryPayload` has 15 fields today. 024 adds `form_data: dict[str,str] \| None = None` (+1 = 16 fields) and widens `locator_source: Literal["verified"]` → `Literal["verified", "live_extracted"]` (Python-only). |
+
+**Prompt-row targets in migration 024:**
+
+| Row | caller_module | maturity | version | ab_variant | action in 024 |
+|---|---|---|---|---|---|
+| `e92c4809-…` | playwright_runner | L2 | 1 | inventory | **Deactivate** (per ASP-OUT-007 §5 directive — stale v1 schema semantics) |
+| `e6c88ca5-…` | playwright_runner | * | 3 | inventory | **Deactivate** (superseded by v4) |
+| new | playwright_runner | * | 4 | inventory | **Insert** (v4 system + user prompt with coverage-aware rules, form_data rendering block, live_extracted branch) |
+
+**Status.** Pre-write gate COMPLETE. All seven gates closed or N/A.
+Migration 024 file **not yet written** per Architect directive — held until
+Batch 1 is reviewed.
