@@ -348,9 +348,9 @@ No new error types in v2.0. All envelope rendering inherited from Gateway global
 
 ## §7 Request / Response Detail
 
-### §7.1 `GenerateTestCasesWithInventoryPayload` v2 (17 fields)
+### §7.1 `GenerateTestCasesWithInventoryPayload` v2 — 17 fields (authoritative)
 
-File: `app/schemas/generation_schemas.py`. `ConfigDict(extra="ignore")` preserved per ADR-033.
+File: `app/schemas/generation_schemas.py`. `ConfigDict(extra="ignore")` preserved per ADR-033. **Pydantic model is authoritative** (Architect ruling at ASP-OUT-010, 2026-04-18): 15 baseline fields + `form_data` + `categories_to_generate` = **17 fields**. The earlier "16" figure in the directive was an Architect count correction now superseded by this authoritative statement.
 
 | # | Field | Type | New in v2.0? | Notes |
 |---|---|---|---|---|
@@ -372,7 +372,7 @@ File: `app/schemas/generation_schemas.py`. `ConfigDict(extra="ignore")` preserve
 | 16 | `form_data` | `Optional[dict[str, str]] = None` | **NEW** (S-2) | Seed values for form inputs. When `None`, LLM synthesises realistic values from field names (prompt v4 rendering block). |
 | 17 | `categories_to_generate` | `Optional[list[str]] = None` | **NEW** (S-1) | Caller-requested category list. When `None`, LLM covers full canonical set. |
 
-**Reconciliation with Architect's "16 fields" count:** the Architect may have been counting field additions (+form_data +categories_to_generate = 2 new) against the baseline 15 = 17. If the intent was 16, that's likely 15 + 1 (form_data only) with `categories_to_generate` counted as an output-shape concern. Flagging for Architect confirmation; the Pydantic model is authoritative once accepted.
+**Reconciliation closed (ASP-OUT-010):** Architect confirmed 17 fields is authoritative; the earlier "16" was a count error in the directive. See impl-log entry "2026-04-18 · Architect field count corrected to 17 per Pydantic model authority."
 
 ### §7.2 `GenerateTestCasesWithInventoryOutput` v2
 
@@ -463,7 +463,7 @@ v2.0 splits `generate_test_cases_with_inventory` into **two prompt rows** by `ca
 
 ### §9.2 Shared prompt fragments (maintained across both rows)
 
-To mitigate drift-between-rows risk, the following text fragments are maintained **verbatim identical** across both v4 rows. AC-SHARED-01 (Batch 3) will verify via substring match that every row contains each fragment with a marker comment like `<!-- SHARED_FRAGMENT: OUTPUT_CONTRACT_V3 -->`.
+**Governed invariant (ASP-OUT-010):** **Shared fragments must be identical across both rows. Any divergence is a prompt drift defect.** The four named fragments below appear verbatim in both v4 `INSERT` statements in migration 024 operations 3 and 4. AC-SHARED-01 (§12) verifies via substring match that every row contains each fragment with its marker comment `<!-- SHARED_FRAGMENT: <NAME> -->`.
 
 | Fragment ID | Purpose |
 |---|---|
@@ -616,4 +616,252 @@ No new ADRs introduced by v2.0.
 
 ---
 
-**End of Batch 2 (§6–§10). Batch 3 (§11 Implementation Checklist · §12 Acceptance Criteria · §13 Open Questions · §14 Change Log) follows on review.**
+**End of Batch 2 (§6–§10).** Batch 3 follows.
+
+---
+
+## §11 Implementation Checklist
+
+All tasks owned by the ASP Development Team. Order below is the recommended
+execution order; numbered labels are stable identifiers referenced in §12
+ACs.
+
+### I-024-01 — Write and apply migration 024 (prompt-only, 5 ops)
+
+- Write `alembic/versions/0024_<slug>.py` with `down_revision = "0023"`.
+- Five ordered operations per §5:
+  1. UPDATE deactivate v3 canonical row (`e6c88ca5-…`).
+  2. UPDATE deactivate L2-override row (`e92c4809-…`).
+  3. INSERT v4 `playwright_runner` row (F-03-08 + F-03-04).
+  4. INSERT v4 `test_generator` row (F-01-10).
+  5. INSERT `refactor_script_locators` v1 row (playwright_runner, *).
+- Both INSERTs (ops 3 + 4) must contain all four shared fragments
+  verbatim (AC-SHARED-01).
+- Downgrade reverses in exact opposite order.
+- Fresh-DB round-trip per ADR-029 before applying to live:
+  - `alembic upgrade head` on empty DB must run 0001 → 0024.
+  - `alembic heads` returns single head 0024.
+  - `alembic downgrade -1` then `alembic upgrade head` round-trips clean.
+- Update `CLAUDE.md` applied chain; update `ASP-SCHEMA-CURRENT.md`;
+  update `ASP-INDEX.md` migration head.
+
+### I-024-02 — Pydantic schema updates (`app/schemas/generation_schemas.py`)
+
+- `GenerateTestCasesWithInventoryPayload`:
+  - Add `form_data: Optional[dict[str, str]] = None` (S-2).
+  - Add `categories_to_generate: Optional[list[str]] = None` (S-1).
+  - Widen `locator_source: Literal["verified"]` → `Literal["verified", "live_extracted"]` (S-3). Default remains `"verified"`.
+- `GenerateTestCasesWithInventoryOutput`:
+  - Add `covered_categories: list[str] = Field(default_factory=list)` (S-1).
+- New `RefactorScriptLocatorsPayload` and `RefactorScriptLocatorsOutput` per §7.3/§7.4 (S-5).
+- `ConfigDict(extra="ignore")` on payloads per ADR-033.
+- `ConfigDict(extra="forbid")` on outputs.
+
+### I-024-03 — Handler update: `_build_generation_instructions()`
+
+- Extend the user-prompt rendering helper to:
+  - Render a "Categories Requested" block from `payload.categories_to_generate` when present; render "Categories: all canonical" when None.
+  - Render a "Form Data Context" block from `payload.form_data` when present; render the synthesize-realistic-values instruction when None (matches `FORM_DATA_BLOCK` shared fragment rendering contract).
+  - Pass through the count instruction unchanged (post-OPS-003 neutral wording).
+- Post-parse: extract `covered_categories` from the LLM output and return it on `GenerateTestCasesWithInventoryOutput`.
+
+### I-024-04 — Handler update: `locator_source` branch
+
+- In `app/services/generation.py`, the branch consuming `payload.locator_source`:
+  - `"verified"`: unchanged from v1.1 (trust inventory).
+  - `"live_extracted"`: new branch. Treat inventory as best-effort; prefer role/label/testid selectors; populate `missing_locators` more liberally when confidence is low (matches `LOCATOR_SOURCE_BRANCH` shared fragment).
+
+### I-024-05 — Handler mode detection: F-01-10 caller
+
+- In `generation.handle()`, when `req.task == "generate_test_cases_with_inventory"`, resolve the prompt row on `(req.caller_module, maturity_level, ab_variant=inventory)`. No change to dispatch code required — Prompt Registry (ADR-005/007) already keys on `caller_module`, so the new `test_generator` row is selected automatically when PAP sends `caller_module="test_generator"` for F-01-10 calls.
+- Add a structlog sanity event `generation_caller_routed` bound with `caller_module`, `caller_feature`, `resolved_prompt_id` for per-request observability of the split.
+
+### I-024-06 — `refactor_script_locators` handler
+
+- Add `_handle_refactor_script_locators(req, model, request_id)` in `app/services/generation.py`.
+- Slots into the existing `_handle_generic` pattern (prompt lookup → LLM → JSON parse → Pydantic validate). No RAG, no additional services.
+- `TASK_MAX_TOKENS["refactor_script_locators"] = 8192`.
+
+### I-024-07 — Register `refactor_script_locators` in `VALID_TASKS`
+
+- `VALID_TASKS.add("refactor_script_locators")` in `app/services/generation.py`.
+- `TASK_PAYLOAD_VALIDATORS["refactor_script_locators"] = RefactorScriptLocatorsPayload`.
+- `TASK_OUTPUT_SCHEMAS["refactor_script_locators"] = RefactorScriptLocatorsOutput`.
+- `TASK_MAX_TOKENS["refactor_script_locators"] = 8192`.
+
+### I-RAG-04 — `docker-compose.yml` celery `-B` flag
+
+**Not a new Stream B item; checklist entry to close the pre-existing gap surfaced during I-RAG-03 verification.**
+
+- Update celery-worker command in `docker-compose.yml`:
+  ```yaml
+  command: celery -A app.worker worker -B --loglevel=info
+  ```
+  Note: `--concurrency=4` is dropped alongside adding `-B` because embedding beat inside a multi-concurrency worker is not the recommended Celery pattern. Pilot single-instance single-beat is fine; if scale demands concurrency, split into a separate `celery beat` service later.
+- Recreate celery-worker (`docker compose up -d celery-worker`).
+- Verify the scheduler boots by tailing worker logs for `Scheduler: Sending due task ontology-sync-daily` at the next trigger (02:00 UTC) and `Sending due task monthly-cost-aggregation` at the next 1st-of-month 01:00 UTC. For AC verification use a temporary `crontab(minute="*")` override to force a near-term trigger, then revert.
+
+### I-024-08 — AC verification (36+ ACs)
+
+- Write `tests/test_generation_v2.py` covering all five scope items + cross-cutting + AC-SHARED-01 + I-RAG-04.
+- Mirror Gateway/ASP-01 test pattern: `httpx.AsyncClient + ASGITransport`, stubbed LLM call where appropriate to avoid Anthropic dependency during AC runs.
+- Full 36+ AC matrix per §12. 100% PASS required before GOVERNED.
+
+### I-024-09 — Governance sync + 4-way sync
+
+- Update `CLAUDE.md`, `ASP-SCHEMA-CURRENT.md`, `ASP-INDEX.md`, `ASP-ADR.md`, `ASP-DEFECT-REGISTER.md` (if any new defect surfaced during AC), `ASP-COMMS-LOG.md`.
+- 4-way sync per ADR-026.2 across repo + three asp-projects mirrors.
+- sha256 checksum verification.
+
+### I-024-10 — OpenAPI snapshot export (ADR-034)
+
+- After migration 024 applies, export the OpenAPI 3.x JSON snapshot:
+  `python -c "import json; from app.main import app; print(json.dumps(app.openapi(), indent=2))" > docs/openapi/asp-openapi-0024.json`
+- Verify the snapshot includes:
+  - `GenerateTestCasesWithInventoryPayload` with 17 fields, `form_data` and `categories_to_generate` nullable.
+  - `locator_source` as `anyOf: ["verified", "live_extracted"]` enum.
+  - `RefactorScriptLocatorsPayload` / `Output` schemas.
+- Commit alongside the migration per `CLAUDE.md` Post-Implementation Checklist step 5.
+
+## §12 Acceptance Criteria
+
+**Target: 36+ ACs.** Actual: **37** — S-1 (8) + S-2 (4) + S-3 (4) + S-4 (4) + S-5 (8) + AC-SHARED-01 (1) + I-RAG-04 (2) + AC-CC (5) + AC-BC (1) = 37. 100% PASS required before GOVERNED.
+
+### S-1 — Coverage-aware generation (8 ACs)
+
+| AC | Statement | Verification |
+|---|---|---|
+| **AC-S1-01** | Request with `categories_to_generate=["boundary_values","unauthorised_access"]` returns exactly 2 test cases, one per category | integration test; assert `len(test_cases) == 2` + category tagging |
+| **AC-S1-02** | Request with `categories_to_generate=None` returns at least 5 test cases covering the canonical set | integration test; assert `len(test_cases) >= 5` |
+| **AC-S1-03** | `covered_categories` field is populated on every response whether `categories_to_generate` was present or not | output schema assertion |
+| **AC-S1-04** | Request with `categories_to_generate=[]` (empty list) returns 422 at Pydantic validation | assert 422 + RFC 7807 envelope |
+| **AC-S1-05** | Request with an unknown category name (e.g. `"made_up_category"`) results in the LLM skipping it; `covered_categories` does not contain the unknown name; `missing_locators` (or equivalent warning channel) surfaces the skip | integration test |
+| **AC-S1-06** | `covered_categories` is always a **subset** of `categories_to_generate` when the latter is present (never a superset) | assertion on every response where `categories_to_generate` is provided |
+| **AC-S1-07** | Order of `categories_to_generate` is preserved in `covered_categories` when both are present | order-sensitive list compare |
+| **AC-S1-08** | Coverage-gap detection: when `categories_to_generate=[A,B,C]` and the LLM covers only [A,B], the response has `covered_categories=[A,B]` (not `[A,B,C]`) so callers can detect the gap | integration test; induce partial coverage via constrained prompt or short max_tokens |
+
+### S-2 — `form_data` seed context (4 ACs)
+
+| AC | Statement | Verification |
+|---|---|---|
+| **AC-FORM-01** (v2.0 acceptance) | Request with `form_data={"first_name":"Alice","email":"alice@example.com"}` produces at least one step whose value contains `"Alice"` or `"alice@example.com"` | integration test; scan `test_cases[*].steps[*].value` |
+| **AC-FORM-02** (v2.0 acceptance) | Request without `form_data` returns 200 with behaviour unchanged from v1.1; LLM synthesises plausible values | behaviour-parity test against a v1.1 golden payload |
+| **AC-S2-03** | `form_data` with invalid value types (e.g. `form_data={"x": 123}`) returns 422 (Pydantic rejects non-string values) | assert 422 on `dict[str, int]` payload |
+| **AC-S2-04** | `script_text` (for `refactor_script_locators`) and `form_data` payload contents are NOT written to any ASP persistent store: `cost_events`, `prompt_templates`, `async_jobs`, `tenants`, `tenant_api_keys`, or `webhook_registrations` | post-test SQL scan on all seven tables; assert zero rows contain the probe string from any payload |
+
+### S-3 — `locator_source="live_extracted"` support (4 ACs)
+
+| AC | Statement | Verification |
+|---|---|---|
+| **AC-S3-01** | Request with `locator_source="live_extracted"` returns 200 with `missing_locators` typically more populated than the `"verified"` equivalent (live-DOM inventory is best-effort) | paired-request comparison; not a strict inequality but a trend assertion |
+| **AC-S3-02** | Request with `locator_source="verified"` returns output structurally identical to v1.1 baseline | behaviour-parity test against v1.1 golden payload |
+| **AC-S3-03** | Request with `locator_source="live"` or any value outside `{"verified","live_extracted"}` returns 422 | Pydantic Literal validation |
+| **AC-S3-04** | OPS-009 trigger: after migration 024 is applied, PAP's `PAP_F0110_LOCATOR_SOURCE="live_extracted"` switch is valid. Confirmed by an integration call carrying the new value and receiving a 200; recorded in ASP-COMMS-LOG as PAP-side switch completed | out-of-band test + COMMS-LOG entry |
+
+### S-4 — F-01-10 caller registration (4 ACs)
+
+| AC | Statement | Verification |
+|---|---|---|
+| **AC-S4-01** | Request with `caller_module="test_generator"` and `task="generate_test_cases_with_inventory"` resolves to the v4-interactive prompt row (different `prompt_template_id` than the playwright_runner row) | test captures `generation_caller_routed` structlog event + asserts `resolved_prompt_id` differs between calls |
+| **AC-S4-02** | Request with `caller_module="playwright_runner"` resolves to the v4-batch prompt row | same pattern, assert the paired IDs differ |
+| **AC-S4-03** | Request with `caller_feature="F-01-10"` produces a `cost_events` row with `caller_feature="F-01-10"`; structlog events `invoke_start` / `invoke_complete` carry `caller_feature="F-01-10"` via contextvars | DB scan + log capture |
+| **AC-S4-04** | F-01-10 request with typical live-extracted payload completes within the 30 s ceiling at p95 under Haiku (`standard` tier) | latency harness; 20 iterations over a small fixture |
+
+### S-5 — `refactor_script_locators` (8 ACs)
+
+| AC | Statement | Verification |
+|---|---|---|
+| **AC-S5-01** | Happy path: payload with `script_text` + changed `locator_inventory` returns 200 with `refactored_script` non-empty, `changes_summary` non-empty, `locators_replaced` with at least one entry when selectors changed | integration test with a known before/after fixture |
+| **AC-S5-02** | When no locator has changed (inventory identical to what the original script uses), the handler returns `refactored_script == script_text` verbatim and `changes_made == []`; `unchanged_reason` is populated with a human-readable explanation | behaviour-parity assertion |
+| **AC-S5-03** | Ambiguous change (e.g. two plausible replacements for a removed selector) produces a warning entry in `changes_summary` flagging the ambiguity; the LLM picks one option and says so rather than failing | inspection of `changes_summary` content |
+| **AC-S5-04** | Payload with missing `script_text` or missing `script_format` returns 422 at Pydantic validation | assert 422 on each absent required field |
+| **AC-S5-05** | Empty `locator_inventory` returns 422 (payload-level `min_length=1` assumption enforced in Pydantic model) | assert 422 |
+| **AC-S5-06** | `script_text` is NOT written to any ASP persistent store (covered by AC-S2-04 tables scan; re-listed here for S-5 traceability) | cross-reference to AC-S2-04 |
+| **AC-S5-07** | Request with `quality_tier="enhanced"` correctly invokes `claude-sonnet-4-6` for the refactor task (higher-quality model warranted for non-trivial refactors) | model routing assertion |
+| **AC-S5-08** | Output `stop_reason == "end_turn"` on a standard-size payload (no truncation); `refactored_script` is syntactically valid in its declared `script_format` | linter hook in test (py compile for Python, basic syntax check for TS) |
+
+### AC-SHARED-01 — Cross-row shared-fragment consistency (1 AC)
+
+| AC | Statement | Verification |
+|---|---|---|
+| **AC-SHARED-01** | The four named shared fragments — `OUTPUT_CONTRACT_V3`, `CATEGORIES_SCHEMA`, `FORM_DATA_BLOCK`, `LOCATOR_SOURCE_BRANCH` — appear verbatim identical (byte-for-byte) in both v4 prompt rows (`caller_module="playwright_runner"` and `caller_module="test_generator"`). Any divergence is a prompt drift defect. | Post-migration SQL scan: `SELECT caller_module, system_prompt, user_prompt_template FROM prompt_templates WHERE task='generate_test_cases_with_inventory' AND version=4;` → extract each fragment (delimited by `<!-- SHARED_FRAGMENT: <NAME> -->` markers) → diff → assert `difflib.ndiff` is empty. Enforcement policy per OQ-3 (default: manual review at migration authoring time; CI-enforceable later). |
+
+### I-RAG-04 — Celery beat `-B` flag (2 ACs)
+
+| AC | Statement | Verification |
+|---|---|---|
+| **AC-RAG04-01** | After `-B` flag lands and celery-worker is recreated, the `ontology-sync-daily` scheduled task fires at its next trigger; a `ontology_sync_scheduled_trigger` structlog event appears in the worker logs | worker-log tail around the trigger time OR a temporary `crontab(minute="*")` override for near-term AC verification |
+| **AC-RAG04-02** | The pre-existing `monthly-cost-aggregation` scheduled task also fires (regression check — `-B` enables ALL entries, not just the new one) | worker-log tail OR temporary override |
+
+### AC-CC — Cross-cutting (5 ACs)
+
+| AC | Statement | Verification |
+|---|---|---|
+| **AC-CC-01** | Migration 024 applies cleanly on a fresh empty DB from head 0023; `alembic heads` returns single head `0024`; `alembic downgrade -1` then `alembic upgrade head` round-trips without error | fresh-DB round-trip per ADR-029 |
+| **AC-CC-02** | Every v2.0 response (success and error) carries the `X-Request-Id` header matching the body `request_id` | inherited from Gateway; re-asserted here for v2.0 endpoints |
+| **AC-CC-03** | ADR-033 INFO log emitted once per dropped extra field on generation payloads; dropped fields do not propagate into the prompt | log-capture test |
+| **AC-CC-04** | `caller_feature` bound via `structlog.contextvars` appears on every generation-service log event in the request lifecycle (`invoke_start`, `invoke_complete`, `generation_caller_routed`, `generation_prompt_resolved`, `generation_output_parsed`) | log-capture test |
+| **AC-CC-05** | Backward compatibility: v1.1 payloads (no `form_data`, no `categories_to_generate`, `locator_source="verified"`) continue to produce output that passes the v1.1 AC suite after v2.0 lands | regression run of the v1.1 golden suite |
+
+### AC-BC — Behavioural correction (1 AC)
+
+| AC | Statement | Verification |
+|---|---|---|
+| **AC-BC-01** | v2.0 ships with exactly two v4 prompt rows (playwright_runner + test_generator) for `generate_test_cases_with_inventory`. A single-row configuration is rejected at migration authoring (AC-SHARED-01 cannot pass with only one row, by definition). | structural check on `prompt_templates` after migration 024 |
+
+**Total: 37 ACs.** All must pass before GOVERNED closure.
+
+## §13 Open Questions
+
+| OQ | Question | Owner | Default (pilot) |
+|---|---|---|---|
+| **OQ-1** | `refactor_script_locators` `changes_made` entries — should they reference exact line numbers in `script_text` or element names only? | Principal Architect | **Element names only.** Line numbers are fragile to any whitespace or import reorder; element-name references are semantically stable. Implementation aligns with this default unless overruled. |
+| **OQ-2** | F-01-10 30-second ceiling — enforcement mechanism: handler timeout (async timeout wrapper) or LLM `max_tokens` (constrain output size)? | Principal Architect | **`max_tokens=4096` for interactive mode (v4-interactive row).** Already locked in §9.6. Handler timeout rejected as primary mechanism because it leaks half-generated output on the floor; max_tokens forces the LLM to self-bound. If p95 latency still exceeds 30s, handler timeout becomes a secondary guard in a follow-up TSCD. |
+| **OQ-3** | AC-SHARED-01 enforcement — manual review at migration-authoring time or automated CI diff? | Principal Architect | **Manual review at migration authoring time** (pilot). CI automation is a follow-up: a post-migration hook that extracts the four fragments from each of the two v4 rows and asserts `difflib.ndiff` is empty. Added to the RAG spec's §11 as a future item (not required for v2.0 GOVERNED). |
+
+### Closed in this spec cycle
+
+- **OQ-RAG-CACHE-01** — CLOSED. Architect ruling ASP-OUT-007, 2026-04-18 20:35 IST: Option B (5-minute TTL) is the pilot default. Implementation landed in I-RAG-02 (`CHROMA_CLIENT_TTL_SECONDS=300`). Listed here for audit completeness.
+
+## §14 Change Log
+
+### v2.0-draft
+
+| Version | Date | Author | Notes |
+|---|---|---|---|
+| v2.0-draft (§1–§5) | 2026-04-18 | ASP Development Team | Batch 1 surfaced; five-item scope locked per ASP-OUT-007 verbatim content; migration 024 allocated as prompt-only. |
+| v2.0-draft (§6–§10) | 2026-04-18 | ASP Development Team | Batch 2 surfaced; Note 2 SPLIT-by-caller ruling; three-caller matrix; `refactor_script_locators` schemas; PII policy for `script_text` (Zone 3). |
+| v2.0-draft (§11–§14) | 2026-04-18 | ASP Development Team | Batch 3 surfaced; §11 checklist (I-024-01..10 + I-RAG-04); §12 37 ACs; §13 3 open questions + OQ-RAG-CACHE-01 closed; §14 this log. |
+| v2.0 (accepted) | TBD | ASP Development Team + Principal Architect | Awaiting Batch 3 review + AC verification. |
+
+### Baseline
+
+- **v1.1** (ASP-FEAT-ASP-03, GOVERNED 2026-04-12, ASP-NOTE-005) — 32/32 AC PASS, commit `e8e3896`, PAP confirmed `1b32600`.
+- **TSCD-001** (amendment to v1.1, IMPLEMENTED 2026-04-15, ASP-NOTE-006) — migration 019, dual-mode F-03-08/F-03-04, max_tokens=12288, page_type/screen_key.
+
+### Scope items (summary)
+
+| # | Item | Migration 024 op | Handler change | Schema change |
+|---|---|---|---|---|
+| S-1 | Coverage-aware generation | Prompt rules + category-rendering block | `_build_generation_instructions()` extension; parse `covered_categories` | `+categories_to_generate`; `+covered_categories` on output |
+| S-2 | `form_data` seed context | Prompt form-data-block | `_build_generation_instructions()` extension | `+form_data` |
+| S-3 | `locator_source="live_extracted"` | Prompt branch | Handler `locator_source` branch | Pydantic Literal widened |
+| S-4 | F-01-10 third caller | Separate v4 row for `test_generator` | No dispatch change (Prompt Registry handles it) | — |
+| S-5 | `refactor_script_locators` new task | v1 row seeded | New `_handle_refactor_script_locators` in generic dispatch | New Payload + Output models; `+VALID_TASKS` entry |
+
+### Behavioural corrections from pre-governance / pre-v2.0 state
+
+| # | Pre-v2.0 | v2.0 | Impact |
+|---|---|---|---|
+| **BC-1** | v1.1 left room for interpreting async conversion of F-03-08/F-03-04 as a latent v2.0 scope item | v2.0 explicitly locks "async conversion for F-03-08 AND F-03-04 is OUT OF SCOPE" in §3 non-goals and §4 Classification | No code change; explicit spec language prevents a future TSCD from treating the gap as a v2.0 oversight. |
+| **BC-2** | Original ASP-OUT-007 directive proposed a single v4 row covering all five scope items + all three callers | v2.0 adopts the SPLIT-by-caller prompt architecture: two v4 rows (`playwright_runner` for F-03-08 + F-03-04, `test_generator` for F-01-10) | Dev Team ruling accepted by Architect at ASP-OUT-010. Rationale: OPS-003 mode-selection-in-prompt failure pattern. Migration 024 ops 3 + 4 split from a single INSERT. AC-SHARED-01 guards drift. |
+
+### Forward-note entries for future specs
+
+- **ADR-035 (proposed)** — RAG embedding-model fail-closed gate. Belongs to ASP-FEAT-ASP-02 (RAG spec), not v2.0.
+- **Handler timeout secondary guard for F-01-10** — tracked in OQ-2 as the follow-up mechanism if `max_tokens=4096` alone does not hold the 30s ceiling under live pilot traffic.
+- **CI automation of AC-SHARED-01** — tracked in OQ-3; pilot is manual review.
+
+---
+
+**End of Batch 3 (§11–§14). All 14 sections drafted. 37 ACs locked. Awaiting Architect review before migration 024 alembic file authoring + implementation follows §11 checklist.**

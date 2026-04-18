@@ -347,3 +347,19 @@ confirming beat schedule registration") is met.
 I-RAG-03) now closed. Celery beat process itself is not running in
 pilot compose (pre-existing gap); flagged for §11 when the RAG spec
 is authored.
+
+---
+
+## 2026-04-18 · Architect field count corrected to 17 per Pydantic model authority
+
+**Context (Note 1 resolution, ASP-OUT-010).** The ASP-OUT-007 directive
+specified "v4 prompt row covers... 16 fields". Dev Team draft §7.1
+documented 17 fields (15 baseline + `form_data` + `categories_to_generate`).
+Architect confirmed at ASP-OUT-010: Pydantic model is authoritative;
+17 fields is correct; the "16" in the earlier directive was a count
+error. No code change. Spec §7.1 header now states 17 fields
+authoritatively.
+
+**Status.** CLOSED — reconciled. Flagged here so the audit trail
+records the one-field delta between the directive and the authoritative
+schema.

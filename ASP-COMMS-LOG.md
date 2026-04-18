@@ -28,9 +28,10 @@ this log — if PAP references them, we will back-populate them on request.
 | ASP-OUT-006 | Communication protocol update — milestone-only reporting + MSG-ID tagging + COMMS-LOG pre-check | 2026-04-18 | **CLOSED** (ACCEPTED, effective immediately) | 2026-04-18 20:30 IST |
 | ASP-OUT-007 | I-RAG-02 rulings + Stream A Batch 1 directive (warmup Option C, OQ-RAG-CACHE-01 Option B, migration 024 pre-write gate rulings, Batch 1 §1–§5 verbatim content, L2-override deactivation) | 2026-04-18 20:35 IST | **CLOSED** | 2026-04-18 (DEV-IN-007 milestone report) |
 | ASP-OUT-008 | Status check — I-RAG-02 build + smoke + two-commit sequence overdue | 2026-04-18 | **CLOSED** | 2026-04-18 (DEV-IN-008 stop-and-report + DEV-IN-007 milestone report) |
-| ASP-OUT-009 | Batch 1 review ruling (ACCEPTED with 2 notes) + Batch 2 green light + I-RAG-03 directive | 2026-04-18 | **OPEN** | 2026-04-18 (DEV-IN-009 in flight — Batch 2 surfaced for review; I-RAG-03 complete) |
+| ASP-OUT-009 | Batch 1 review ruling (ACCEPTED with 2 notes) + Batch 2 green light + I-RAG-03 directive | 2026-04-18 | **CLOSED** | 2026-04-18 (DEV-IN-009 milestone report; I-RAG-03 complete; Batch 2 accepted at ASP-OUT-010) |
+| ASP-OUT-010 | Batch 2 review ruling (ACCEPTED with 3 notes) + Batch 3 green light + I-RAG-04 checklist integration | 2026-04-18 | **OPEN** | 2026-04-18 (DEV-IN-010 in flight — Batch 3 surfaced for review) |
 
-Totals as of 2026-04-18 21:30 IST: **2 OPEN** (ASP-OUT-003, ASP-OUT-009), **4 CLOSED** (ASP-OUT-004, ASP-OUT-006, ASP-OUT-007, ASP-OUT-008).
+Totals as of 2026-04-18 22:00 IST: **2 OPEN** (ASP-OUT-003, ASP-OUT-010), **5 CLOSED** (ASP-OUT-004, ASP-OUT-006, ASP-OUT-007, ASP-OUT-008, ASP-OUT-009).
 
 ---
 
@@ -85,7 +86,34 @@ Totals as of 2026-04-18 21:30 IST: **2 OPEN** (ASP-OUT-003, ASP-OUT-009), **4 CL
 
 ## Closed threads
 
-### ASP-OUT-009 — Batch 1 review ruling + Batch 2 green light + I-RAG-03 directive — OPEN
+### ASP-OUT-010 — Batch 2 review ruling + Batch 3 green light + I-RAG-04 checklist integration — OPEN
+
+- **Filed:** 2026-04-18 by Principal Architect, ASP
+- **State at filing:** OPEN (awaiting Batch 3 surface for review)
+- **Scope:** Three Batch 2 notes + Batch 3 detailed authoring guidance + I-RAG-04 integration into §11.
+
+**Three Batch 2 notes applied (in Commit 5 of this turn):**
+
+1. **§7 — 17 vs 16 field count:** Architect confirmed 17 is authoritative; earlier "16" was a directive count error. §7.1 header rewritten; reconciliation logged in ASP-FEAT-ASP-02-v1_0-IMPL-LOG.md as "Architect field count corrected to 17 per Pydantic model authority."
+2. **§9 — Four named shared fragments:** Governed invariant locked — "Shared fragments must be identical across both rows. Any divergence is a prompt drift defect." Explicit statement added to §9.2; AC-SHARED-01 in §12 enforces via post-migration SQL scan + diff.
+3. **§10 — script_text PII policy:** accepted as written; AC on no-persistence added in §12 as AC-S2-04 with a cross-reference from S-5.
+
+**Batch 3 §11/§12/§13/§14 drafted:**
+
+- §11: Ten I-024-NN items (migration, Pydantic, handler extensions, new task, AC verification, governance sync, OpenAPI snapshot) + I-RAG-04 for the pre-existing celery -B gap.
+- §12: **37 ACs** (exceeding the 36-minimum target): S-1 (8) + S-2 (4, including AC-FORM-01/02 from v2.0 acceptance + the no-persistence AC) + S-3 (4, including OPS-009 switch trigger) + S-4 (4) + S-5 (8) + AC-SHARED-01 (1) + I-RAG-04 (2) + AC-CC cross-cutting (5) + AC-BC behavioural correction (1).
+- §13: 3 open questions (OQ-1 refactor line-numbers vs element-names, OQ-2 F-01-10 30s enforcement mechanism, OQ-3 AC-SHARED-01 enforcement mode), all with pilot defaults. OQ-RAG-CACHE-01 closed (Option B 5-min TTL ruling already applied in I-RAG-02).
+- §14: v2.0-draft log + v1.1 + TSCD-001 baseline; five-scope-item summary table; BC-1 (async deferred) + BC-2 (split-by-caller) behavioural corrections; forward-note entries (ADR-035, handler timeout secondary guard, CI automation of AC-SHARED-01).
+
+**State at this milestone:** OPEN until Architect reviews Batch 3 and rules on:
+- OQ-1, OQ-2, OQ-3 (defaults provided; override if desired)
+- Any §11 checklist adjustments
+- Any §12 AC additions or re-scoping
+- Green light to begin migration 024 authoring + implementation
+
+---
+
+### ASP-OUT-009 — Batch 1 review ruling + Batch 2 green light + I-RAG-03 directive — CLOSED 2026-04-18
 
 - **Filed:** 2026-04-18 by Principal Architect, ASP
 - **State at filing:** OPEN (awaiting Batch 2 surface + I-RAG-03 completion report)
@@ -226,4 +254,4 @@ Completion artefacts:
 
 ## Last Updated
 
-2026-04-18 21:30 IST — added ASP-OUT-009 (Batch 1 review + Batch 2 green light + I-RAG-03 directive). State OPEN until Architect reviews Batch 2. DEV-IN-009 milestone report surfaces Batch 2 and I-RAG-03 completion. Totals: 2 OPEN (ASP-OUT-003, ASP-OUT-009), 4 CLOSED.
+2026-04-18 22:00 IST — ASP-OUT-009 CLOSED (Batch 2 accepted at ASP-OUT-010; I-RAG-03 complete via DEV-IN-009). Added ASP-OUT-010 (Batch 2 review + Batch 3 green light). State OPEN until Architect reviews Batch 3. DEV-IN-010 milestone report surfaces Batch 3. Totals: 2 OPEN (ASP-OUT-003, ASP-OUT-010), 5 CLOSED.
