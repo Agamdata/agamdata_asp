@@ -29,7 +29,16 @@ services:
       # development. This mount does not change production packaging.
       - "./app:/app/app"
       - "chroma_data:/chroma/data"
-    command: celery -A app.worker worker --loglevel=info --concurrency=4
+    # I-RAG-04 (ASP-OUT-010/011, 2026-04-18): add -B flag so the
+    # embedded beat scheduler actually runs the entries in
+    # celery_app.conf.beat_schedule (ontology-sync-daily and
+    # monthly-cost-aggregation). Previously absent — both scheduled
+    # tasks were dead code in pilot. --concurrency=4 dropped because
+    # embedding beat inside a multi-concurrency worker is not the
+    # recommended Celery pattern; pilot single-worker + embedded beat
+    # is fine. If scale demands concurrency later, split into a
+    # separate `celery beat` service per the Celery docs.
+    command: celery -A app.worker worker -B --loglevel=info
 
   flower:
     build: .
