@@ -27,9 +27,10 @@ this log — if PAP references them, we will back-populate them on request.
 | ASP-OUT-004 | PAP-ASP-REQ-ASP-03 v2.0 acceptance (form_data amendment + coverage-aware scope) | 2026-04-17 | **CLOSED** | 2026-04-18 |
 | ASP-OUT-006 | Communication protocol update — milestone-only reporting + MSG-ID tagging + COMMS-LOG pre-check | 2026-04-18 | **CLOSED** (ACCEPTED, effective immediately) | 2026-04-18 20:30 IST |
 | ASP-OUT-007 | I-RAG-02 rulings + Stream A Batch 1 directive (warmup Option C, OQ-RAG-CACHE-01 Option B, migration 024 pre-write gate rulings, Batch 1 §1–§5 verbatim content, L2-override deactivation) | 2026-04-18 20:35 IST | **CLOSED** | 2026-04-18 (DEV-IN-007 milestone report) |
-| ASP-OUT-008 | Status check — I-RAG-02 build + smoke + two-commit sequence overdue | 2026-04-18 | **CLOSED** | 2026-04-18 (DEV-IN-008 stop-and-report + this milestone report) |
+| ASP-OUT-008 | Status check — I-RAG-02 build + smoke + two-commit sequence overdue | 2026-04-18 | **CLOSED** | 2026-04-18 (DEV-IN-008 stop-and-report + DEV-IN-007 milestone report) |
+| ASP-OUT-009 | Batch 1 review ruling (ACCEPTED with 2 notes) + Batch 2 green light + I-RAG-03 directive | 2026-04-18 | **OPEN** | 2026-04-18 (DEV-IN-009 in flight — Batch 2 surfaced for review; I-RAG-03 complete) |
 
-Totals as of 2026-04-18 21:00 IST: **1 OPEN** (ASP-OUT-003), **4 CLOSED** (ASP-OUT-004, ASP-OUT-006, ASP-OUT-007, ASP-OUT-008).
+Totals as of 2026-04-18 21:30 IST: **2 OPEN** (ASP-OUT-003, ASP-OUT-009), **4 CLOSED** (ASP-OUT-004, ASP-OUT-006, ASP-OUT-007, ASP-OUT-008).
 
 ---
 
@@ -83,6 +84,35 @@ Totals as of 2026-04-18 21:00 IST: **1 OPEN** (ASP-OUT-003), **4 CLOSED** (ASP-O
 ---
 
 ## Closed threads
+
+### ASP-OUT-009 — Batch 1 review ruling + Batch 2 green light + I-RAG-03 directive — OPEN
+
+- **Filed:** 2026-04-18 by Principal Architect, ASP
+- **State at filing:** OPEN (awaiting Batch 2 surface + I-RAG-03 completion report)
+- **Scope:** Three items bundled.
+
+**Item 1 — Batch 1 review:** ACCEPTED with two notes.
+- Note 1: §4 must explicitly lock async conversion for F-03-08 AND F-03-04 as OUT OF SCOPE in non-goals. Applied in Commit 3 (Batch 2) — §3 out-of-scope item amended; §4 Classification "Mode" row rewritten to call out v2.0 fully synchronous and async-deferred.
+- Note 2: Rule on single-row-for-all-scope-items vs split-by-caller (F-01-10 → test_generator caller_module) before writing v4 prompt text. **Dev Team ruling: SPLIT by caller.** Rationale: OPS-003 demonstrated mode-selection-in-prompt unreliability; Prompt Registry's resolution key is designed for caller-module split; shared fragments maintained across rows with AC-SHARED-01 (Batch 3 AC) to detect drift. §5 migration-024 operations expanded from 4 ops to 5 (two v4 INSERTs, one per caller_module). §9 Prompt Design documents the split and the shared-fragment contract.
+
+**Item 2 — Batch 2 (§6–§10):** surfaced in Commit 3.
+- §6 API Contract: common envelope + three calling modes (F-03-08 batch, F-03-04 single-TC, F-01-10 interactive) + `refactor_script_locators` subsection + error matrix.
+- §7 Request/Response Detail: `GenerateTestCasesWithInventoryPayload` v2 documented as **17 fields** (discrepancy with Architect's "16" flagged for review — Dev Team counted form_data + categories_to_generate as two new fields on top of 15 baseline = 17; Architect may have intended 16 with one field counted elsewhere; Pydantic model is authoritative once accepted). Full `RefactorScriptLocatorsPayload` / `Output` schemas authored. `covered_categories` on output model. `locator_source: Literal["verified", "live_extracted"]` confirmed as Pydantic-only (G-2).
+- §8 Caller Integration: three-caller matrix, `refactor_script_locators` integration, F-01-10 guidance on `missing_locators` + low-confidence live_extracted handling.
+- §9 LLM and Prompt Design: Note 2 ruling baked in (SPLIT). Shared fragments enumerated. v4-batch / v4-interactive / refactor_script_locators prompt structures drafted. `max_tokens` per caller + task.
+- §10 Security: tenant isolation unchanged. ADR-033 extra-field behaviour unchanged. **New policy** on `refactor_script_locators.script_text` PII handling (Zone 3 caller responsibility; ASP does not persist; DEBUG logs are privileged; no new security surface).
+
+**Item 3 — I-RAG-03 Celery beat schedule:** implemented in Commit 4.
+- Gate met: `run_ontology_sync` was a plain function, wrapped as Celery task `app.ontology.manager.run_ontology_sync` with optional args.
+- Cron-path (no args) logs `ontology_sync_scheduled_trigger` as pilot no-op; follow-up spec task extends to iterate active tenants.
+- Manual-path (full args) retains existing behaviour; partial-args raises ValueError.
+- `ontology-sync-daily` beat entry registered with `crontab(hour=2, minute=0)` and `options={"queue": "celery"}`.
+- Verified in-process: beat_schedule dict carries entry; `celery_app.tasks["app.ontology.manager.run_ontology_sync"]` resolves to a Task object; cron no-op returns None; full-args roundtrip upserts 1 chunk and cleans up.
+- **Pre-existing gap flagged (not fixed in I-RAG-03):** `docker-compose.yml` celery-worker command lacks `-B`. No beat process is actually running. Follow-up: add `-B` flag when RAG spec §11 requires scheduler execution.
+
+**State at this milestone:** Still OPEN — Architect's review of Batch 2 and ruling on AC-SHARED-01, the 17-vs-16 field count reconciliation, and any §6–§10 notes are required before Batch 3 starts.
+
+---
 
 ### ASP-OUT-008 — Status check: I-RAG-02 + Stream A milestone overdue — CLOSED 2026-04-18
 
@@ -196,4 +226,4 @@ Completion artefacts:
 
 ## Last Updated
 
-2026-04-18 21:00 IST — added ASP-OUT-007 (I-RAG-02 rulings) and ASP-OUT-008 (status-check) entries; both CLOSED via DEV-IN-007 / DEV-IN-008 milestone reports. Totals: 1 OPEN (ASP-OUT-003), 4 CLOSED (ASP-OUT-004, ASP-OUT-006, ASP-OUT-007, ASP-OUT-008).
+2026-04-18 21:30 IST — added ASP-OUT-009 (Batch 1 review + Batch 2 green light + I-RAG-03 directive). State OPEN until Architect reviews Batch 2. DEV-IN-009 milestone report surfaces Batch 2 and I-RAG-03 completion. Totals: 2 OPEN (ASP-OUT-003, ASP-OUT-009), 4 CLOSED.
