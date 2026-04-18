@@ -27,6 +27,16 @@ class Settings(BaseSettings):
     # Context store TTL
     CONTEXT_TTL_SECONDS: int = 3600
 
+    # ChromaDB persistence (ASP-02 RAG — I-RAG-01)
+    # Switched from chromadb.Client() (ephemeral) to PersistentClient(path=...)
+    # on 2026-04-18. The ephemeral client meant nl_to_sql retrieval has never
+    # survived a container restart; coupled with the ONNX model cache miss
+    # (no model.onnx ever downloaded), the capability had never executed
+    # successfully in any pilot environment. Path is a named Docker volume
+    # shared between ai-service and celery-worker so the Ontology Manager
+    # (Celery) and RAG read path (FastAPI) see the same collections.
+    CHROMA_PERSIST_PATH: str = "/chroma/data"
+
     # Model routing
     MODEL_STANDARD: str = "claude-haiku-4-5-20251001"
     MODEL_ENHANCED: str = "claude-sonnet-4-5-20251001"

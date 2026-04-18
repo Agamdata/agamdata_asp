@@ -7,8 +7,11 @@ services:
       DATABASE_URL: postgresql+asyncpg://user:pass@postgres:5432/aiservice
       REDIS_URL: redis://redis:6379/0
       S3_ENDPOINT: http://minio:9000
+      CHROMA_PERSIST_PATH: /chroma/data
     depends_on: [postgres, redis, minio]
-    volumes: ["./app:/app/app"]
+    volumes:
+      - "./app:/app/app"
+      - "chroma_data:/chroma/data"
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 
   celery-worker:
@@ -17,7 +20,15 @@ services:
     environment:
       DATABASE_URL: postgresql+asyncpg://user:pass@postgres:5432/aiservice
       REDIS_URL: redis://redis:6379/0
+      CHROMA_PERSIST_PATH: /chroma/data
     depends_on: [redis, postgres]
+    volumes:
+      # Mount source for dev-parity with ai-service (I-RAG-01, 2026-04-18).
+      # Previously absent — celery-worker ran from the baked image while
+      # ai-service ran from the mount, producing silent code-drift during
+      # development. This mount does not change production packaging.
+      - "./app:/app/app"
+      - "chroma_data:/chroma/data"
     command: celery -A app.worker worker --loglevel=info --concurrency=4
 
   flower:
@@ -44,4 +55,4 @@ services:
     command: server /data --console-address ":9001"
     volumes: ["minio_data:/data"]
 
-volumes: { pg_data: {}, minio_data: {} }
+volumes: { pg_data: {}, minio_data: {}, chroma_data: {} }

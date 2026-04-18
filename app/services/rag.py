@@ -1,26 +1,49 @@
 """
 ASP-02 RAG Service
 
-Uses ChromaDB locally, OpenSearch/pgvector in production.
+Persistence: chromadb.PersistentClient(path=settings.CHROMA_PERSIST_PATH)
 Collection name: asp_schema_{tenant_id}
-Embedding model: sentence-transformers/all-MiniLM-L6-v2
+Embedding model: ONNXMiniLM_L6_V2 (ChromaDB default — NOT the
+sentence-transformers MiniLM of the same architecture; I-RAG-02 will make
+this explicit and ADR-035 locks the choice). The previous docstring claim
+of "sentence-transformers/all-MiniLM-L6-v2" was incorrect — see the
+probe findings in docs/spec-drafts/ASP-FEAT-ASP-02-v1_0-IMPL-LOG.md.
 
 Each chunk stored in ChromaDB MUST have metadata:
 { "table_name": str, "module": str, "tenant_id": str, "chunk_type": "schema"|"example" }
+
+I-RAG-01 change (2026-04-18): switched from chromadb.Client() (ephemeral,
+in-process) to chromadb.PersistentClient(path=settings.CHROMA_PERSIST_PATH)
+so collections survive container restarts. Closes G-1 from the pre-spec
+survey.
 """
 from typing import Optional
 import chromadb
 import structlog
 
+from app.config import settings
+
 log = structlog.get_logger()
 
-_chroma_client: Optional[chromadb.Client] = None
+_chroma_client: Optional["chromadb.api.ClientAPI"] = None
 
 
-def get_chroma_client() -> chromadb.Client:
+def get_chroma_client() -> "chromadb.api.ClientAPI":
+    """Return a process-wide ChromaDB PersistentClient.
+
+    The client is initialised lazily on first access. Storage path is
+    settings.CHROMA_PERSIST_PATH (a named Docker volume shared between
+    the ai-service and celery-worker containers so the read path and the
+    Ontology Manager write path see the same collections).
+    """
     global _chroma_client
     if _chroma_client is None:
-        _chroma_client = chromadb.Client()
+        _chroma_client = chromadb.PersistentClient(path=settings.CHROMA_PERSIST_PATH)
+        log.info(
+            "rag_chroma_client_initialised",
+            path=settings.CHROMA_PERSIST_PATH,
+            client_type=type(_chroma_client).__name__,
+        )
     return _chroma_client
 
 
