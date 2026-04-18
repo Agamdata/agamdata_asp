@@ -86,10 +86,54 @@ def sync_schema(
         log.info("ontology_sync_complete", tenant_id=tenant_id, module=module, chunks=len(chunks))
 
 
-# --- Celery task (cron mode) ---
-# Registered in worker.py; runs periodically to keep ChromaDB in sync.
-def run_ontology_sync(tenant_id: str, module: str, schema_definitions: list[dict]) -> None:
-    """Entry point for Celery periodic task."""
+# --- Celery task (cron mode) -----------------------------------------------
+# I-RAG-03 (ASP-OUT-009, 2026-04-18): registered as a Celery task so the
+# beat schedule in app/worker.py can trigger it. All args are optional so
+# the daily cron invocation (no args) is valid; manual invocations with
+# explicit (tenant_id, module, schema_definitions) retain the existing
+# one-shot behaviour.
+#
+# Cron-path (no args) is currently a structured no-op: it logs that the
+# scheduled trigger fired. A follow-up spec task will extend the cron path
+# to iterate active tenants + resolve their schema registry. The present
+# pilot does not have a tenant/schema registry; shipping the cron entry
+# with an observable no-op satisfies ASP-OUT-009 without accidentally
+# seeding speculative data.
+
+from typing import Optional
+
+from app.worker import celery_app
+
+
+@celery_app.task(name="app.ontology.manager.run_ontology_sync")
+def run_ontology_sync(
+    tenant_id: Optional[str] = None,
+    module: Optional[str] = None,
+    schema_definitions: Optional[list[dict]] = None,
+) -> None:
+    """Celery task — unified entry point for manual and scheduled sync."""
+    if tenant_id is None and module is None and not schema_definitions:
+        # Scheduled (cron) path — Celery beat invokes with no args.
+        log.info(
+            "ontology_sync_scheduled_trigger",
+            note="pilot no-op — tenant/schema registry not yet defined; "
+                 "follow-up spec task extends this path to iterate active tenants",
+        )
+        return
+
+    # Manual path — caller supplied tenant + module + schemas.
+    if tenant_id is None or module is None or schema_definitions is None:
+        log.error(
+            "ontology_sync_failed",
+            reason="partial_args",
+            tenant_id=tenant_id,
+            module=module,
+            schemas_provided=schema_definitions is not None,
+        )
+        raise ValueError(
+            "run_ontology_sync requires all three of (tenant_id, module, "
+            "schema_definitions) when invoked manually; partial args rejected"
+        )
     try:
         sync_schema(tenant_id, module, schema_definitions)
     except Exception as e:

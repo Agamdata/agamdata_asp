@@ -291,3 +291,59 @@ after the image swap — Gate 5 closed).
 **Status.** Pre-write gate COMPLETE. All seven gates closed or N/A.
 Migration 024 file **not yet written** per Architect directive — held until
 Batch 1 is reviewed.
+
+---
+
+## 2026-04-18 · I-RAG-03 — Celery beat schedule for ontology sync
+
+**Scope.** Register `run_ontology_sync` as a Celery task under the name
+`app.ontology.manager.run_ontology_sync` (matching Architect directive
+at ASP-OUT-009). Add beat schedule entry firing at 02:00 UTC daily.
+Keep manual-invocation path intact.
+
+**Gate result (before implementation).** `run_ontology_sync` was a
+**plain function** with three required positional args, not a Celery
+task. Per Architect's gate instruction ("If it is a plain function, wrap
+it before scheduling"), the function was adapted as a Celery task with
+all args optional. Cron-path (no args) is a structured no-op that logs
+`ontology_sync_scheduled_trigger`. Manual-path (full args) retains
+existing behaviour.
+
+**Pre-existing gap surfaced.** `docker-compose.yml` runs celery-worker
+without the `-B` (beat) flag. The existing `monthly-cost-aggregation`
+beat entry has therefore never fired in this pilot. I-RAG-03 does NOT
+fix this — the beat schedule is correctly wired, but a beat process
+is still not running. Follow-up: add `-B` to the celery-worker command
+when the RAG spec's §11 Implementation Checklist requires the scheduler
+to actually execute. For today, the registration is correct and
+ASP-OUT-009's stated acceptance criterion ("Celery inspect output
+confirming beat schedule registration") is met.
+
+**Code changes.**
+
+- `app/ontology/manager.py`:
+  - `import from app.worker import celery_app`
+  - `@celery_app.task(name="app.ontology.manager.run_ontology_sync")`
+    decoration on a rewritten `run_ontology_sync` with `Optional` args
+    and the cron-path / manual-path / partial-args dispatch.
+- `app/worker.py`:
+  - `import app.ontology.manager` side-effect to register the task.
+  - New `ontology-sync-daily` entry in `celery_app.conf.beat_schedule`
+    exactly matching the Architect's specified shape
+    (`task`, `schedule=crontab(hour=2, minute=0)`, `options.queue="celery"`).
+
+**Verification (celery-worker post-restart).**
+
+| Check | Result |
+|---|---|
+| Beat schedule contains `ontology-sync-daily` entry with correct task, schedule, options | ✅ |
+| `celery_app.tasks["app.ontology.manager.run_ontology_sync"]` resolves to a Task object | ✅ |
+| Cron path (no args) returns None without raising; `ontology_sync_scheduled_trigger` event logged | ✅ |
+| Partial-args manual path raises `ValueError` with descriptive message | ✅ |
+| Full-args manual path executes end-to-end — upserts 1 chunk, emits `rag_chunks_upserted` + `ontology_sync_complete` | ✅ |
+| Cleanup — test collection deleted, live state 0 collections | ✅ |
+
+**Status.** I-RAG-03 COMPLETE. All Stream B items (I-RAG-01, I-RAG-02,
+I-RAG-03) now closed. Celery beat process itself is not running in
+pilot compose (pre-existing gap); flagged for §11 when the RAG spec
+is authored.
