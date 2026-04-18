@@ -29,9 +29,10 @@ this log — if PAP references them, we will back-populate them on request.
 | ASP-OUT-007 | I-RAG-02 rulings + Stream A Batch 1 directive (warmup Option C, OQ-RAG-CACHE-01 Option B, migration 024 pre-write gate rulings, Batch 1 §1–§5 verbatim content, L2-override deactivation) | 2026-04-18 20:35 IST | **CLOSED** | 2026-04-18 (DEV-IN-007 milestone report) |
 | ASP-OUT-008 | Status check — I-RAG-02 build + smoke + two-commit sequence overdue | 2026-04-18 | **CLOSED** | 2026-04-18 (DEV-IN-008 stop-and-report + DEV-IN-007 milestone report) |
 | ASP-OUT-009 | Batch 1 review ruling (ACCEPTED with 2 notes) + Batch 2 green light + I-RAG-03 directive | 2026-04-18 | **CLOSED** | 2026-04-18 (DEV-IN-009 milestone report; I-RAG-03 complete; Batch 2 accepted at ASP-OUT-010) |
-| ASP-OUT-010 | Batch 2 review ruling (ACCEPTED with 3 notes) + Batch 3 green light + I-RAG-04 checklist integration | 2026-04-18 | **OPEN** | 2026-04-18 (DEV-IN-010 in flight — Batch 3 surfaced for review) |
+| ASP-OUT-010 | Batch 2 review ruling (ACCEPTED with 3 notes) + Batch 3 green light + I-RAG-04 checklist integration | 2026-04-18 | **CLOSED** | 2026-04-18 (DEV-IN-010 milestone report; Batch 3 accepted at ASP-OUT-011) |
+| ASP-OUT-011 | Batch 3 review ruling (ACCEPTED) + OQ-1/2/3 rulings + migration 024 green light (pre-write gate first — v3 prompt extraction) + I-RAG-04 go | 2026-04-18 | **OPEN** | 2026-04-18 (DEV-IN-011 in flight — v3 prompts surfaced + OQ amendments + I-RAG-04 complete) |
 
-Totals as of 2026-04-18 22:00 IST: **2 OPEN** (ASP-OUT-003, ASP-OUT-010), **5 CLOSED** (ASP-OUT-004, ASP-OUT-006, ASP-OUT-007, ASP-OUT-008, ASP-OUT-009).
+Totals as of 2026-04-18 22:30 IST: **2 OPEN** (ASP-OUT-003, ASP-OUT-011), **6 CLOSED** (ASP-OUT-004, ASP-OUT-006, ASP-OUT-007, ASP-OUT-008, ASP-OUT-009, ASP-OUT-010).
 
 ---
 
@@ -86,7 +87,40 @@ Totals as of 2026-04-18 22:00 IST: **2 OPEN** (ASP-OUT-003, ASP-OUT-010), **5 CL
 
 ## Closed threads
 
-### ASP-OUT-010 — Batch 2 review ruling + Batch 3 green light + I-RAG-04 checklist integration — OPEN
+### ASP-OUT-011 — Batch 3 review + migration 024 green light (pre-write gate) + I-RAG-04 execution — OPEN
+
+- **Filed:** 2026-04-18 by Principal Architect, ASP
+- **State at filing:** OPEN (pre-write gate for I-024-01 — Architect needs v3 prompt content before ruling on v4 additions)
+- **Scope:** Batch 3 accepted; OQ-1/2/3 ruled; migration 024 green-lit pending v3 prompt extraction; I-RAG-04 instructed to execute alongside.
+
+**OQ rulings applied (in Commit 6 of this turn):**
+
+- **OQ-1 (refactor changes_made format):** RULED element names only. §13 table updated.
+- **OQ-2 (F-01-10 30s ceiling):** RULED both mechanisms required — `max_tokens=4096` primary + `asyncio.wait_for(..., timeout=28.0)` raising 504 secondary guard applied only when `caller_module="test_generator"`. §11 I-024-03 now documents both. §13 table updated.
+- **OQ-3 (AC-SHARED-01 enforcement):** RULED manual review at migration authoring time for v2.0. §14 forward-note records the CI-automation deferral and its prerequisite ("prompt registry versioning API"). §13 table updated.
+
+**Pre-write gate — v3 prompt values extracted from live DB:**
+
+- `system_prompt` length 1865 bytes; `user_prompt_template` length 296 bytes.
+- Surfaced verbatim in DEV-IN-011 milestone report for Architect review.
+- Migration 024 alembic file authoring held pending Architect ruling on v4 additions that build on v3.
+
+**I-RAG-04 COMPLETE:**
+
+- `docker-compose.yml` celery-worker command updated: `celery -A app.worker worker -B --loglevel=info` (added `-B`, dropped `--concurrency=4`).
+- Recreated; beat started (`[INFO/Beat] beat: Starting...`).
+- Both beat entries loaded in the live worker.
+- `app.ontology.manager.run_ontology_sync` end-to-end via `.delay()`: SUCCESS.
+- `asp.cost_aggregator` end-to-end via `send_task`: **FAILURE — `No module named 'psycopg2'`.** Pre-existing latent bug (aggregator uses sync Postgres driver; pilot uses asyncpg). Never observed before because beat was never active. Surfaced to Architect for ruling on defect filing / scope disposition.
+
+**State at this milestone:** OPEN. Awaiting Architect rulings on:
+
+1. v4 additions to the v3 prompt base (I-024-01 migration file authoring blocks on this).
+2. Disposition of the pre-existing cost-aggregator `psycopg2` bug (file as ASP-DEFECT-022 / defer / disable entry).
+
+---
+
+### ASP-OUT-010 — Batch 2 review ruling + Batch 3 green light + I-RAG-04 checklist integration — CLOSED 2026-04-18
 
 - **Filed:** 2026-04-18 by Principal Architect, ASP
 - **State at filing:** OPEN (awaiting Batch 3 surface for review)
@@ -254,4 +288,4 @@ Completion artefacts:
 
 ## Last Updated
 
-2026-04-18 22:00 IST — ASP-OUT-009 CLOSED (Batch 2 accepted at ASP-OUT-010; I-RAG-03 complete via DEV-IN-009). Added ASP-OUT-010 (Batch 2 review + Batch 3 green light). State OPEN until Architect reviews Batch 3. DEV-IN-010 milestone report surfaces Batch 3. Totals: 2 OPEN (ASP-OUT-003, ASP-OUT-010), 5 CLOSED.
+2026-04-18 22:30 IST — ASP-OUT-010 CLOSED (Batch 3 accepted at ASP-OUT-011 via DEV-IN-010). Added ASP-OUT-011 (Batch 3 review + migration 024 pre-write gate + I-RAG-04 go). DEV-IN-011 milestone report surfaces v3 prompts for Architect v4 ruling, OQ-1/2/3 applied in spec, I-RAG-04 complete with surfaced aggregator bug. Totals: 2 OPEN (ASP-OUT-003, ASP-OUT-011), 6 CLOSED.

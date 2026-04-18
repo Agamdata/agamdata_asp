@@ -657,13 +657,32 @@ ACs.
 - `ConfigDict(extra="ignore")` on payloads per ADR-033.
 - `ConfigDict(extra="forbid")` on outputs.
 
-### I-024-03 — Handler update: `_build_generation_instructions()`
+### I-024-03 — Handler update: `_build_generation_instructions()` + interactive-mode timeout
 
 - Extend the user-prompt rendering helper to:
   - Render a "Categories Requested" block from `payload.categories_to_generate` when present; render "Categories: all canonical" when None.
   - Render a "Form Data Context" block from `payload.form_data` when present; render the synthesize-realistic-values instruction when None (matches `FORM_DATA_BLOCK` shared fragment rendering contract).
   - Pass through the count instruction unchanged (post-OPS-003 neutral wording).
 - Post-parse: extract `covered_categories` from the LLM output and return it on `GenerateTestCasesWithInventoryOutput`.
+
+**OQ-2 ruling applied (ASP-OUT-011) — F-01-10 30s ceiling has TWO enforcement mechanisms:**
+
+1. **Primary — `max_tokens=4096`** on the v4-interactive row's LLM call. Already locked in §9.6. Forces the LLM to self-bound output size.
+2. **Secondary — handler-level timeout** wrapping the LLM call when `caller_module="test_generator"`:
+   ```python
+   try:
+       response = await asyncio.wait_for(
+           llm_call_with_retry(anthropic_client, ...),
+           timeout=28.0,   # 28s, leaving 2s of budget for parsing + response assembly
+       )
+   except asyncio.TimeoutError:
+       log.warning("generation_interactive_timeout",
+                   caller_feature=req.caller_feature,
+                   request_id=request_id)
+       raise HTTPException(status_code=504, detail="Interactive generation timeout")
+   ```
+   The 28-second inner timeout holds the total request under the 30-second caller ceiling even when the LLM returns slowly within its `max_tokens` budget. 504 is correct per RFC 7807 — upstream timeout, retry after backoff.
+- **Applies only to `caller_module="test_generator"`.** The `playwright_runner` batch/single-TC path retains its current MITIGATED-latency posture.
 
 ### I-024-04 — Handler update: `locator_source` branch
 
@@ -813,11 +832,11 @@ ACs.
 
 ## §13 Open Questions
 
-| OQ | Question | Owner | Default (pilot) |
+| OQ | Question | Owner | Ruling (ASP-OUT-011) |
 |---|---|---|---|
-| **OQ-1** | `refactor_script_locators` `changes_made` entries — should they reference exact line numbers in `script_text` or element names only? | Principal Architect | **Element names only.** Line numbers are fragile to any whitespace or import reorder; element-name references are semantically stable. Implementation aligns with this default unless overruled. |
-| **OQ-2** | F-01-10 30-second ceiling — enforcement mechanism: handler timeout (async timeout wrapper) or LLM `max_tokens` (constrain output size)? | Principal Architect | **`max_tokens=4096` for interactive mode (v4-interactive row).** Already locked in §9.6. Handler timeout rejected as primary mechanism because it leaks half-generated output on the floor; max_tokens forces the LLM to self-bound. If p95 latency still exceeds 30s, handler timeout becomes a secondary guard in a follow-up TSCD. |
-| **OQ-3** | AC-SHARED-01 enforcement — manual review at migration-authoring time or automated CI diff? | Principal Architect | **Manual review at migration authoring time** (pilot). CI automation is a follow-up: a post-migration hook that extracts the four fragments from each of the two v4 rows and asserts `difflib.ndiff` is empty. Added to the RAG spec's §11 as a future item (not required for v2.0 GOVERNED). |
+| **OQ-1** | `refactor_script_locators` `changes_made` entries — line numbers or element names only? | Principal Architect | **RULED: element names only.** Line numbers create brittle ACs that break on whitespace changes; element names are stable across reformatting. Default confirmed. Implementation aligned. |
+| **OQ-2** | F-01-10 30-second ceiling — handler timeout or LLM `max_tokens`? | Principal Architect | **RULED: both mechanisms required.** Primary = `max_tokens=4096` for the v4-interactive row (§9.6). Secondary = handler-level `asyncio.wait_for(..., timeout=28.0)` raising HTTP 504 on expiry, applied only when `caller_module="test_generator"`. §11 I-024-03 documents both. |
+| **OQ-3** | AC-SHARED-01 enforcement — manual review or automated CI diff? | Principal Architect | **RULED: manual review at migration authoring time for v2.0.** §14 forward-note records: *"CI automation of shared fragment diff is the correct long-term mechanism — deferred to a future TSCD when the prompt registry gains a versioning API."* |
 
 ### Closed in this spec cycle
 
@@ -859,8 +878,8 @@ ACs.
 ### Forward-note entries for future specs
 
 - **ADR-035 (proposed)** — RAG embedding-model fail-closed gate. Belongs to ASP-FEAT-ASP-02 (RAG spec), not v2.0.
-- **Handler timeout secondary guard for F-01-10** — tracked in OQ-2 as the follow-up mechanism if `max_tokens=4096` alone does not hold the 30s ceiling under live pilot traffic.
-- **CI automation of AC-SHARED-01** — tracked in OQ-3; pilot is manual review.
+- **Handler timeout secondary guard for F-01-10** — **now LANDING in v2.0 per ASP-OUT-011 OQ-2 ruling.** Primary = `max_tokens=4096`; secondary = `asyncio.wait_for(..., timeout=28.0)` raising 504 on expiry. Both required. Implementation in I-024-03. (Forward-note entry promoted to in-scope.)
+- **CI automation of AC-SHARED-01** — pilot is manual review at migration authoring time. **Per ASP-OUT-011 OQ-3 ruling, promoted here as an explicit governed forward-note:** *"CI automation of shared fragment diff is the correct long-term mechanism — deferred to a future TSCD when the prompt registry gains a versioning API."* Adding this text verbatim so the constraint is tied to a prerequisite capability rather than a timeline.
 
 ---
 

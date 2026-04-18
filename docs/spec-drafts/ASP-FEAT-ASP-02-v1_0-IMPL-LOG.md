@@ -363,3 +363,63 @@ authoritatively.
 **Status.** CLOSED — reconciled. Flagged here so the audit trail
 records the one-field delta between the directive and the authoritative
 schema.
+
+---
+
+## 2026-04-18 · I-RAG-04 — docker-compose celery `-B` flag + beat-fire verification
+
+**Scope.** Close the pre-existing gap surfaced during I-RAG-03: the
+pilot celery-worker ran `celery worker` without `-B`, so the beat
+scheduler was inert and neither `monthly-cost-aggregation` (pre-
+existing) nor `ontology-sync-daily` (new) would have ever fired.
+
+**Change.** `docker-compose.yml` celery-worker command:
+
+```yaml
+# before
+command: celery -A app.worker worker --loglevel=info --concurrency=4
+# after (I-RAG-04)
+command: celery -A app.worker worker -B --loglevel=info
+```
+
+`--concurrency=4` dropped — embedding beat inside a multi-concurrency
+worker is not the recommended Celery pattern. Pilot single-instance
+single-beat is fine. If scale demands concurrency, split into a
+separate `celery beat` service.
+
+**Verification.**
+
+| Check | Result |
+|---|---|
+| `docker compose up -d celery-worker` swaps container onto new command | ✅ recreated, started |
+| Worker boot log shows `[INFO/Beat] beat: Starting...` | ✅ |
+| `celery_app.conf.beat_schedule` in the live worker contains both entries with correct schedules (`monthly-cost-aggregation` crontab 0 1 1 * *, `ontology-sync-daily` crontab 0 2 * * *) | ✅ both present |
+| `app.ontology.manager.run_ontology_sync` registered as Celery task | ✅ REGISTERED |
+| `asp.cost_aggregator` registered as Celery task | ✅ REGISTERED |
+| `run_ontology_sync.delay()` end-to-end: enqueued → SUCCESS → result None | ✅ (cron no-op path executes cleanly via Celery queue) |
+| `celery_app.send_task("asp.cost_aggregator")` end-to-end: enqueued → FAILURE | ⚠ **Pre-existing latent bug surfaced** — see defect section below |
+
+**Pre-existing latent bug surfaced: cost aggregator imports psycopg2.**
+
+`asp.cost_aggregator` fails with `No module named 'psycopg2'` on execution.
+ASP's Postgres driver is `asyncpg`; `psycopg2` is not in
+`requirements.txt`. The aggregator module is the only code attempting
+sync-Postgres access. It has **never run successfully in this pilot**
+because beat was never active. The `-B` flag in I-RAG-04 makes this
+latent bug newly observable but did not introduce it.
+
+Not filing as a numbered defect unilaterally (governance act). Surfaced
+in the DEV-IN-011 milestone report for Architect ruling on whether to:
+(a) file as ASP-DEFECT-022 and fix inside v2.0 scope,
+(b) defer to a separate maintenance task,
+(c) remove the pre-existing `monthly-cost-aggregation` entry from
+    `beat_schedule` until the aggregator is fixed (avoid the daily 01:00
+    UTC traceback spam in pilot logs).
+
+The I-RAG-04 scope (beat-firing mechanism works correctly for both
+entries) is unaffected by this finding.
+
+**Status.** I-RAG-04 COMPLETE pending Architect ruling on the surfaced
+aggregator bug. Both beat entries verifiably fire; `ontology-sync-daily`
+executes end-to-end; `monthly-cost-aggregation` dispatches correctly
+but its task has a latent `psycopg2` import bug documented here.
