@@ -30,9 +30,10 @@ this log — if PAP references them, we will back-populate them on request.
 | ASP-OUT-008 | Status check — I-RAG-02 build + smoke + two-commit sequence overdue | 2026-04-18 | **CLOSED** | 2026-04-18 (DEV-IN-008 stop-and-report + DEV-IN-007 milestone report) |
 | ASP-OUT-009 | Batch 1 review ruling (ACCEPTED with 2 notes) + Batch 2 green light + I-RAG-03 directive | 2026-04-18 | **CLOSED** | 2026-04-18 (DEV-IN-009 milestone report; I-RAG-03 complete; Batch 2 accepted at ASP-OUT-010) |
 | ASP-OUT-010 | Batch 2 review ruling (ACCEPTED with 3 notes) + Batch 3 green light + I-RAG-04 checklist integration | 2026-04-18 | **CLOSED** | 2026-04-18 (DEV-IN-010 milestone report; Batch 3 accepted at ASP-OUT-011) |
-| ASP-OUT-011 | Batch 3 review ruling (ACCEPTED) + OQ-1/2/3 rulings + migration 024 green light (pre-write gate first — v3 prompt extraction) + I-RAG-04 go | 2026-04-18 | **OPEN** | 2026-04-18 (DEV-IN-011 in flight — v3 prompts surfaced + OQ amendments + I-RAG-04 complete) |
+| ASP-OUT-011 | Batch 3 review ruling (ACCEPTED) + OQ-1/2/3 rulings + migration 024 green light (pre-write gate first — v3 prompt extraction) + I-RAG-04 go | 2026-04-18 | **CLOSED** | 2026-04-18 (DEV-IN-011 + DEV-IN-012 milestone reports; v3 prompts surfaced; OQ rulings applied; I-RAG-04 complete) |
+| ASP-OUT-012 | v4 prompt content ruling + DEFECT-022 disposition (Option B + C) + migration 024 implementation sequence | 2026-04-18 | **OPEN** | 2026-04-18 (DEV-IN-012 in flight — DEFECT-022 filed and mitigated; migration 024 written + fresh-DB verified + applied to live) |
 
-Totals as of 2026-04-18 22:30 IST: **2 OPEN** (ASP-OUT-003, ASP-OUT-011), **6 CLOSED** (ASP-OUT-004, ASP-OUT-006, ASP-OUT-007, ASP-OUT-008, ASP-OUT-009, ASP-OUT-010).
+Totals as of 2026-04-18 23:00 IST: **2 OPEN** (ASP-OUT-003, ASP-OUT-012), **7 CLOSED** (ASP-OUT-004, ASP-OUT-006, ASP-OUT-007, ASP-OUT-008, ASP-OUT-009, ASP-OUT-010, ASP-OUT-011).
 
 ---
 
@@ -87,7 +88,49 @@ Totals as of 2026-04-18 22:30 IST: **2 OPEN** (ASP-OUT-003, ASP-OUT-011), **6 CL
 
 ## Closed threads
 
-### ASP-OUT-011 — Batch 3 review + migration 024 green light (pre-write gate) + I-RAG-04 execution — OPEN
+### ASP-OUT-012 — v4 prompt content ruling + DEFECT-022 disposition + migration 024 implementation sequence — OPEN
+
+- **Filed:** 2026-04-18 by Principal Architect, ASP
+- **State at filing:** OPEN (10-step implementation sequence; DEFECT-022 filed; migration 024 + Pydantic + handler + AC verification + OpenAPI + .docx)
+- **Scope:** Full v2.0 implementation rollout.
+
+**DEFECT-022 disposition applied (Option B + C combined) — Commit `d4f2214`:**
+- Filed as ASP-DEFECT-022 (cost aggregator `psycopg2` import failure) with HIGH severity, OPEN status, fix deferred outside v2.0 scope.
+- `monthly-cost-aggregation` entry commented out in `app/worker.py beat_schedule` per Option C — prevents daily beat dispatch of the broken task.
+- 4-way sha256-verified sync.
+
+**V4 prompt content ruling applied:**
+- v3 STRICT RULES 1–5 preserved verbatim in both v4 rows.
+- RULE 6 (CATEGORIES_SCHEMA) + RULE 7 (LOCATOR_SOURCE_BRANCH) added to both v4 rows with shared-fragment markers.
+- RULE 9 (interactive) added to test_generator row only per directive.
+- `covered_categories` added to OUTPUT_CONTRACT_V3 at top level alongside `missing_locators`.
+- FORM_DATA_BLOCK added to user-prompt template (shared between both v4 rows).
+- refactor_script_locators v1 system + user prompts written verbatim from directive.
+
+**Rule 8 gap (directive inconsistency):** Q1 said "Add new rules as 6, 7, 8 in order" but concrete content was provided only for RULE 6 (CATEGORIES_SCHEMA) and RULE 7 (LOCATOR_SOURCE_BRANCH). FORM_DATA_BLOCK is in the user-prompt (not a system-prompt rule). Q3 provided RULE 9 for test_generator. **Dev Team proceeded with 6, 7, (and 9 for test_generator only). No RULE 8 materialised.** Flagged for Architect confirmation; easy one-line migration amendment if a concrete RULE 8 is supplied later.
+
+**§7.3/§7.4 alignment:** Spec's Batch 2 §7 used field names `script_text`/`locator_inventory`/`changes_summary` that did not match the directive's authoritative prompt placeholders (`script_body`/`locator_diff`/`changes_made`). Spec amended in this commit; `RefactorScriptLocatorsPayload` and `RefactorScriptLocatorsResult` now reflect directive names. AC-S5-01..08 field references updated. `LocatorDiffItem` helper model added.
+
+**Migration 024 implementation sequence progress:**
+
+| Step | State |
+|---|---|
+| I-024-01 alembic file written | ✅ `alembic/versions/0024_v4_prompts_coverage_form_live_extracted_refactor.py` |
+| Fresh-DB round-trip per ADR-029 | ✅ empty → 0001..0024 → downgrade 0024→0023 → upgrade 0023→0024 (all `Running upgrade/downgrade` lines visible) |
+| Apply to live DB | ✅ `alembic current = 0024 (head)` |
+| All five operations verified | ✅ (5 rows on post-migration query) |
+| ChromaDB untouched | ✅ prompt-only migration |
+| Pydantic changes (I-024-02) | ⏳ Next commit in this turn |
+| Handler changes (I-024-03..07) | ⏳ Next commit in this turn |
+| AC verification 37 ACs (I-024-08) | ⏳ Separate milestone |
+| OpenAPI snapshot (I-024-10) | ⏳ After I-024-08 |
+| .docx render + governance sync | ⏳ After AC verification complete |
+
+**State at this milestone:** OPEN. Remaining steps: Pydantic changes, handler changes, AC verification, OpenAPI export, .docx render, final governance sync. Next commits continue in this turn OR next turn.
+
+---
+
+### ASP-OUT-011 — Batch 3 review + migration 024 green light (pre-write gate) + I-RAG-04 execution — CLOSED 2026-04-18
 
 - **Filed:** 2026-04-18 by Principal Architect, ASP
 - **State at filing:** OPEN (pre-write gate for I-024-01 — Architect needs v3 prompt content before ruling on v4 additions)
@@ -288,4 +331,4 @@ Completion artefacts:
 
 ## Last Updated
 
-2026-04-18 22:30 IST — ASP-OUT-010 CLOSED (Batch 3 accepted at ASP-OUT-011 via DEV-IN-010). Added ASP-OUT-011 (Batch 3 review + migration 024 pre-write gate + I-RAG-04 go). DEV-IN-011 milestone report surfaces v3 prompts for Architect v4 ruling, OQ-1/2/3 applied in spec, I-RAG-04 complete with surfaced aggregator bug. Totals: 2 OPEN (ASP-OUT-003, ASP-OUT-011), 6 CLOSED.
+2026-04-18 23:00 IST — ASP-OUT-011 CLOSED (v4 prompt ruling in ASP-OUT-012 received via DEV-IN-011). Added ASP-OUT-012 (v4 prompt content + DEFECT-022 disposition + migration 024 sequence). DEV-IN-012 milestone report: DEFECT-022 filed + mitigated, migration 024 authored + fresh-DB verified + applied to live (head=0024), spec §7 aligned to directive prompt placeholders. Totals: 2 OPEN (ASP-OUT-003, ASP-OUT-012), 7 CLOSED.

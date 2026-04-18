@@ -60,7 +60,7 @@ If a gap is found: Chief Architect raises it with the ASP Development Team lead.
 
 ## Current migration head
 
-**023 — add_tenant_api_keys_and_key_prefix** (ASP-FEAT-ASP-00 v1.0 Gateway governance — ADR-032 multi-key junction + F-01-10 caller_feature on cost_events)
+**024 — v4_prompts_coverage_form_live_extracted_refactor** (ASP-FEAT-ASP-03 v2.0 in-draft — prompt-only; deactivates v3 + v1-L2 inventory rows; inserts v4 playwright_runner + v4 test_generator (split-by-caller); seeds `refactor_script_locators` v1)
 
 Applied chain: 001 → 002 → 003 → 004 → 005 → 012 → 013 → 014 → 015 → 016 → 017 → 018 → 019 → 020 → 021 → 022
 

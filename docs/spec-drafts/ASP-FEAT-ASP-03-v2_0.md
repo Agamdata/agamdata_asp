@@ -388,27 +388,52 @@ class GenerateTestCasesWithInventoryOutput(BaseModel):
 
 ### §7.3 `RefactorScriptLocatorsPayload` (NEW — §S-5)
 
+**Aligned with authoritative prompt-template placeholders per ASP-OUT-012 v4 prompt content ruling.**
+
 ```python
+class LocatorDiffItem(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    element_name: str                                                # PAP's stable element identifier
+    old_locator:  str                                                # prior locator string (as it appears in script_body)
+    new_locator:  str                                                # replacement locator string
+
+
 class RefactorScriptLocatorsPayload(BaseModel):
     model_config = ConfigDict(extra="ignore")
-    script_text:      str                                            # existing test script (TS or Python)
-    script_format:    Literal["typescript", "python_playwright_pytest_flat"]
-    locator_inventory: list[LocatorInventoryItem]                    # fresh crawl after UI change
-    page_url:         str                                            # context — same URL as original crawl
-    change_hints:     Optional[list[str]] = None                     # PAP-side observed changes (optional)
+    script_body:  str                                                # existing test script (TS or Python)
+    locator_diff: list[LocatorDiffItem]                              # PAP-supplied list of changes (old → new per element)
+    screen_key:   str                                                # context identifier (same semantic as inventory task)
+    language:     Literal["typescript", "python_playwright_pytest_flat"]
 ```
 
-### §7.4 `RefactorScriptLocatorsOutput` (NEW — §S-5)
+### §7.4 `RefactorScriptLocatorsResult` (NEW — §S-5)
+
+**Aligned with authoritative prompt-template output schema per ASP-OUT-012.**
 
 ```python
-class RefactorScriptLocatorsOutput(BaseModel):
-    refactored_script:   str                                         # updated test code
-    changes_summary:     list[str]                                   # human-readable change list
-    locators_replaced:   list[dict[str, str]] = Field(default_factory=list)
-       # each: {"old": "getByRole('button', {name: 'Submit'})", "new": "getByRole('button', {name: 'Save'})"}
-    unchanged_reason:    Optional[str] = None                        # populated if no change needed
+class RefactorScriptLocatorsResult(BaseModel):
     model_config = ConfigDict(extra="forbid")
+    refactored_script:  str                                          # updated test code (verbatim copy if no change needed)
+    changes_made:       list[str]                                    # each: "element_name: brief description"
+    unchanged_locators: list[str]                                    # each: "element_name: reason (e.g. 'not found in script')"
+    warnings:           list[str]                                    # each: ambiguous-replacement / multi-occurrence warnings
 ```
+
+**Note.** Field-name alignment from Batch 2 draft → Batch 3 authoritative:
+
+| Batch 2 draft | Batch 3 authoritative (ASP-OUT-012) |
+|---|---|
+| `script_text` | `script_body` |
+| `script_format` | `language` |
+| `locator_inventory` | `locator_diff` (different semantic — diff list, not full inventory) |
+| `page_url` | `screen_key` |
+| `change_hints` | (removed — `locator_diff` carries the changes) |
+| `changes_summary` | `changes_made` |
+| `locators_replaced` (list of dicts) | (folded into `changes_made` free-form strings) |
+| `unchanged_reason` (single Optional str) | `unchanged_locators` (list of strings) |
+| (implicit) | `warnings` (new list) |
+
+The AC-S5 suite in §12 references the aligned names.
 
 ### §7.5 Structlog delta
 
@@ -790,14 +815,14 @@ ACs.
 
 | AC | Statement | Verification |
 |---|---|---|
-| **AC-S5-01** | Happy path: payload with `script_text` + changed `locator_inventory` returns 200 with `refactored_script` non-empty, `changes_summary` non-empty, `locators_replaced` with at least one entry when selectors changed | integration test with a known before/after fixture |
-| **AC-S5-02** | When no locator has changed (inventory identical to what the original script uses), the handler returns `refactored_script == script_text` verbatim and `changes_made == []`; `unchanged_reason` is populated with a human-readable explanation | behaviour-parity assertion |
-| **AC-S5-03** | Ambiguous change (e.g. two plausible replacements for a removed selector) produces a warning entry in `changes_summary` flagging the ambiguity; the LLM picks one option and says so rather than failing | inspection of `changes_summary` content |
-| **AC-S5-04** | Payload with missing `script_text` or missing `script_format` returns 422 at Pydantic validation | assert 422 on each absent required field |
-| **AC-S5-05** | Empty `locator_inventory` returns 422 (payload-level `min_length=1` assumption enforced in Pydantic model) | assert 422 |
-| **AC-S5-06** | `script_text` is NOT written to any ASP persistent store (covered by AC-S2-04 tables scan; re-listed here for S-5 traceability) | cross-reference to AC-S2-04 |
+| **AC-S5-01** | Happy path: payload with `script_body` + `locator_diff` (one+ entries) returns 200 with `refactored_script` non-empty, `changes_made` non-empty with at least one `element_name: ...` entry | integration test with a known before/after fixture |
+| **AC-S5-02** | When `locator_diff` is empty, the handler returns `refactored_script == script_body` verbatim and `changes_made == []`; `unchanged_locators == []`; `warnings == []` (no ambiguity to flag) | behaviour-parity assertion |
+| **AC-S5-03** | Ambiguous change — when an `old_locator` appears more than once in `script_body` — produces at least one entry in `warnings` noting the multi-occurrence risk; the LLM still performs the replacement but surfaces the ambiguity | inspection of `warnings` content |
+| **AC-S5-04** | Payload missing `script_body`, `language`, `screen_key`, or `locator_diff` returns 422 at Pydantic validation | assert 422 on each absent required field |
+| **AC-S5-05** | Payload with `locator_diff` containing an entry whose `old_locator` does NOT appear in `script_body` returns 200 with that `element_name` in `unchanged_locators` and the note "not found in script" | integration test with a deliberately-missing `old_locator` |
+| **AC-S5-06** | `script_body` payload content is NOT written to any ASP persistent store (covered by AC-S2-04 seven-table scan; re-listed here for S-5 traceability) | cross-reference to AC-S2-04 |
 | **AC-S5-07** | Request with `quality_tier="enhanced"` correctly invokes `claude-sonnet-4-6` for the refactor task (higher-quality model warranted for non-trivial refactors) | model routing assertion |
-| **AC-S5-08** | Output `stop_reason == "end_turn"` on a standard-size payload (no truncation); `refactored_script` is syntactically valid in its declared `script_format` | linter hook in test (py compile for Python, basic syntax check for TS) |
+| **AC-S5-08** | Output `stop_reason == "end_turn"` on a standard-size payload (no truncation); `refactored_script` is syntactically valid in its declared `language` | linter hook in test (py compile for Python, basic syntax check for TS) |
 
 ### AC-SHARED-01 — Cross-row shared-fragment consistency (1 AC)
 

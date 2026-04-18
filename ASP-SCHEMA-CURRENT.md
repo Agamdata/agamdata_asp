@@ -1,7 +1,7 @@
 # ASP-SCHEMA-CURRENT — Database Schema Reference
 
 ## Migration Head
-**Current:** `0023` (add_tenant_api_keys_and_key_prefix — ASP-FEAT-ASP-00 v1.0 Gateway governance)
+**Current:** `0024` (v4_prompts_coverage_form_live_extracted_refactor — ASP-FEAT-ASP-03 v2.0 prompt-only)
 
 ## Tables
 
@@ -63,6 +63,7 @@ Aggregated monthly cost rollups (idempotent).
 | 0021 | Elevate count enforcement to system prompt (Rule 3 hard-constraint) | Superseded by 0022 |
 | 0022 | Neutral Rule 3 — count enforcement moved to handler post-processing | Principal Architect ruling |
 | 0023 | Create `tenant_api_keys` junction; backfill legacy rows; drop `tenants.api_key_hash`; add `cost_events.caller_feature` | ASP-FEAT-ASP-00 v1.0 Gateway governance |
+| 0024 | ASP-FEAT-ASP-03 v2.0 — prompt-only: deactivate v3 + v1-L2; insert v4 playwright_runner + v4 test_generator (split by caller); seed refactor_script_locators v1 | ASP-FEAT-ASP-03 v2.0 (in draft) |
 
 ## Last Updated
 2026-04-18
