@@ -25,8 +25,9 @@ this log — if PAP references them, we will back-populate them on request.
 |---|---|---|---|---|
 | ASP-OUT-003 | `suggest_screen_mapping` lead time (PAP W-5 blocker) | 2026-04-18 | **OPEN** | 2026-04-18 18:47 IST |
 | ASP-OUT-004 | PAP-ASP-REQ-ASP-03 v2.0 acceptance (form_data amendment + coverage-aware scope) | 2026-04-17 | **CLOSED** | 2026-04-18 |
+| ASP-OUT-006 | Communication protocol update — milestone-only reporting + MSG-ID tagging + COMMS-LOG pre-check | 2026-04-18 | **CLOSED** (ACCEPTED, effective immediately) | 2026-04-18 20:30 IST |
 
-Totals at creation: **1 OPEN**, **1 CLOSED**.
+Totals as of 2026-04-18 20:30 IST: **1 OPEN** (ASP-OUT-003), **2 CLOSED** (ASP-OUT-004, ASP-OUT-006).
 
 ---
 
@@ -81,6 +82,22 @@ Totals at creation: **1 OPEN**, **1 CLOSED**.
 
 ## Closed threads
 
+### ASP-OUT-006 — Communication protocol update — CLOSED 2026-04-18
+
+- **Filed:** 2026-04-18 20:30 IST by Principal Architect, ASP
+- **State at filing:** CLOSED (ACCEPTED, effective immediately — informational acceptance, not an action gate)
+- **Scope:** Standing communication protocol between Principal Architect and ASP Development Team.
+
+**Three protocol changes locked:**
+
+1. **Milestone-only reporting.** Dev Team reports at milestone completion only — not after every step. One consolidated report per stream milestone per session. Interim progress reports (like the one I sent at 20:25 IST enumerating each file touched) are superseded by this rule.
+2. **COMMS-LOG pre-check before any outbound.** Dev Team checks `ASP-COMMS-LOG.md` before forwarding any item to Product Leadership. If the item is already logged with a ruling, the forward does not go out.
+3. **MSG-ID tagging.** Every outbound message carries an MSG-ID matching its `ASP-COMMS-LOG.md` entry (e.g. `MSG-ID: ASP-OUT-NNN`).
+
+**Dev Team acknowledgment:** rules applied from this entry forward. The next Dev Team milestone report (likely the consolidated I-RAG-02 + Stream A Migration 024 pre-write gate report after the in-flight Dockerfile build completes) will carry `MSG-ID: DEV-IN-NNN` and will fold in this commit's hash per the Architect's instruction.
+
+---
+
 ### ASP-OUT-004 — PAP-ASP-REQ-ASP-03 v2.0 acceptance — CLOSED 2026-04-18
 
 - **Mirrors:** PAP's ASP-OUT-004
@@ -126,4 +143,4 @@ Totals at creation: **1 OPEN**, **1 CLOSED**.
 
 ## Last Updated
 
-2026-04-18 — back-population at creation; 1 OPEN (ASP-OUT-003), 1 CLOSED (ASP-OUT-004).
+2026-04-18 20:30 IST — added ASP-OUT-006 protocol update (CLOSED/ACCEPTED). Totals: 1 OPEN (ASP-OUT-003), 2 CLOSED (ASP-OUT-004, ASP-OUT-006).
