@@ -1,6 +1,6 @@
 # ASP Defect Register
 
-Last updated: 2026-04-18 | Total: 19 | Open: 0 | Mitigated: 1 | Resolved: 17 | Already Fixed: 2
+Last updated: 2026-04-18 | Total: 20 | Open: 1 | Mitigated: 1 | Resolved: 17 | Already Fixed: 2
 
 ## Summary
 
@@ -25,6 +25,7 @@ Last updated: 2026-04-18 | Total: 19 | Open: 0 | Mitigated: 1 | Resolved: 17 | A
 | ASP-DEFECT-019 | LLM ignores test case count instruction — handler enforcement required | INTERNAL | ASP-03 | HIGH | RESOLVED (migration 022 + handler) | ASP Dev Team | 2026-04-16 |
 | ASP-DEFECT-020 | Gateway cost emission not wrapped in try/except — ADR-006 violation | INTERNAL | ASP-00 | HIGH | RESOLVED | ASP Dev Team | 2026-04-16 |
 | ASP-DEFECT-021 | alembic/env.py load_dotenv(override=True) defeats shell-level DATABASE_URL overrides | INTERNAL | INFRASTRUCTURE | LOW | RESOLVED | ASP Dev Team | 2026-04-17 |
+| ASP-DEFECT-022 | cost aggregator fails with No module named psycopg2 | INTERNAL | ASP-10 | HIGH | OPEN (fix deferred outside v2.0 scope) | ASP Dev Team | 2026-04-18 |
 
 ---
 
@@ -692,3 +693,34 @@ Applied inline during TSCD-001 AC-T07 verification. No migration required.
 - 2026-04-17: Fix applied (one-line change)
 - 2026-04-17: Fresh-DB round-trip successful with override respected
 - 2026-04-17: RESOLVED
+
+---
+
+### ASP-DEFECT-022 — cost aggregator fails with `No module named 'psycopg2'`
+
+- **ID:** ASP-DEFECT-022
+- **Filed:** 2026-04-18 by ASP Dev Team (Architect ruling ASP-OUT-012, Option B+C)
+- **Source:** INTERNAL (surfaced by I-RAG-04 beat-fire verification)
+- **Domain:** ASP-10 Cost Aggregator
+- **Severity:** HIGH — the monthly cost rollup has never executed in this pilot's history. Financial reporting is dead.
+- **Status:** OPEN — fix deferred outside ASP-FEAT-ASP-03 v2.0 scope
+- **Affected services:** ASP-10 Cost Aggregator (monthly rollup)
+
+**Root cause:** `asyncpg` is the ASP Postgres driver. `cost_aggregator.py` imports `psycopg2` (sync driver), which is not in `requirements.txt`. The bug has been dormant because the pilot celery-worker ran without `-B` flag, so the embedded beat scheduler was inert and `monthly-cost-aggregation` never fired.
+
+**How it was surfaced:** I-RAG-04 added the `-B` flag to the celery-worker command in `docker-compose.yml`. Verification included a direct `send_task("asp.cost_aggregator")` to confirm the beat-dispatch pipeline. The task returned FAILURE with the Python import traceback, exposing the latent bug.
+
+**Fix scope:** port cost aggregator to `asyncpg` (preferred, matches pilot driver) OR add `psycopg2`/`psycopg2-binary` to `requirements.txt` and accept two Postgres drivers in the image. Either option is a separate maintenance task, NOT part of v2.0.
+
+**Immediate mitigation (applied in this commit):** comment out the `monthly-cost-aggregation` entry in `app/worker.py` `beat_schedule`. Prevents the daily beat scheduler from dispatching the broken task and flooding pilot logs with tracebacks at the next 1st-of-month 01:00 UTC. `ontology-sync-daily` entry retained (healthy).
+
+**Re-enable condition:** after the aggregator is fixed and a successful manual `celery_app.send_task("asp.cost_aggregator")` returns SUCCESS, uncomment the beat entry and re-commit.
+
+**Atrium-transition relevance:** Atrium should use a single Postgres driver (asyncpg is the stronger choice given the async-everywhere posture). Any module attempting sync Postgres access should be rejected at code review.
+
+**Timeline:**
+- 2026-04-18: Latent bug existed throughout pilot history (ASP-10 has never actually executed)
+- 2026-04-18: Surfaced by I-RAG-04 beat-fire verification (DEV-IN-011)
+- 2026-04-18: Filed per Architect ruling ASP-OUT-012 Option B+C (defer fix, disable entry)
+- 2026-04-18: `monthly-cost-aggregation` entry commented out in `app/worker.py`
+- Status: OPEN — awaiting separate maintenance task for the aggregator port/fix
