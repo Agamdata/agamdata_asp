@@ -615,7 +615,7 @@ Each of I-RAG-05/06/07 is an independent commit per ASP-OUT-025 *"Each is an ind
 | # | Criterion | Verification |
 |---|---|---|
 | **AC-S3-01** | Collection metadata contains `asp_embedding_model` field after creation | `collection.metadata` includes the key |
-| **AC-S3-02** | `_check_embedding_model_snapshot()` emits `rag_embedding_model_mismatch` structlog warning when `settings.EMBEDDING_MODEL` differs from stored value | Test: mutate `settings.EMBEDDING_MODEL` in a fixture; call retrieve; assert log event captured |
+| **AC-S3-02** | `_check_embedding_model_snapshot` logs a WARNING-level structlog event when the collection's `asp_embedding_model` metadata value does not match `settings.RAG_EMBEDDING_MODEL`. Collection is NOT invalidated — warn only (ADR-035 deferred). | Test: mutate `settings.RAG_EMBEDDING_MODEL` in a fixture; call retrieve; assert WARNING event captured and collection still usable. |
 
 ### §12.4 Block S-4 — `ChunkMetadata` Pydantic model (3 ACs)
 

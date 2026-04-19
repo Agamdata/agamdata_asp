@@ -28,8 +28,10 @@ from typing import Optional
 import chromadb
 import structlog
 from chromadb.utils.embedding_functions import SentenceTransformerEmbeddingFunction
+from pydantic import ValidationError
 
 from app.config import settings
+from app.schemas.rag_schemas import ChunkMetadata
 
 log = structlog.get_logger()
 
@@ -149,6 +151,24 @@ async def retrieve(
         n_results=min(top_k, collection.count()),
         where=where,
     )
+
+    # I-RAG-05 (ASP-OUT-026): parse returned metadatas through ChunkMetadata
+    # to surface any read/write contract drift as a structured warning. The
+    # caller contract (list[str] of documents) is preserved; validation is
+    # defensive instrumentation only — we do NOT drop chunks on validation
+    # failure at read time, only warn.
+    metadatas_lists = results.get("metadatas") or []
+    for meta in (metadatas_lists[0] if metadatas_lists else []):
+        try:
+            ChunkMetadata(**(meta or {}))
+        except ValidationError as ve:
+            log.warning(
+                "rag_chunk_metadata_validation_failed",
+                tenant_id=tenant_id,
+                collection=collection_name,
+                errors=ve.errors(include_url=False),
+            )
+
     return results["documents"][0] if results["documents"] else []
 
 
@@ -185,9 +205,18 @@ def upsert_chunks(
 
     _check_embedding_model_snapshot(collection)
 
+    # I-RAG-05 (ASP-OUT-026): validate every chunk's metadata against the
+    # governed ChunkMetadata contract BEFORE upsert. extra="forbid" ensures
+    # any drift from the ASP-12 write contract raises ValidationError and
+    # the whole batch fails loudly rather than persisting malformed data.
+    validated: list[dict] = []
+    for c in chunks:
+        meta = ChunkMetadata(**c["metadata"])           # raises ValidationError
+        validated.append(meta.model_dump())
+
     ids = [c["id"] for c in chunks]
     documents = [c["text"] for c in chunks]
-    metadatas = [c["metadata"] for c in chunks]
+    metadatas = validated
 
     collection.upsert(ids=ids, documents=documents, metadatas=metadatas)
     log.info("rag_chunks_upserted", tenant_id=tenant_id, count=len(chunks),
