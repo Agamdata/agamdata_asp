@@ -44,6 +44,62 @@ alembic upgrade head     # Apply
 alembic heads            # Must show single head
 ```
 
+### G-PROMPT-REACH: Prompt Template Reachability (added 2026-04-18, ASP-OUT-015)
+
+For every new or modified `prompt_templates` row, verify reachability
+by running a probe using the handler's actual `maturity_level` value
+(default: `"L2"` for most handlers). The probe must resolve to the
+intended row — not raise `PromptNotFoundError` and not resolve to a
+stale row.
+
+**Mandatory rules:**
+
+1. **Use `get_prompt_variant()` directly in the probe**, not
+   `get_prompt()`. Match the handler's actual resolution path —
+   different functions have different fallback semantics.
+2. **A migration that deactivates an existing row must confirm a
+   reachable replacement exists** at the same or fallback maturity
+   level BEFORE the deactivation is committed.
+3. **Default maturity of `"L2"` is the most common failure mode.** If
+   the handler defaults to `"L2"` and the new row is at `maturity="*"`,
+   the fallback chain `(caller, L2) → (caller, *)` must be available
+   via the resolution function. If the function is strict-exact (no
+   fallback), the row is unreachable for default callers.
+
+**Why this gate exists.** Migration 024 (ASP-FEAT-ASP-03 v2.0) broke
+the PAP production path by deactivating the L2 override row while
+inserting v4 rows only at `maturity="*"`. `get_prompt_variant` was
+strict-exact and had no fallback. Every default-maturity PAP call
+failed immediately after the migration applied. Root-caused during
+Step 5 unit verification; fixed via ASP-OUT-014 Option A (4-level
+fallback chain added to `get_prompt_variant`). This gate exists to
+catch the same class of failure at pre-write time rather than
+post-apply.
+
+**Example probe shape:**
+
+```python
+from app.registry.prompt_registry import get_prompt_variant
+from app.registry.prompt_registry import PromptNotFoundError
+
+# Simulate a handler default call
+try:
+    p = await get_prompt_variant(
+        service_type="generation",
+        task="generate_test_cases_with_inventory",
+        caller_module="playwright_runner",   # real caller
+        maturity_level="L2",                  # handler default
+        ab_variant="inventory",
+    )
+    assert p.version == 4, f"expected v4, got v{p.version}"
+except PromptNotFoundError:
+    raise AssertionError("migration break — no v4 row reachable")
+```
+
+Run this probe against the live DB before committing any migration
+that touches `prompt_templates`. Pre-write gate result is PASS only
+if the probe resolves to the intended row.
+
 ### Known Gotcha: Partial Migration Failures
 When a migration fails mid-way:
 1. Check `alembic_version` table — it shows the LAST successful revision

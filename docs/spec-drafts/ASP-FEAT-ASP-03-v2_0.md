@@ -249,6 +249,7 @@ Adds to `app/services/generation.py`:
 | G-5 Migration | ✅ | Post-build `alembic current` returned `0023 (head)` cleanly at 08:46 UTC 2026-04-18. |
 | G-6 Frontend | N/A | — |
 | G-7 Dependency | ✅ | Payload delta: 15 → 18 fields on `GenerateTestCasesWithInventoryPayload`; new models for `refactor_script_locators`. Import check runs in Batch 2 after full schemas land. |
+| **G-8 Prompt Reach (NEW per ASP-OUT-015)** | ✅ (retroactively, via ASP-OUT-014 Option A fix) | Probe against live DB post-migration 024: `get_prompt_variant(caller=playwright_runner, maturity=L2, ab_variant=inventory)` resolves to v4-batch row (verified in T-A1); `get_prompt_variant(caller=test_generator, maturity=L2, ab_variant=inventory)` resolves to v4-interactive row (verified in T-A2). Both paths functional after the fallback chain was added to `get_prompt_variant`. **Without the Option A fix, this gate would have FAILED** — migration 024 originally rendered both rows unreachable for default-maturity callers. ENGINEERING-PLAYBOOK.md now carries this gate as mandatory for every future `prompt_templates` migration. |
 
 ---
 
