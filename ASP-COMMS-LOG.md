@@ -23,7 +23,7 @@ this log — if PAP references them, we will back-populate them on request.
 
 | ID | Subject | Filed | State | Last update |
 |---|---|---|---|---|
-| ASP-OUT-003 | `suggest_screen_mapping` lead time (PAP W-5 blocker) | 2026-04-18 | **OPEN** | 2026-04-18 18:47 IST |
+| ASP-OUT-003 | `suggest_screen_mapping` lead time (PAP W-5 blocker) | 2026-04-18 | **CLOSED** | 2026-04-18 (PAP-ASP-REQ-ASP-01 v2.0 ACCEPTED; build starts under ASP-OUT-020) |
 | ASP-OUT-004 | PAP-ASP-REQ-ASP-03 v2.0 acceptance (form_data amendment + coverage-aware scope) | 2026-04-17 | **CLOSED** | 2026-04-18 |
 | ASP-OUT-006 | Communication protocol update — milestone-only reporting + MSG-ID tagging + COMMS-LOG pre-check | 2026-04-18 | **CLOSED** (ACCEPTED, effective immediately) | 2026-04-18 20:30 IST |
 | ASP-OUT-007 | I-RAG-02 rulings + Stream A Batch 1 directive (warmup Option C, OQ-RAG-CACHE-01 Option B, migration 024 pre-write gate rulings, Batch 1 §1–§5 verbatim content, L2-override deactivation) | 2026-04-18 20:35 IST | **CLOSED** | 2026-04-18 (DEV-IN-007 milestone report) |
@@ -37,8 +37,10 @@ this log — if PAP references them, we will back-populate them on request.
 | ASP-OUT-015 | Steps 4+5 confirmed clean + G-PROMPT-REACH gate directive + Step 8 green light (37-AC verification across 8 phases) | 2026-04-18 | **CLOSED** | 2026-04-18 (37/37 PASS on re-run; Steps 9+10 shipped; v2.0 GOVERNED) |
 | ASP-OUT-016 | AC-S1-04 ruling — Option A field_validator on categories_to_generate (empty list → 422) + re-run protocol | 2026-04-18 | **CLOSED** | 2026-04-18 (Commit 13 validator shipped + verified; AC-S1-04 PASS on re-run) |
 | ASP-OUT-017 | AC-S1-07 ruling — Option B + repurpose (uniqueness, not order) + §9 CATEGORIES_SCHEMA note + re-run | 2026-04-18 | **CLOSED** | 2026-04-18 (37/37 PASS — ASP-NOTE-009 v2.0 governance closure) |
+| ASP-OUT-019 | (content not delivered to this session — Architect referenced as "awaiting PAP ack" at ASP-OUT-020) | 2026-04-18 | **OPEN** | 2026-04-18 (placeholder entry — no Dev Team action item; inherited state from ASP-OUT-020 directive) |
+| ASP-OUT-020 | suggest_screen_mapping build (PAP-ASP-REQ-ASP-01 v2.0 ACCEPTED; ASP-OUT-003 closed). Pydantic + migration 025 + handler + 8 ACs. | 2026-04-18 | **OPEN** | 2026-04-18 (DEV-IN-020 in flight — Commit A Pydantic shipped next) |
 
-Totals as of 2026-04-19 01:30 IST: **1 OPEN** (ASP-OUT-003), **13 CLOSED** (incl. ASP-OUT-015, ASP-OUT-016, ASP-OUT-017). ASP-03 v2.0 GOVERNED via ASP-NOTE-009.
+Totals as of 2026-04-19 02:00 IST: **2 OPEN** (ASP-OUT-019, ASP-OUT-020), **14 CLOSED** (incl. ASP-OUT-003 which closed on PAP-ASP-REQ-ASP-01 v2.0 acceptance).
 
 ---
 
