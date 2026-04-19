@@ -139,10 +139,25 @@ async def retrieve(
 
     _check_embedding_model_snapshot(collection)
 
-    # exclude_tables filter — ADR-004 enforcement at the metadata layer
-    where = None
+    # I-RAG-06 (ASP-OUT-026): tenant_id defence-in-depth in where= clause.
+    # Collection-name scoping (asp_schema_{tenant_id}) remains the PRIMARY
+    # isolation mechanism; this metadata filter is the governed second belt.
+    # tenant_id is ALWAYS present in where= regardless of exclude_tables
+    # state. See ASP-FEAT-ASP-02 v1.0 §10.1 Layer 2.
+    #
+    # exclude_tables is ADR-004 enforcement at the metadata layer (primary
+    # mechanism; prompt {exclude_tables} is defence-in-depth only per
+    # §10.4).
+    tenant_filter = {"tenant_id": {"$eq": tenant_id}}
     if exclude_tables:
-        where = {"table_name": {"$nin": exclude_tables}}
+        where = {
+            "$and": [
+                tenant_filter,
+                {"table_name": {"$nin": exclude_tables}},
+            ]
+        }
+    else:
+        where = tenant_filter
 
     biased_query = f"{primary_entity} related: {query}" if primary_entity else query
 
