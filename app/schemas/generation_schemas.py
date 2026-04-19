@@ -14,7 +14,7 @@ Spec: ASP-FEAT-ASP-03 v1.1, Section 7
 import structlog
 from typing import Literal, Optional, List
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 log = structlog.get_logger()
 
@@ -132,6 +132,22 @@ class GenerateTestCasesWithInventoryPayload(BaseModel):
     categories_to_generate: Optional[List[str]] = None   # S-1: caller selects subset
     covered_categories: Optional[List[str]] = None        # S-1: consumer-echo symmetry (not rendered in v4 prompt)
     form_data: Optional[dict[str, str]] = None           # S-2: seed values for realistic test data
+
+    @field_validator("categories_to_generate")
+    @classmethod
+    def _reject_empty_categories_to_generate(cls, v):
+        """AC-S1-04 enforcement (ASP-OUT-016):
+        null  → no restriction (default coverage)
+        non-empty list → specified categories
+        empty list → 422 (ambiguous; not allowed)
+        """
+        if v is not None and len(v) == 0:
+            raise ValueError(
+                "categories_to_generate must be null (for default coverage) "
+                "or a non-empty list of category names. Empty list is "
+                "rejected — use null to request all five standard categories."
+            )
+        return v
 
 
 # ---------------------------------------------------------------------------

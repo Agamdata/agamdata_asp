@@ -34,9 +34,10 @@ this log — if PAP references them, we will back-populate them on request.
 | ASP-OUT-012 | v4 prompt content ruling + DEFECT-022 disposition (Option B + C) + migration 024 implementation sequence | 2026-04-18 | **CLOSED** | 2026-04-18 (DEV-IN-012 + DEV-IN-013 + DEV-IN-014 milestone reports; migration 024 applied; Pydantic + handler + VALID_TASKS shipped) |
 | ASP-OUT-013 | Migration 024 confirmed clean + Rule 8 ruling (no Rule 8) + Steps 4–5 green light | 2026-04-18 | **CLOSED** | 2026-04-18 (DEV-IN-013 stop-and-report + DEV-IN-014 resume; Rule 8 §9.2 clarification applied) |
 | ASP-OUT-014 | CRITICAL migration 024 regression ruling — Option A get_prompt_variant fallback chain | 2026-04-18 | **CLOSED** | 2026-04-18 (DEV-IN-014 milestone; 4-level fallback implemented + verified; PAP production path restored) |
-| ASP-OUT-015 | Steps 4+5 confirmed clean + G-PROMPT-REACH gate directive + Step 8 green light (37-AC verification across 8 phases) | 2026-04-18 | **OPEN** | 2026-04-18 (DEV-IN-015 in flight — Commit 12a docs shipped; 37-AC suite authoring + execution next) |
+| ASP-OUT-015 | Steps 4+5 confirmed clean + G-PROMPT-REACH gate directive + Step 8 green light (37-AC verification across 8 phases) | 2026-04-18 | **OPEN** | 2026-04-18 (Commit 12a G-PROMPT-REACH shipped; suite authored + interrupted at AC-S1-04; resumes after Commit 13 validator fix) |
+| ASP-OUT-016 | AC-S1-04 ruling — Option A field_validator on categories_to_generate (empty list → 422) + re-run protocol | 2026-04-18 | **OPEN** | 2026-04-18 (DEV-IN-016 in flight — Commit 13 validator shipped, full 37-AC re-run starting) |
 
-Totals as of 2026-04-19 00:15 IST: **2 OPEN** (ASP-OUT-003, ASP-OUT-015), **10 CLOSED** (ASP-OUT-004, ASP-OUT-006, ASP-OUT-007, ASP-OUT-008, ASP-OUT-009, ASP-OUT-010, ASP-OUT-011, ASP-OUT-012, ASP-OUT-013, ASP-OUT-014).
+Totals as of 2026-04-19 00:45 IST: **3 OPEN** (ASP-OUT-003, ASP-OUT-015, ASP-OUT-016), **10 CLOSED**.
 
 ---
 
