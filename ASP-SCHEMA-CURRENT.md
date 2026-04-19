@@ -1,7 +1,7 @@
 # ASP-SCHEMA-CURRENT — Database Schema Reference
 
 ## Migration Head
-**Current:** `0024` (v4_prompts_coverage_form_live_extracted_refactor — ASP-FEAT-ASP-03 v2.0 prompt-only)
+**Current:** `0025` (seed_suggest_screen_mapping_prompt — PAP-ASP-REQ-ASP-01 v2.0 / BP-10 prompt-only)
 
 ## Tables
 
@@ -63,7 +63,8 @@ Aggregated monthly cost rollups (idempotent).
 | 0021 | Elevate count enforcement to system prompt (Rule 3 hard-constraint) | Superseded by 0022 |
 | 0022 | Neutral Rule 3 — count enforcement moved to handler post-processing | Principal Architect ruling |
 | 0023 | Create `tenant_api_keys` junction; backfill legacy rows; drop `tenants.api_key_hash`; add `cost_events.caller_feature` | ASP-FEAT-ASP-00 v1.0 Gateway governance |
-| 0024 | ASP-FEAT-ASP-03 v2.0 — prompt-only: deactivate v3 + v1-L2; insert v4 playwright_runner + v4 test_generator (split by caller); seed refactor_script_locators v1 | ASP-FEAT-ASP-03 v2.0 (in draft) |
+| 0024 | ASP-FEAT-ASP-03 v2.0 — prompt-only: deactivate v3 + v1-L2; insert v4 playwright_runner + v4 test_generator (split by caller); seed refactor_script_locators v1 | ASP-FEAT-ASP-03 v2.0 (GOVERNED) |
+| 0025 | Seed `suggest_screen_mapping` v1 prompt row (nlp / test_generator / * / v1 / NULL) | PAP-ASP-REQ-ASP-01 v2.0 / BP-10 (ASP-OUT-020) |
 
 ## Last Updated
 2026-04-18

@@ -39,6 +39,7 @@ VALID_TASKS = {
     "sentiment",
     "language_detection",
     "classify_probe_result",
+    "suggest_screen_mapping",   # PAP-ASP-REQ-ASP-01 v2.0 / BP-10 (ASP-OUT-020)
 }
 
 
