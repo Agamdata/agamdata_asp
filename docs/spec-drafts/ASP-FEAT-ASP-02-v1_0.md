@@ -239,7 +239,7 @@ RAG and Ontology Manager expose **two internal Python surfaces only** — **no e
 
 **Governed statement (this spec, ASP-OUT-024 §6 ruling):**
 
-> *The absence of RAG from `GET /api/v1/ai/capabilities` is correct and permanent. Any future TSCD proposing to expose RAG as a gateway service requires a Zone reclassification ADR before it can proceed.*
+> *The absence of RAG from `GET /api/v1/ai/capabilities` is correct and permanent per ADR-001. Any future TSCD proposing gateway exposure of RAG requires a Zone reclassification ADR before it can proceed.*
 
 This language is binding. A future TSCD or ADR that attempts to expose RAG externally must:
 1. Cite this paragraph.
@@ -530,7 +530,9 @@ This is a narrow but real security property: it prevents "oh by the way we added
 
 ### §10.4 ADR-004 compliance — `exclude_tables` enforcement
 
-**ADR-004 locked (pre-existing):** `exclude_tables` is enforced at the RAG metadata layer (primary mechanism), with the NLP prompt's `{exclude_tables}` placeholder serving as defence-in-depth only.
+**Governed statement (verbatim, ASP-OUT-025 Note 3):**
+
+> *`exclude_tables` enforcement at the ChromaDB metadata filter layer is the primary mechanism (ADR-004). The NLP prompt's `{exclude_tables}` placeholder is defence-in-depth only and must not be treated as the sole enforcement gate.*
 
 **v1.0 preserves and reaffirms this**:
 
@@ -552,4 +554,203 @@ No new ADRs introduced by this section. ADR-001 (Zone 1 exclusion), ADR-004 (`ex
 
 ---
 
-**End of Batch 2 (§6–§10).** Batch 3 (§11 Implementation Checklist · §12 Acceptance Criteria · §13 Open Questions · §14 Change Log) follows on review.
+**End of Batch 2 (§6–§10).** Batch 3 follows.
+
+---
+
+## §11 Implementation Checklist
+
+Single-commit-per-item discipline. Commits already shipped are cited by short hash; items marked **NOT YET** are authored after Batch 3 acceptance.
+
+| ID | Title | Owner stream | Status | Commit |
+|---|---|---|---|---|
+| **I-RAG-01** | `PersistentClient(path=CHROMA_PERSIST_PATH)` replacing ephemeral `Client()` | Stream B | **COMPLETE** | `a15e3fc` |
+| **I-RAG-02** | Explicit `SentenceTransformerEmbeddingFunction(model_name=...)` binding + Dockerfile model preload + 5-minute TTL singleton | Stream B | **COMPLETE** | `b4fbce9` |
+| **I-RAG-03** | Celery beat entry `ontology-sync-daily` (02:00 UTC; cron no-op in v1.0 pilot) | Stream B | **COMPLETE** | `40ff092` |
+| **I-RAG-04** | Celery worker `-B` flag (beat scheduler enabled in `docker-compose.yml`) | Stream B | **COMPLETE** | `7538fb9` |
+| **I-RAG-05** | `ChunkMetadata` Pydantic model in `app/schemas/rag_schemas.py` (§5 / S-4) — `extra="forbid"` | Stream B | **NOT YET** | — |
+| **I-RAG-06** | `tenant_id` defence-in-depth in ChromaDB `where=` clause (§10.1 / S-5) — primary + secondary layer both present | Stream B | **NOT YET** | — |
+| **I-RAG-07** | `RAGCollectionMissingError` exception class in `app/services/rag.py` + NLP `_handle_nl_to_sql` → 503 conversion (§6.4 / §8.2 / S-6) — fail-closed path | Stream B | **NOT YET** | — |
+| **I-RAG-08** | AC verification suite — ≥25 ACs across S-1..S-7 + ADR-004 + cross-cutting (§12) | Stream B | **NOT YET** | — |
+| **I-RAG-09** | Governance sync — `ASP-INDEX.md` ASP-02 GOVERNED row + `ASP-SCHEMA-CURRENT.md` (N/A marker for this feature) + `CLAUDE.md` state line; 4-way sha256 sync | Stream B | **NOT YET** | — |
+| **I-RAG-10** | `.docx` render of this spec to `asp-projects/04-features/02-RAG/ASP-FEAT-ASP-02-v1_0.docx` via the `md2docx.js` tool | Stream B | **NOT YET** | — |
+
+**Sequencing after Batch 3 acceptance:**
+
+1. I-RAG-05 (Pydantic model; mechanical — unblocks I-RAG-06 typing)
+2. I-RAG-06 (`where=` clause; cross-tenant probe covered by AC)
+3. I-RAG-07 (exception class + NLP conversion; covered by AC)
+4. I-RAG-08 (AC suite; 100 % pass mandatory before GOVERNED)
+5. I-RAG-09 (governance sync; ADR-026.2 4-way verification)
+6. I-RAG-10 (`.docx` render at final acceptance)
+
+Each of I-RAG-05/06/07 is an independent commit per ASP-OUT-025 *"Each is an independent commit."*
+
+---
+
+## §12 Acceptance Criteria
+
+**Target: 26 ACs across 8 blocks.** All must pass before GOVERNED closure (ASP-NOTE-011). Testing approach: `pytest tests/test_rag_v1.py` with Docker-compose fixtures for ai-service + celery-worker + postgres + chromadb volume.
+
+### §12.1 Block S-1 — Persistence (4 ACs)
+
+| # | Criterion | Verification |
+|---|---|---|
+| **AC-S1-01** | ChromaDB collection survives `docker compose restart ai-service` | Seed tenant; restart; `get_collection('asp_schema_<tenant>')` returns same count |
+| **AC-S1-02** | `chroma.sqlite3` present at `CHROMA_PERSIST_PATH` after first upsert | `ls /chroma/data/chroma.sqlite3` inside container exits 0 |
+| **AC-S1-03** | `chroma_data` volume is mounted on BOTH `ai-service` AND `celery-worker` | `docker inspect` shows volume binding for both services |
+| **AC-S1-04** | Collection written by celery-worker is readable by ai-service within TTL | Ontology sync upsert from worker; 1-second wait; retrieve() from ai-service returns chunks |
+
+### §12.2 Block S-2 — Embedding function binding (4 ACs)
+
+| # | Criterion | Verification |
+|---|---|---|
+| **AC-S2-01** | Collection's effective EF is `SentenceTransformerEmbeddingFunction`, NOT the ChromaDB ONNX default | Log inspection: `rag_embedding_function_initialised` shows `ef_class="SentenceTransformerEmbeddingFunction"` |
+| **AC-S2-02** | Collection metadata carries `asp_embedding_model` matching `settings.EMBEDDING_MODEL` | `collection.metadata["asp_embedding_model"] == "sentence-transformers/all-MiniLM-L6-v2"` |
+| **AC-S2-03** | Ingest and retrieve both use the same EF (no asymmetric embedding) | Upsert + retrieve share the same `_get_embedding_function()` singleton; probe log shows single init event |
+| **AC-S2-04** | First RAG request at cold start has zero outbound network latency (model pre-loaded at Dockerfile build) | Container `tcpdump` during first retrieve shows no HF Hub traffic |
+
+### §12.3 Block S-3 — Embedding-model metadata snapshot (2 ACs)
+
+| # | Criterion | Verification |
+|---|---|---|
+| **AC-S3-01** | Collection metadata contains `asp_embedding_model` field after creation | `collection.metadata` includes the key |
+| **AC-S3-02** | `_check_embedding_model_snapshot()` emits `rag_embedding_model_mismatch` structlog warning when `settings.EMBEDDING_MODEL` differs from stored value | Test: mutate `settings.EMBEDDING_MODEL` in a fixture; call retrieve; assert log event captured |
+
+### §12.4 Block S-4 — `ChunkMetadata` Pydantic model (3 ACs)
+
+| # | Criterion | Verification |
+|---|---|---|
+| **AC-S4-01** | Valid chunk payload passes validation | `ChunkMetadata(tenant_id="t1", table_name="orders", chunk_type="table", source_version="v1")` succeeds |
+| **AC-S4-02** | Unknown field raises `ValidationError` (`extra="forbid"`) | `ChunkMetadata(..., sensitive=True)` raises `ValidationError` with `extra_forbidden` error code |
+| **AC-S4-03** | All four required fields must be present | Missing any of `tenant_id`, `table_name`, `chunk_type`, `source_version` raises `ValidationError` with `missing` error code |
+
+### §12.5 Block S-5 — Tenant defence-in-depth (3 ACs)
+
+| # | Criterion | Verification |
+|---|---|---|
+| **AC-S5-01** | `where=` clause carries `tenant_id` when `exclude_tables` is set (`$and`-wrapped) | Inspect `collection.query()` kwargs; assert `where={"$and": [{"tenant_id": ...}, {"table_name": {"$nin": ...}}]}` |
+| **AC-S5-02** | `where=` clause carries `tenant_id` even when `exclude_tables` is None | Inspect `collection.query()` kwargs; assert `where={"tenant_id": ...}` |
+| **AC-S5-03** | Cross-tenant probe: tenant A upsert NOT visible to tenant B retrieve | Seed tenant A with distinctive chunk; call `retrieve(tenant_id="B", query=<match>)`; assert empty result |
+
+### §12.6 Block S-6 — Fail-closed vs fail-open paths (3 ACs)
+
+| # | Criterion | Verification |
+|---|---|---|
+| **AC-S6-01** | Missing collection raises `RAGCollectionMissingError` | Call `retrieve(tenant_id="unseeded_t", ...)`; assert exact exception class (not `ChromaError`) |
+| **AC-S6-02** | NLP `_handle_nl_to_sql` converts `RAGCollectionMissingError` to `HTTPException(503)` with RFC 7807 envelope | POST `nl_to_sql` for unseeded tenant; assert 503 + `type=/errors/rag-collection-missing` + `remediation` field |
+| **AC-S6-03** | Empty retrieve result (collection exists, 0 matches) does NOT raise 503 — fail-open proceeds | Seed tenant; query with lexically unrelated text; assert 200 with degraded-quality `sql` response |
+
+### §12.7 Block S-7 — Beat schedule (3 ACs)
+
+| # | Criterion | Verification |
+|---|---|---|
+| **AC-S7-01** | `ontology-sync-daily` present in `celery_app.conf.beat_schedule` | Assert key exists with `crontab(hour=2, minute=0)` |
+| **AC-S7-02** | `monthly-cost-aggregation` present in `celery_app.conf.beat_schedule` (DEFECT-022 resolution) | Assert key exists with `crontab(hour=1, minute=0, day_of_month=1)` |
+| **AC-S7-03** | `run_ontology_sync` task callable end-to-end via `celery_app.send_task(...)` | Send task with explicit tenant_id; assert SUCCESS + chunks persisted in ChromaDB |
+
+### §12.8 Block ADR-004 compliance (2 ACs)
+
+| # | Criterion | Verification |
+|---|---|---|
+| **AC-ADR004-01** | `exclude_tables` populates a `$nin` filter in ChromaDB `where=` (not just the prompt) | Inspect `collection.query()` kwargs for `{"table_name": {"$nin": [...]}}` |
+| **AC-ADR004-02** | Empty `exclude_tables` (None or `[]`) does NOT produce a filter error | `retrieve(query="x", tenant_id="t", exclude_tables=None)` returns normally; no `$nin` key in `where=` |
+
+### §12.9 Block cross-cutting (2 ACs)
+
+| # | Criterion | Verification |
+|---|---|---|
+| **AC-CC-01** | Retrieve path emits `rag_retrieve_start` and `rag_chunks_returned` structlog events | Log capture shows both events with `tenant_id`, `count` fields |
+| **AC-CC-02** | Upsert path emits `rag_chunks_upserted` on success and `rag_upsert_failed` on exception | Force a ChromaDB IO error in a test; assert `rag_upsert_failed` captured |
+
+**Pass threshold: 26 / 26. Anything less blocks GOVERNED closure.**
+
+---
+
+## §13 Open Questions
+
+All Architect-deferred questions recorded for traceability. No open question blocks GOVERNED closure for v1.0.
+
+| ID | Subject | Ruling | Owner |
+|---|---|---|---|
+| **OQ-1** | ADR-035 — Fail-closed on embedding-model mismatch (elevate from warning to hard failure) | **DEFERRED**. v1.0 default: warn-only via `rag_embedding_model_mismatch` structlog event. Re-evaluate if drift is observed in pilot. | Principal Architect |
+| **OQ-2** | Migrate ChromaDB client away from in-proc to an HTTP-mode deployment (`HttpClient`) | **DEFERRED to Atrium**. v1.0 uses `PersistentClient` with shared volume per I-RAG-01. | Principal Architect |
+| **OQ-3** | Per-tenant embedding model overrides (some tenants want a larger model) | **DEFERRED**. No tenant has requested; single `settings.EMBEDDING_MODEL` for all pilot tenants. Atrium-era reconsideration tied to tenant-level config surface. | Principal Architect |
+| **OQ-RAG-CACHE-01** | `_chroma_client` singleton re-initialisation policy (long-lived vs TTL) | **CLOSED — Option B (5-minute TTL).** Shipped in I-RAG-02. See §7.4. | Principal Architect |
+
+**No OPEN questions. All four deferrals are governance-acknowledged.**
+
+---
+
+## §14 Change Log
+
+### v1.0-draft — 2026-04-18 / 2026-04-19
+
+Joint ASP-02 + ASP-12 governance spec. Batch authoring per ASP-OUT-021 through ASP-OUT-025.
+
+**Gap-matrix resolution (G-1 through G-10):**
+
+| Gap | Disposition |
+|---|---|
+| G-1 PersistentClient | **RESOLVED** — I-RAG-01 `a15e3fc` |
+| G-2 Explicit EF binding | **RESOLVED** — I-RAG-02 `b4fbce9` |
+| G-3 `asp_embedding_model` metadata snapshot | **RESOLVED** — I-RAG-02 `b4fbce9` |
+| G-4 Celery beat entry | **RESOLVED** — I-RAG-03 `40ff092` |
+| G-5 Celery worker `-B` flag | **RESOLVED** — I-RAG-04 `7538fb9` |
+| G-6 `ChunkMetadata` Pydantic governance | **SCOPED** — I-RAG-05 (S-4, pending) |
+| G-7 Tenant defence-in-depth in `where=` | **SCOPED** — I-RAG-06 (S-5, pending) |
+| G-8 Fail-closed missing-collection path | **SCOPED** — I-RAG-07 (S-6, pending) |
+| G-9 Structlog event schema | **GOVERNED** — §7.5 table |
+| G-10 Capabilities-exclusion permanence | **GOVERNED** — §6.1 verbatim language |
+
+**Three net-new implementation items** (S-4 / S-5 / S-6) to ship in this spec cycle per ASP-OUT-025 sequencing.
+
+**Stream B commits (chronological):**
+
+- `a15e3fc` — I-RAG-01 PersistentClient
+- `b4fbce9` — I-RAG-02 explicit EF + Dockerfile preload + 5-min TTL
+- `40ff092` — I-RAG-03 Celery beat `ontology-sync-daily`
+- `7538fb9` — I-RAG-04 Celery worker `-B` flag
+- `d158221` — ASP-DEFECT-022 RESOLVED (cost aggregator asyncpg port; per-invocation engine pattern; governs §11 / §12.7 AC-S7-02)
+- `afd0d2a` — Batch 2 authoring + ENGINEERING-PLAYBOOK loop-affinity lesson + COMMS-LOG housekeeping
+- *(pending)* — Batch 3 authoring + Notes 1/3 verbatim alignment
+- *(pending)* — I-RAG-05, I-RAG-06, I-RAG-07 (spec-only until accepted)
+- *(pending)* — I-RAG-08 (AC suite)
+- *(pending)* — I-RAG-09 (governance sync), I-RAG-10 (.docx render)
+
+**DEFECT-022 resolution (2026-04-18 / 2026-04-19):**
+
+Cost aggregator ported from psycopg2 (not in `requirements.txt`) to asyncpg via a per-invocation `create_async_engine()` + `engine.dispose()` pattern. Governed lesson (asyncpg event-loop affinity under Celery `asyncio.run()`) added to `ENGINEERING-PLAYBOOK.md` §12. AC-S7-02 locks `monthly-cost-aggregation` presence in beat schedule so the defect cannot silently regress.
+
+**Governance trail:**
+
+- ASP-OUT-021 — Batch 2 directive (superseded by ASP-OUT-022)
+- ASP-OUT-022 — Batch 1 authoring + DEFECT-022 asyncpg port (CLOSED)
+- ASP-OUT-024 — Batch 1 rulings + Batch 2 green light + loop-affinity lesson (OPEN → closes with this batch)
+- ASP-OUT-025 — Batch 2 acceptance (with 3 verbatim-alignment notes, all applied) + Batch 3 green light (this batch) — **OPEN**
+
+### Pre-v1.0 history (reference)
+
+Earlier governance of RAG behaviour lived in two places:
+
+- **ADR-001** (Zone 1 classification; RAG absent from `/capabilities`)
+- **ADR-004** (`exclude_tables` at RAG layer as primary; prompt as defence-in-depth)
+
+This v1.0 draft is the **first full governance spec** for ASP-02. Prior to this draft, RAG was documented only via ADRs + `ASP-INDEX.md` row + the `app/services/rag.py` source-level docstrings. That gap itself is why Stream B surfaced: four defects (I-RAG-01..04) were latent in production because no formal spec existed to enforce them.
+
+### Anticipated v1.1
+
+No v1.1 scope committed. Candidate items (all DEFERRED here):
+
+- ADR-035 fail-closed embedding-model mismatch (OQ-1)
+- HttpClient migration (OQ-2)
+- Per-tenant embedding model overrides (OQ-3)
+- Scheduled per-tenant ontology sync (currently operator-triggered per §8.3)
+
+v1.1 will be authored when a trigger materialises (defect, capacity bottleneck, or tenant request).
+
+---
+
+**End of Batch 3 (§11–§14). End of ASP-FEAT-ASP-02 v1.0 draft.**
+
+Awaiting Architect review of Batch 3 and green light for I-RAG-05 / I-RAG-06 / I-RAG-07 implementation sequence.

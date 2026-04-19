@@ -42,13 +42,49 @@ this log — if PAP references them, we will back-populate them on request.
 | ASP-OUT-021 | BP-10 confirmed + ASP-OUT-019 cleanup + DEFECT-022 deferred-to-maintenance note + ASP-02 Batch 2 authoring directive | 2026-04-18 | **CLOSED** | 2026-04-18 (superseded by ASP-OUT-022 which corrected the Batch 1 gap and fast-tracked DEFECT-022) |
 | ASP-OUT-022 | ASP-FEAT-ASP-02 Batch 1 authoring + DEFECT-022 asyncpg port (parallel) | 2026-04-18 | **CLOSED** | 2026-04-19 (Batch 1 ACCEPTED per ASP-OUT-024 §1–§5 rulings; DEFECT-022 RESOLVED via per-invocation engine) |
 | ASP-OUT-023 | (Architect-filed; did not reach this session — routing gap noted per ASP-OUT-024) | 2026-04-19 | **CLOSED** | 2026-04-19 (superseded by ASP-OUT-024) |
-| ASP-OUT-024 | Batch 1 rulings (§1–§5, incl. ChunkMetadata extra="forbid" comment) + Batch 2 authoring green light + loop-affinity lesson to ENGINEERING-PLAYBOOK + single consolidated doc-only commit directive | 2026-04-19 | **OPEN** | 2026-04-19 (DEV-IN-024 in flight — Batch 2 §6–§10 authored; playbook + COMMS-LOG updated; commit pending) |
+| ASP-OUT-024 | Batch 1 rulings (§1–§5, incl. ChunkMetadata extra="forbid" comment) + Batch 2 authoring green light + loop-affinity lesson to ENGINEERING-PLAYBOOK + single consolidated doc-only commit directive | 2026-04-19 | **CLOSED** | 2026-04-19 (DEV-IN-024 milestone shipped commit afd0d2a; Batch 2 surfaced for review) |
+| ASP-OUT-025 | Batch 2 review ruling (ACCEPTED with 3 verbatim-alignment notes) + Batch 3 (§11–§14) green light + I-RAG-05/06/07 post-acceptance sequencing | 2026-04-19 | **OPEN** | 2026-04-19 (DEV-IN-025 in flight — Notes 1/3 aligned verbatim, Note 2 confirmed present; Batch 3 §11–§14 authored) |
 
-Totals as of 2026-04-19: **1 OPEN** (ASP-OUT-024), **19 CLOSED**.
+Totals as of 2026-04-19: **1 OPEN** (ASP-OUT-025), **20 CLOSED**.
 
 ---
 
 ## Open threads
+
+### ASP-OUT-025 — ASP-FEAT-ASP-02 Batch 2 acceptance + Batch 3 authoring — OPEN
+
+- **Filed:** 2026-04-19 by Principal Architect, ASP
+- **Supersedes:** ASP-OUT-024 (Batch 2 authoring directive; now CLOSED)
+- **Subject:** Batch 2 ACCEPTED with three verbatim-alignment notes. Green light for Batch 3 (§11–§14) + post-acceptance implementation sequencing of S-4/S-5/S-6.
+
+**Three notes applied this turn:**
+
+1. **Note 1 — §6.1 Zone 1 permanence statement.** Paraphrase replaced with Architect's verbatim wording: *"The absence of RAG from `GET /api/v1/ai/capabilities` is correct and permanent per ADR-001. Any future TSCD proposing gateway exposure of RAG requires a Zone reclassification ADR before it can proceed."*
+2. **Note 2 — §8.2 fail-open vs fail-closed distinction.** CONFIRMED PRESENT as originally authored. Both paths are explicitly named in the §8.2 table: fail-closed for `RAGCollectionMissingError` → 503, fail-open for empty retrieve result → NLP proceeds with empty `schema_context`. No amendment needed.
+3. **Note 3 — §10.4 ADR-004 statement.** Verbatim Architect wording inserted as a governed statement block: *"`exclude_tables` enforcement at the ChromaDB metadata filter layer is the primary mechanism (ADR-004). The NLP prompt's `{exclude_tables}` placeholder is defence-in-depth only and must not be treated as the sole enforcement gate."*
+
+**One-line confirmation:** All three notes now present verbatim in the spec as written.
+
+**Batch 3 (§11–§14) authored this turn:**
+
+- **§11 Implementation Checklist** — 10 items (I-RAG-01..10) with commit references for complete items and NOT YET markers for S-4/S-5/S-6/AC/sync/.docx items. Post-acceptance sequencing: I-RAG-05 → I-RAG-06 → I-RAG-07 → I-RAG-08 → I-RAG-09 → I-RAG-10, independent commits.
+- **§12 Acceptance Criteria** — 26 ACs across 8 blocks (S-1 persistence 4, S-2 EF binding 4, S-3 metadata snapshot 2, S-4 Pydantic 3, S-5 tenant defence 3, S-6 fail-closed 3, S-7 beat 3, ADR-004 compliance 2, cross-cutting 2). 100 % pass required before GOVERNED.
+- **§13 Open Questions** — 4 items, all deferred or closed: OQ-1 (ADR-035 fail-closed EF mismatch — DEFERRED), OQ-2 (HttpClient migration — DEFERRED to Atrium), OQ-3 (per-tenant EF — DEFERRED), OQ-RAG-CACHE-01 (CLOSED Option B 5-min TTL).
+- **§14 Change Log** — G-1..G-10 gap matrix resolution table; Stream B commit chain listed; DEFECT-022 resolution noted; governance trail ASP-OUT-021..025; anticipated v1.1 candidates.
+
+**Standing after this turn:**
+
+- Spec draft complete (Batches 1+2+3) pending Architect review of §11–§14.
+- No implementation this turn — S-4/S-5/S-6 remain spec-only.
+- Awaiting Architect acceptance of Batch 3 to begin I-RAG-05 implementation.
+
+**Cross-references:**
+
+- `docs/spec-drafts/ASP-FEAT-ASP-02-v1_0.md` — full draft (§1–§14)
+- `ENGINEERING-PLAYBOOK.md` §12 — loop-affinity pattern (applied AC-S7-02 coverage)
+- `app/cost/aggregator.py` — DEFECT-022 reference implementation
+
+---
 
 ### ASP-OUT-024 — ASP-FEAT-ASP-02 Batch 1 rulings + Batch 2 authoring + loop-affinity lesson — OPEN
 
@@ -409,4 +445,6 @@ Completion artefacts:
 
 2026-04-18 23:45 IST — CLOSED ASP-OUT-012/013/014. Migration 024 applied + v2.0 Pydantic + v2.0 handler shipped. Critical regression surfaced and fixed mid-session (ASP-OUT-014 Option A — 4-level fallback chain in get_prompt_variant). PAP production path restored. All 11 Step 5 unit tests PASS.
 
-2026-04-19 — CLOSED ASP-OUT-022 (Batch 1 ACCEPTED; DEFECT-022 RESOLVED via per-invocation asyncpg engine) and ASP-OUT-023 (routing-gap placeholder, superseded). OPENED ASP-OUT-024 (Batch 1 rulings §1–§5 + Batch 2 §6–§10 authoring + loop-affinity lesson to ENGINEERING-PLAYBOOK). Totals: 1 OPEN (ASP-OUT-024), 19 CLOSED.
+2026-04-19 — CLOSED ASP-OUT-022 (Batch 1 ACCEPTED; DEFECT-022 RESOLVED via per-invocation asyncpg engine) and ASP-OUT-023 (routing-gap placeholder, superseded). OPENED ASP-OUT-024 (Batch 1 rulings §1–§5 + Batch 2 §6–§10 authoring + loop-affinity lesson to ENGINEERING-PLAYBOOK).
+
+2026-04-19 (later) — CLOSED ASP-OUT-024 (commit afd0d2a shipped; Batch 2 surfaced for review). OPENED ASP-OUT-025 (Batch 2 ACCEPTED with 3 verbatim-alignment notes; Batch 3 §11–§14 authored; I-RAG-05/06/07 post-acceptance sequence). Totals: 1 OPEN (ASP-OUT-025), 20 CLOSED.
