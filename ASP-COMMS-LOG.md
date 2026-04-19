@@ -38,9 +38,9 @@ this log — if PAP references them, we will back-populate them on request.
 | ASP-OUT-016 | AC-S1-04 ruling — Option A field_validator on categories_to_generate (empty list → 422) + re-run protocol | 2026-04-18 | **CLOSED** | 2026-04-18 (Commit 13 validator shipped + verified; AC-S1-04 PASS on re-run) |
 | ASP-OUT-017 | AC-S1-07 ruling — Option B + repurpose (uniqueness, not order) + §9 CATEGORIES_SCHEMA note + re-run | 2026-04-18 | **CLOSED** | 2026-04-18 (37/37 PASS — ASP-NOTE-009 v2.0 governance closure) |
 | ASP-OUT-019 | (content not delivered to this session — Architect referenced as "awaiting PAP ack" at ASP-OUT-020) | 2026-04-18 | **OPEN** | 2026-04-18 (placeholder entry — no Dev Team action item; inherited state from ASP-OUT-020 directive) |
-| ASP-OUT-020 | suggest_screen_mapping build (PAP-ASP-REQ-ASP-01 v2.0 ACCEPTED; ASP-OUT-003 closed). Pydantic + migration 025 + handler + 8 ACs. | 2026-04-18 | **OPEN** | 2026-04-18 (DEV-IN-020 in flight — Commit A Pydantic shipped next) |
+| ASP-OUT-020 | suggest_screen_mapping build (PAP-ASP-REQ-ASP-01 v2.0 ACCEPTED; ASP-OUT-003 closed). Pydantic + migration 025 + handler + 8 ACs. | 2026-04-18 | **CLOSED** | 2026-04-18 (8/8 AC PASS — ASP-NOTE-010 closure; Commits A+B+C+D shipped) |
 
-Totals as of 2026-04-19 02:00 IST: **2 OPEN** (ASP-OUT-019, ASP-OUT-020), **14 CLOSED** (incl. ASP-OUT-003 which closed on PAP-ASP-REQ-ASP-01 v2.0 acceptance).
+Totals as of 2026-04-19 02:30 IST: **1 OPEN** (ASP-OUT-019 — awaiting PAP ack, no Dev Team action), **15 CLOSED** (incl. ASP-OUT-003, ASP-OUT-020). BP-10 suggest_screen_mapping shipped via ASP-NOTE-010.
 
 ---
 

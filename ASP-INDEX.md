@@ -136,7 +136,7 @@ Migrations 002–005 were active in the codebase but untracked in ASP-INDEX prio
 | ID | Name | Type | Status | Spec Doc | TSCDs |
 |---|---|---|---|---|---|
 | ASP-00 | Gateway | Synchronous | **GOVERNED** | ASP-FEAT-ASP-00 v1.0 | — |
-| ASP-01 | NLP Service | Synchronous | **GOVERNED** | ASP-FEAT-ASP-01 v1.2 | — |
+| ASP-01 | NLP Service | Synchronous | **GOVERNED** | ASP-FEAT-ASP-01 v1.2 + BP-10 additive (ASP-NOTE-010) | — |
 | ASP-02 | RAG Service | Synchronous | ACTIVE (pre-governance) | — | — |
 | ASP-03 | Generation Service | Synchronous | **GOVERNED v2.0** | ASP-FEAT-ASP-03 v2.0 | TSCD-001, v2.0 amendment |
 | ASP-04 | Doc Intelligence | Asynchronous | ACTIVE (pre-governance) | — | — |
@@ -203,6 +203,7 @@ Next TSCD: ASP-TSCD-002
 | ASP-NOTE-006 | TSCD-001 completion. Migration 019, 11/11 AC PASS, 58/58 regression. DEFECT-012 MITIGATED, DEFECT-013 RESOLVED. Two production deployment gates tracked. | PROCESS | 2026-04-15 |
 | ASP-NOTE-008 | ASP-00 Gateway governance closure. 36/36 AC PASS. Migration 023. ADR-030 amended, ADR-032 QUEUED→ACCEPTED, ADR-034 new. DEFECT-010/021 RESOLVED. 3/14 GOVERNED. PE-1 Type C sunset pending. | CLOSURE | 2026-04-18 |
 | ASP-NOTE-009 | ASP-03 v2.0 governance closure. 37/37 AC PASS. Migration 024. Coverage-aware generation + form_data + locator_source=live_extracted + F-01-10 third caller + refactor_script_locators. ASP-DEFECT-022 filed (cost aggregator, separate task). ASP-OUT-014 regression caught + fixed (get_prompt_variant 4-level fallback). G-PROMPT-REACH gate added to playbook. | CLOSURE | 2026-04-18 |
+| ASP-NOTE-010 | ASP-01 NLP — suggest_screen_mapping task added (BP-10 / PAP-ASP-REQ-ASP-01 v2.0). 8/8 AC PASS. Migration 025 (prompt-only). Type B additive. Hallucination guard verified. ASP-OUT-003 closed. | CLOSURE | 2026-04-18 |
 
 ### ASP-NOTE-002 — ASP-01 Governance Closure
 
