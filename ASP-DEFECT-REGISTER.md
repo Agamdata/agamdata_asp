@@ -1,6 +1,6 @@
 # ASP Defect Register
 
-Last updated: 2026-04-18 | Total: 20 | Open: 1 | Mitigated: 1 | Resolved: 17 | Already Fixed: 2
+Last updated: 2026-04-18 | Total: 20 | Open: 0 | Mitigated: 1 | Resolved: 18 | Already Fixed: 2
 
 ## Summary
 
@@ -25,7 +25,7 @@ Last updated: 2026-04-18 | Total: 20 | Open: 1 | Mitigated: 1 | Resolved: 17 | A
 | ASP-DEFECT-019 | LLM ignores test case count instruction — handler enforcement required | INTERNAL | ASP-03 | HIGH | RESOLVED (migration 022 + handler) | ASP Dev Team | 2026-04-16 |
 | ASP-DEFECT-020 | Gateway cost emission not wrapped in try/except — ADR-006 violation | INTERNAL | ASP-00 | HIGH | RESOLVED | ASP Dev Team | 2026-04-16 |
 | ASP-DEFECT-021 | alembic/env.py load_dotenv(override=True) defeats shell-level DATABASE_URL overrides | INTERNAL | INFRASTRUCTURE | LOW | RESOLVED | ASP Dev Team | 2026-04-17 |
-| ASP-DEFECT-022 | cost aggregator fails with No module named psycopg2 | INTERNAL | ASP-10 | HIGH | OPEN (fix deferred outside v2.0 scope) | ASP Dev Team | 2026-04-18 |
+| ASP-DEFECT-022 | cost aggregator fails with No module named psycopg2 | INTERNAL | ASP-10 | HIGH | RESOLVED | ASP Dev Team | 2026-04-18 |
 
 ---
 
@@ -703,7 +703,7 @@ Applied inline during TSCD-001 AC-T07 verification. No migration required.
 - **Source:** INTERNAL (surfaced by I-RAG-04 beat-fire verification)
 - **Domain:** ASP-10 Cost Aggregator
 - **Severity:** HIGH — the monthly cost rollup has never executed in this pilot's history. Financial reporting is dead.
-- **Status:** OPEN — fix deferred outside ASP-FEAT-ASP-03 v2.0 scope
+- **Status:** RESOLVED — fix shipped 2026-04-18 per ASP-OUT-022 directive
 - **Affected services:** ASP-10 Cost Aggregator (monthly rollup)
 
 **Root cause:** `asyncpg` is the ASP Postgres driver. `cost_aggregator.py` imports `psycopg2` (sync driver), which is not in `requirements.txt`. The bug has been dormant because the pilot celery-worker ran without `-B` flag, so the embedded beat scheduler was inert and `monthly-cost-aggregation` never fired.
@@ -723,4 +723,8 @@ Applied inline during TSCD-001 AC-T07 verification. No migration required.
 - 2026-04-18: Surfaced by I-RAG-04 beat-fire verification (DEV-IN-011)
 - 2026-04-18: Filed per Architect ruling ASP-OUT-012 Option B+C (defer fix, disable entry)
 - 2026-04-18: `monthly-cost-aggregation` entry commented out in `app/worker.py`
-- Status: OPEN — awaiting separate maintenance task for the aggregator port/fix
+- 2026-04-18 (later): Port scheduled per ASP-OUT-022 alongside ASP-FEAT-ASP-02 Batch 1 authoring
+- 2026-04-18: Ported to asyncpg (consistent with rest of ASP stack). First-pass used app-wide `get_session` pool — failed on second invocation in same Celery worker (loop-affinity: `asyncio.run()` creates new event loop per call; pool bound to prior loop raises "got Future attached to a different loop"). Second-pass fix: per-invocation `create_async_engine` + `await engine.dispose()`; no pool reuse across Celery task invocations. Small per-call overhead; acceptable because beat schedule fires at most monthly.
+- 2026-04-18: `monthly-cost-aggregation` entry re-enabled in `app/worker.py`
+- 2026-04-18: End-to-end verified — 9/9 successive Celery invocations SUCCESS (T1–T4 + 5-invocation stress). April 2026 aggregation produced 2 rows in `cost_monthly_reports`.
+- 2026-04-18: RESOLVED.

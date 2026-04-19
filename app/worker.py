@@ -32,15 +32,15 @@ import app.ontology.manager  # noqa: F401
 
 # Periodic tasks (Celery beat)
 celery_app.conf.beat_schedule = {
-    # ASP-DEFECT-022 — psycopg2 import failure in cost_aggregator.py.
-    # Disabled until ASP-DEFECT-022 resolved (Architect ruling
-    # ASP-OUT-012, Option B+C; 2026-04-18).
-    # Re-enable after fix confirmed via manual celery_app.send_task(
-    # "asp.cost_aggregator") returning SUCCESS.
-    # "monthly-cost-aggregation": {
-    #     "task": "asp.cost_aggregator",
-    #     "schedule": crontab(hour=1, minute=0, day_of_month=1),
-    # },
+    # ASP-DEFECT-022 RESOLVED per ASP-OUT-022 (2026-04-18):
+    # cost_aggregator ported from psycopg2 (absent from requirements.txt)
+    # to asyncpg via the existing app.infra.db async infrastructure.
+    # Re-enabled after manual celery_app.send_task("asp.cost_aggregator")
+    # returned SUCCESS end-to-end.
+    "monthly-cost-aggregation": {
+        "task": "asp.cost_aggregator",
+        "schedule": crontab(hour=1, minute=0, day_of_month=1),
+    },
     # I-RAG-03 — daily ontology sync trigger at 02:00 UTC. Cron invocation
     # passes no args; run_ontology_sync's no-arg path logs a structured
     # no-op. Follow-up spec task extends the cron path to iterate active
