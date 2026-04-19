@@ -366,7 +366,64 @@ schema.
 
 ---
 
-## 2026-04-18 · I-RAG-04 — docker-compose celery `-B` flag + beat-fire verification
+## 2026-04-18 · Critical regression — migration 024 broke the production path; fixed via get_prompt_variant fallback chain (ASP-OUT-014 Option A)
+
+**Detection.** During Step 5 unit verification (U8 `asyncio.wait_for`
+timeout test for `test_generator` caller), the handler failed to resolve
+any prompt for `generate_test_cases_with_inventory` — even for a PAP-style
+call (`caller_module="playwright_runner"`, default `maturity="L2"`).
+
+**Root cause.**
+
+- `UserContext.maturity_level` is `Literal["L0","L1","L2","L3"]` — `"*"`
+  is NOT a valid value.
+- Generation handler default: `maturity = "L2"` when `user_context` is None.
+- Migration 024 inserts v4 rows at `maturity_level="*"` and deactivates
+  both the v3 canonical (`e6c88ca5`, also `maturity="*"`) and the L2
+  override (`e92c4809`, `maturity="L2"` — this was the row that actually
+  served default PAP traffic).
+- `get_prompt_variant` required **exact** `(caller_module, maturity_level)`
+  match — no fallback. So no real caller could match the v4 rows.
+
+**Why pre-v2.0 this worked.** The deactivated `e92c4809` L2 override row
+was serving default-maturity PAP calls directly via exact match. The
+v3 canonical at `*` was never actually reachable via `get_prompt_variant`
+for any real caller — dead row kept for fallback-chain completeness that
+didn't exist in the variant function.
+
+**Fix.** ASP-OUT-014 Option A: add 4-level fallback chain to
+`get_prompt_variant`, mirroring `get_prompt`. Priority order:
+
+    (caller, maturity)  → (caller, '*')  → ('*', maturity)  → ('*', '*')
+
+Loud-failure semantics preserved for unknown `ab_variant` (variant mismatch
+still raises `PromptNotFoundError`). Only the `(caller, maturity)` tuple
+is now permissive. SQL implementation: single priority-ordered CASE
+expression with `LIMIT 1` — one query, deterministic winner.
+
+**Verification after fix.**
+
+| Test | caller | maturity | variant | Result |
+|---|---|---|---|---|
+| T-A1 | playwright_runner | L2 | inventory | ✅ resolves to v4-batch (via `(caller, *)`) |
+| T-A2 | test_generator | L2 | inventory | ✅ resolves to v4-interactive (via `(caller, *)`) |
+| T-A3 | playwright_runner | * | inventory | ✅ resolves to v4-batch (exact) |
+| T-A4 | future_caller | L2 | inventory | ✅ correctly FAILS (no `(*, *, inventory)` row; loud fail preserved) |
+| T-A5 | playwright_runner | L2 | totally_nonexistent_variant | ✅ correctly FAILS (unknown variant loud fail) |
+
+PAP production path (T-A1) and F-01-10 path (T-A2) both restored.
+
+**Cache-hygiene note.** Redis prompt-cache TTL is 10 minutes. Any stale
+pre-migration-024 entries will expire naturally. For deployment
+(when that time comes) it is safe to flush `prompt:*` keys once to
+accelerate correct state, but not required. Test harness explicitly
+flushes the cache between probes.
+
+**Status.** RESOLVED in Commit 11 (I-024-03..07 handler + prompt_registry
+Option A fix). No numbered defect filed — root cause was an incompatibility
+between the migration directive (v4 rows at `"*"`) and the pre-existing
+strict-exact behaviour of `get_prompt_variant`. Not a regression of
+existing code; a gap between the two surfaces that migration 024 exposed.
 
 **Scope.** Close the pre-existing gap surfaced during I-RAG-03: the
 pilot celery-worker ran `celery worker` without `-B`, so the beat

@@ -11,6 +11,7 @@ Supported tasks:
 - generate_playwright_script             (TypeScript and Python)
 - generate_test_cases_with_inventory     (verified-locator path, no hallucinations)
 """
+import asyncio
 import json
 import re
 import structlog
@@ -24,6 +25,8 @@ from app.schemas.generation_schemas import (
     GenerateTestCasesPayload,
     GeneratePlaywrightScriptPayload,
     GenerateTestCasesWithInventoryPayload,
+    RefactorScriptLocatorsPayload,
+    RefactorScriptLocatorsResult,
 )
 from app.models.generation_outputs import (
     GenerateTestCasesOutput,
@@ -75,6 +78,7 @@ VALID_TASKS = {
     "generate_test_cases",                    # snapshot/inferred path
     "generate_playwright_script",             # TypeScript and Python
     "generate_test_cases_with_inventory",     # verified-locator path
+    "refactor_script_locators",               # v2.0 — I-024-07
 }
 
 TASK_OUTPUT_SCHEMAS = {
@@ -86,12 +90,14 @@ TASK_OUTPUT_SCHEMAS = {
     "generate_test_cases":                    GenerateTestCasesOutput,
     "generate_test_cases_with_inventory":     GenerateTestCasesWithInventoryOutput,
     "generate_playwright_script":             GeneratePlaywrightScriptOutput,
+    "refactor_script_locators":               RefactorScriptLocatorsResult,   # v2.0 — I-024-07
 }
 
 TASK_PAYLOAD_VALIDATORS = {
     "generate_test_cases":                    GenerateTestCasesPayload,
     "generate_playwright_script":             GeneratePlaywrightScriptPayload,
     "generate_test_cases_with_inventory":     GenerateTestCasesWithInventoryPayload,
+    "refactor_script_locators":               RefactorScriptLocatorsPayload,  # v2.0 — I-024-07
 }
 
 TASK_MAX_TOKENS = {
@@ -101,9 +107,16 @@ TASK_MAX_TOKENS = {
     "suggest_fields":                         512,
     "draft_whatsapp":                         512,
     "generate_test_cases":                    32000,
-    "generate_test_cases_with_inventory":     12288,  # DEFECT-017: raised from 8192. Truncation confirmed at 8192 for complex inventories.
+    "generate_test_cases_with_inventory":     12288,  # DEFECT-017: raised from 8192
     "generate_playwright_script":             32000,
+    "refactor_script_locators":               8192,   # v2.0 §9.6 — I-024-07
 }
+
+# v2.0 (§11 I-024-03 / OQ-2 ruling): interactive-panel ceiling.
+# Applied when caller_module == "test_generator" AND task ==
+# "generate_test_cases_with_inventory". 28s inner wrapper leaves 2s for
+# parsing + response assembly within the 30s caller SLA.
+TEST_GENERATOR_INTERACTIVE_TIMEOUT_SECONDS = 28.0
 
 
 # ── Main handler ──────────────────────────────────────────────────────────────
@@ -207,6 +220,21 @@ async def handle(req: InvokeRequest, model: str, request_id: str) -> InvokeRespo
     elif task == "generate_playwright_script":
         user_message = _build_script_message(validated_payload, prompt)
 
+    elif task == "refactor_script_locators":
+        # v2.0 — I-024-06. Build the refactor prompt from aligned payload
+        # placeholders (script_body, locator_diff, screen_key, language).
+        # locator_diff is a list[LocatorDiffItem]; render as JSON so the
+        # LLM sees structured old→new pairs.
+        locator_diff_rendered = json.dumps(
+            validated_payload.get("locator_diff", []), indent=2, default=str
+        )
+        user_message = prompt.user_prompt_template.format(
+            script_body=validated_payload.get("script_body", ""),
+            locator_diff=locator_diff_rendered,
+            screen_key=validated_payload.get("screen_key", ""),
+            language=validated_payload.get("language", "typescript"),
+        )
+
     else:
         try:
             user_message = prompt.user_prompt_template.format(**validated_payload)
@@ -217,8 +245,15 @@ async def handle(req: InvokeRequest, model: str, request_id: str) -> InvokeRespo
     # F-03-04 uses same max_tokens as F-03-08 — LLM generates freely,
     # handler truncates to 1 TC post-parse. max_tokens cap doesn't help
     # because truncated JSON is unparseable.
-    # DEFECT-016: Use shared retry utility for 529/overload handling
-    response = await llm_call_with_retry(
+    # DEFECT-016: Use shared retry utility for 529/overload handling.
+    #
+    # v2.0 I-024-05 / OQ-2 ruling: F-01-10 interactive ceiling (30s caller
+    # SLA). Wrap the LLM call in asyncio.wait_for(28s) for
+    # caller_module="test_generator" on generate_test_cases_with_inventory.
+    # On timeout: 504 Gateway Timeout. max_tokens (lowered for interactive
+    # via prompt instruction, RULE 9) is the primary self-bounding
+    # mechanism; wait_for is the secondary guard.
+    llm_call = llm_call_with_retry(
         anthropic_client,
         model=model,
         max_tokens=max_tokens,
@@ -226,6 +261,32 @@ async def handle(req: InvokeRequest, model: str, request_id: str) -> InvokeRespo
         messages=[{"role": "user", "content": user_message}],
         request_id=request_id,
     )
+    if (req.caller_module == "test_generator"
+            and task == "generate_test_cases_with_inventory"):
+        try:
+            response = await asyncio.wait_for(
+                llm_call,
+                timeout=TEST_GENERATOR_INTERACTIVE_TIMEOUT_SECONDS,
+            )
+        except asyncio.TimeoutError:
+            log.warning(
+                "generation_interactive_timeout",
+                request_id=request_id,
+                caller_module=req.caller_module,
+                caller_feature=req.caller_feature,
+                timeout_s=TEST_GENERATOR_INTERACTIVE_TIMEOUT_SECONDS,
+            )
+            raise HTTPException(
+                status_code=504,
+                detail=(
+                    "Interactive generation timeout "
+                    f"({int(TEST_GENERATOR_INTERACTIVE_TIMEOUT_SECONDS)}s). "
+                    "Retry with a narrower categories_to_generate or lower inventory size."
+                ),
+            )
+    else:
+        response = await llm_call
+
     raw = response.content[0].text
 
     # generate_playwright_script returns raw code — strip fences/labels, wrap directly
@@ -522,38 +583,85 @@ def _build_inventory_message(payload: dict, prompt) -> str:
 def _build_generation_instructions(payload: dict) -> str:
     """Determine call mode from payload context and return explicit count instruction.
 
-    F-03-04 mode: test_steps or tc_id present → engineer-triggered, 1 test case.
-    F-03-08 mode: probe context or default → background pipeline, 5 test cases.
+    v2.0 (I-024-03, I-024-04):
+      - If payload.categories_to_generate is non-empty, it overrides mode-based
+        category selection — generate EXACTLY len(list) test cases over those
+        categories only (S-1).
+      - Appends a live-extracted locator-source advisory when
+        payload.locator_source == "live_extracted" (S-3).
+
+    Legacy modes (preserved):
+      F-03-04 mode: test_steps or tc_id present → 1 test case.
+      F-03-08 mode: probe context or default → 5 test cases.
     """
-    is_f03_04 = bool(payload.get("tc_id") or payload.get("test_steps"))
+    categories = payload.get("categories_to_generate") or []
+    locator_source = payload.get("locator_source") or "verified"
 
-    if is_f03_04:
+    # v2.0 S-1 override: coverage-aware generation
+    if categories:
+        base = (
+            f"MODE: Coverage-aware generation (v2.0).\n"
+            f"Generate EXACTLY {len(categories)} test cases covering ONLY "
+            f"these categories: {categories}.\n"
+            "Populate covered_categories in the response with exactly this list "
+            "(or a subset if any category could not be addressed given the inventory).\n"
+            "Do not generate test cases for any other category."
+        )
+    else:
+        is_f03_04 = bool(payload.get("tc_id") or payload.get("test_steps"))
+        if is_f03_04:
+            base = (
+                "MODE: Engineer-triggered script generation (F-03-04).\n"
+                "Generate EXACTLY ONE test case covering the primary happy path.\n"
+                "Do not generate edge cases, negative tests, or validation scenarios.\n"
+                "The engineer will add those manually if needed.\n"
+                f"Test case ID for reference: {payload.get('tc_id') or 'N/A'}"
+            )
+        else:
+            probe_context_note = ""
+            if payload.get("probe_error_messages"):
+                probe_context_note = (
+                    f"\nProbe observed these errors — use them to sharpen TC-2 and TC-3: "
+                    f"{payload.get('probe_error_messages')}"
+                )
+            base = (
+                "MODE: Automated probe-context generation (F-03-08).\n"
+                "Generate EXACTLY FIVE test cases in this order:\n"
+                "TC-1: Happy path — correct data, all required fields, successful submission.\n"
+                "TC-2: Required field validation — omit required fields, verify error response.\n"
+                "TC-3: Invalid data format — malformed inputs (bad email, invalid phone format).\n"
+                "TC-4: Boundary values — empty strings, maximum length, special characters.\n"
+                "TC-5: Unauthorised access — session expiry or missing auth, verify redirect.\n"
+                "Do not generate fewer than five test cases. Do not generate more than five."
+                + probe_context_note
+            )
+
+    # v2.0 S-3 (I-024-04): live_extracted advisory
+    if locator_source == "live_extracted":
+        base += (
+            "\n\nNote: locators are live-extracted and best-effort. Flag fragile "
+            "locators in missing_locators with a short reason."
+        )
+
+    return base
+
+
+def _build_form_data_context(payload: dict) -> str:
+    """Render the FORM_DATA_BLOCK content for the v4 user-prompt template (S-2).
+
+    When payload.form_data is populated, render the caller-supplied seed values
+    so the LLM uses them as realistic test data in step value fields.
+    When absent, instruct the LLM to synthesise realistic values.
+    """
+    form_data = payload.get("form_data")
+    if form_data:
         return (
-            "MODE: Engineer-triggered script generation (F-03-04).\n"
-            "Generate EXACTLY ONE test case covering the primary happy path.\n"
-            "Do not generate edge cases, negative tests, or validation scenarios.\n"
-            "The engineer will add those manually if needed.\n"
-            f"Test case ID for reference: {payload.get('tc_id') or 'N/A'}"
+            "Use these field values as realistic test data in step value fields: "
+            f"{form_data}"
         )
-
-    # F-03-08 mode — always 5 test cases, UAT-validated categories
-    probe_context_note = ""
-    if payload.get("probe_error_messages"):
-        probe_context_note = (
-            f"\nProbe observed these errors — use them to sharpen TC-2 and TC-3: "
-            f"{payload.get('probe_error_messages')}"
-        )
-
     return (
-        "MODE: Automated probe-context generation (F-03-08).\n"
-        "Generate EXACTLY FIVE test cases in this order:\n"
-        "TC-1: Happy path — correct data, all required fields, successful submission.\n"
-        "TC-2: Required field validation — omit required fields, verify error response.\n"
-        "TC-3: Invalid data format — malformed inputs (bad email, invalid phone format).\n"
-        "TC-4: Boundary values — empty strings, maximum length, special characters.\n"
-        "TC-5: Unauthorised access — session expiry or missing auth, verify redirect.\n"
-        "Do not generate fewer than five test cases. Do not generate more than five."
-        + probe_context_note
+        "No form data provided — generate realistic test values from field "
+        "names and page context."
     )
 
 
@@ -604,7 +712,8 @@ def _build_inventory_message_v2(payload: dict, prompt) -> str:
     """
     inventory_text = _format_inventory_text(payload)
 
-    # v3 prompt (migration 020) — uses generation_instructions + probe_context
+    # v3/v4 prompt — uses generation_instructions + probe_context.
+    # v4 (migration 024) additionally uses form_data_context (I-024-03 / S-2).
     if "{generation_instructions}" in prompt.user_prompt_template:
         prompt_vars = {
             "url":                      payload.get("url", ""),
@@ -613,6 +722,9 @@ def _build_inventory_message_v2(payload: dict, prompt) -> str:
             "locator_inventory":        inventory_text,
             "generation_instructions":  _build_generation_instructions(payload),
             "probe_context":            _build_probe_context(payload),
+            # v4 (migration 024) — present in v4 templates, harmless extra key
+            # for v3 templates because str.format ignores unreferenced kwargs.
+            "form_data_context":        _build_form_data_context(payload),
         }
         return prompt.user_prompt_template.format(**prompt_vars)
 

@@ -37,11 +37,13 @@ from app.schemas.generation_schemas import (
     GenerateTestCasesPayload,
     GenerateTestCasesWithInventoryPayload,
     GeneratePlaywrightScriptPayload,
+    RefactorScriptLocatorsPayload,          # v2.0 (I-024-07)
 )
 
 TASK_SCHEMA_MODELS[("generation", "generate_test_cases")] = GenerateTestCasesPayload
 TASK_SCHEMA_MODELS[("generation", "generate_test_cases_with_inventory")] = GenerateTestCasesWithInventoryPayload
 TASK_SCHEMA_MODELS[("generation", "generate_playwright_script")] = GeneratePlaywrightScriptPayload
+TASK_SCHEMA_MODELS[("generation", "refactor_script_locators")] = RefactorScriptLocatorsPayload   # v2.0
 
 # Register NLP payload schemas
 from app.schemas.nlp_schemas import (
