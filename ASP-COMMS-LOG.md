@@ -39,9 +39,10 @@ this log — if PAP references them, we will back-populate them on request.
 | ASP-OUT-017 | AC-S1-07 ruling — Option B + repurpose (uniqueness, not order) + §9 CATEGORIES_SCHEMA note + re-run | 2026-04-18 | **CLOSED** | 2026-04-18 (37/37 PASS — ASP-NOTE-009 v2.0 governance closure) |
 | ASP-OUT-019 | Architect's formal PAP notification of BP-10 readiness — outbound; no Dev Team action | 2026-04-18 | **CLOSED** | 2026-04-18 (per ASP-OUT-021 clarification — PAP ack arrives through standard channel; Dev Team responsibility ends at shipping BP-10) |
 | ASP-OUT-020 | suggest_screen_mapping build (PAP-ASP-REQ-ASP-01 v2.0 ACCEPTED; ASP-OUT-003 closed). Pydantic + migration 025 + handler + 8 ACs. | 2026-04-18 | **CLOSED** | 2026-04-18 (8/8 AC PASS — ASP-NOTE-010 closure; Commits A+B+C+D shipped) |
-| ASP-OUT-021 | BP-10 confirmed + ASP-OUT-019 cleanup + DEFECT-022 deferred-to-maintenance note + ASP-02 Batch 2 authoring directive | 2026-04-18 | **OPEN** | 2026-04-18 (DEV-IN-021 in flight — see Batch 1 gap surface) |
+| ASP-OUT-021 | BP-10 confirmed + ASP-OUT-019 cleanup + DEFECT-022 deferred-to-maintenance note + ASP-02 Batch 2 authoring directive | 2026-04-18 | **CLOSED** | 2026-04-18 (superseded by ASP-OUT-022 which corrected the Batch 1 gap and fast-tracked DEFECT-022) |
+| ASP-OUT-022 | ASP-FEAT-ASP-02 Batch 1 authoring + DEFECT-022 asyncpg port (parallel) | 2026-04-18 | **OPEN** | 2026-04-18 (DEV-IN-022 in flight — Batch 1 surfaced; DEFECT-022 RESOLVED) |
 
-Totals as of 2026-04-19 03:00 IST: **1 OPEN** (ASP-OUT-021), **16 CLOSED** (incl. ASP-OUT-019 per ASP-OUT-021 clarification).
+Totals as of 2026-04-19 03:30 IST: **1 OPEN** (ASP-OUT-022), **17 CLOSED** (incl. ASP-OUT-021).
 
 ---
 
