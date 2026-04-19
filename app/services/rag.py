@@ -35,6 +35,20 @@ from app.schemas.rag_schemas import ChunkMetadata
 
 log = structlog.get_logger()
 
+
+class RAGCollectionMissingError(Exception):
+    """Raised when the ChromaDB collection for a tenant does not exist.
+
+    Caller contract (ASP-FEAT-ASP-02 v1.0 §6.4 / §8.2):
+      - NLP _handle_nl_to_sql catches this and converts to HTTPException(503)
+        with RFC 7807 envelope type=/errors/rag-collection-missing.
+      - Fail-CLOSED path. Distinct from the fail-OPEN path where a
+        collection exists but retrieve() returns zero matches (in which
+        case NLP proceeds with empty schema_context).
+
+    Remediation is operational: run ontology sync for the tenant.
+    """
+
 _chroma_client: Optional["chromadb.api.ClientAPI"] = None
 _chroma_client_init_at: float = 0.0
 _embedding_fn: Optional[SentenceTransformerEmbeddingFunction] = None
@@ -128,14 +142,28 @@ async def retrieve(
     client = get_chroma_client()
     collection_name = _collection_name(tenant_id)
 
+    # I-RAG-07 (ASP-OUT-026): fail-CLOSED on missing collection. Previous
+    # behaviour silently returned [] which conflated "collection missing"
+    # (operational defect) with "collection exists but no matches" (normal
+    # low-confidence query). NLP now gets a distinct exception for the
+    # missing-collection case and converts to 503. Empty-retrieve remains
+    # fail-open below. See §6.4 / §8.2 error-path table.
     try:
         collection = client.get_collection(
             collection_name,
             embedding_function=_get_embedding_function(),
         )
-    except Exception:
-        log.warning("rag_collection_not_found", tenant_id=tenant_id, collection=collection_name)
-        return []
+    except Exception as e:
+        log.warning(
+            "rag_collection_not_found",
+            tenant_id=tenant_id,
+            collection=collection_name,
+            remediation="run admin ontology_sync for this tenant",
+        )
+        raise RAGCollectionMissingError(
+            f"Collection {collection_name} not found. "
+            f"Run ontology sync for tenant {tenant_id}."
+        ) from e
 
     _check_embedding_model_snapshot(collection)
 

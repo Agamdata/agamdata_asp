@@ -28,7 +28,7 @@ from app.schemas.nlp_schemas import (
 )
 from app.services._shared import anthropic_client, build_messages, build_invoke_response, strip_json
 from app.services import rag
-from app.services.rag import format_chunks
+from app.services.rag import format_chunks, RAGCollectionMissingError
 from app.utils.json_parser import extract_json, LLMParseError
 from app.utils.llm_retry import llm_call_with_retry
 
@@ -111,13 +111,36 @@ async def _handle_nl_to_sql(req: InvokeRequest, model: str, request_id: str) -> 
         raise HTTPException(status_code=422, detail="payload.query is required for nl_to_sql")
 
     # Step 1: Retrieve schema context from RAG (ASP-02)
-    schema_chunks = await rag.retrieve(
-        query=query_text,
-        tenant_id=req.tenant_id,
-        primary_entity=req.schema_hints.primary_entity if req.schema_hints else None,
-        exclude_tables=req.schema_hints.exclude_tables if req.schema_hints else [],
-        top_k=8,
-    )
+    # I-RAG-07 (ASP-OUT-026): missing-collection is fail-CLOSED → 503.
+    # Empty-retrieve (collection exists, zero matches) is fail-OPEN and
+    # flows through as an empty list — LLM proceeds with empty
+    # schema_context and may return a lower-confidence answer. See
+    # ASP-FEAT-ASP-02 v1.0 §8.2.
+    try:
+        schema_chunks = await rag.retrieve(
+            query=query_text,
+            tenant_id=req.tenant_id,
+            primary_entity=req.schema_hints.primary_entity if req.schema_hints else None,
+            exclude_tables=req.schema_hints.exclude_tables if req.schema_hints else [],
+            top_k=8,
+        )
+    except RAGCollectionMissingError as e:
+        log.error(
+            "rag_collection_missing",
+            tenant_id=req.tenant_id,
+            request_id=request_id,
+            error=str(e),
+        )
+        raise HTTPException(
+            status_code=503,
+            detail={
+                "type": "/errors/rag-collection-missing",
+                "title": "Schema ontology not available for this tenant",
+                "detail": "Schema context unavailable. Ontology sync required.",
+                "request_id": request_id,
+                "remediation": "admin ontology_sync required",
+            },
+        )
 
     # Step 2: Fetch prompt from registry
     maturity = req.user_context.maturity_level if req.user_context else "L2"
