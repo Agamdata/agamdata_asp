@@ -348,9 +348,11 @@ No new error types in v2.0. All envelope rendering inherited from Gateway global
 
 ## §7 Request / Response Detail
 
-### §7.1 `GenerateTestCasesWithInventoryPayload` v2 — 17 fields (authoritative)
+### §7.1 `GenerateTestCasesWithInventoryPayload` v2 — 18 fields (authoritative)
 
-File: `app/schemas/generation_schemas.py`. `ConfigDict(extra="ignore")` preserved per ADR-033. **Pydantic model is authoritative** (Architect ruling at ASP-OUT-010, 2026-04-18): 15 baseline fields + `form_data` + `categories_to_generate` = **17 fields**. The earlier "16" figure in the directive was an Architect count correction now superseded by this authoritative statement.
+File: `app/schemas/generation_schemas.py`. `ConfigDict(extra="ignore")` preserved per ADR-033. **Pydantic model is authoritative.** Field count evolved during review: Batch 2 "16" → Batch 3 "17" (`form_data` + `categories_to_generate`) → **Batch 3 revised "18" (ASP-OUT-013 added `covered_categories` to Payload as consumer-echo symmetry)**.
+
+**Implementation note on `Payload.covered_categories`:** the v4 prompt templates do NOT render this field (it is not in the user-prompt `--- Form Data Context ---` / `--- Generation Instructions ---` blocks). It is available for future multi-call de-duplication scenarios where a caller may pass previously-generated categories to inform subsequent calls. The LLM populates `Output.covered_categories` independently based on `categories_to_generate` (or its own selection when absent).
 
 | # | Field | Type | New in v2.0? | Notes |
 |---|---|---|---|---|

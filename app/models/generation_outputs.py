@@ -212,12 +212,21 @@ class GenerateTestCasesWithInventoryOutput(BaseModel):
     missing_locators is REQUIRED — empty list [] when every test step
     has a matching inventory element; populated when the LLM needed an
     element that was not in the inventory.
+
+    covered_categories (v2.0 addition, ASP-OUT-013 / S-1): the LLM
+    reports which test-case categories it actually generated. Always
+    present; subset of payload.categories_to_generate when that was
+    provided; self-selected coverage when payload.categories_to_generate
+    was None. Empty list is semantically valid but flags a generation-
+    quality concern; callers SHOULD warn on empty covered_categories
+    when test_cases is non-empty.
     """
     model_config = ConfigDict(extra='ignore')
 
     # v3 (migration 020): page_analysis removed — not in redesigned schema
-    test_cases:       list[TestCaseOutput] = Field(min_length=1, max_length=20)
-    missing_locators: list[str] = []
+    test_cases:         list[TestCaseOutput] = Field(min_length=1, max_length=20)
+    missing_locators:   list[str] = []
+    covered_categories: list[str] = []          # v2.0 addition (S-1)
 
 
 # ── Top-level: generate_playwright_script ────────────────────────────────────

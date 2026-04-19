@@ -88,23 +88,32 @@ class GenerateTestCasesPayload(BaseModel):
 class GenerateTestCasesWithInventoryPayload(BaseModel):
     """Validated payload for generate_test_cases_with_inventory task.
 
-    locator_source: Always 'verified' — by-design per-task restriction.
-    Supports two call modes:
+    v2.0 additions (ASP-FEAT-ASP-03 v2.0, ASP-OUT-013):
+      - locator_source widened to include "live_extracted" (S-3)
+      - categories_to_generate (S-1)
+      - covered_categories (S-1, consumer-echo symmetry; not currently
+        rendered by v4 prompts but available for future multi-call
+        de-duplication scenarios)
+      - form_data (S-2)
+
+    Three calling modes after v2.0:
       F-03-08 (probe context): probe_outcome, probe_error_messages, etc.
       F-03-04 (asset context): test_steps, preconditions, tc_id, language, etc.
+      F-01-10 (interactive live panel): caller_module="test_generator",
+               typically locator_source="live_extracted", form_data populated.
     All mode-specific fields are optional — handler renders absent fields as 'N/A'.
     """
     model_config = ConfigDict(extra="ignore")  # ADR-033
 
-    # --- Always required (both features) ---
+    # --- Always required (all features) ---
     url: str
-    page_type: str = "FORM"                     # CHG-06: was missing, sent by PAP as 'FORM'
-    screen_key: str = ""                         # CHG-06: was missing, sent by PAP always
-    locator_source: Literal["verified"] = "verified"
+    page_type: str = "FORM"                     # CHG-06: sent by PAP as 'FORM'
+    screen_key: str = ""                         # CHG-06: sent by PAP always
+    locator_source: Literal["verified", "live_extracted"] = "verified"   # v2.0: widened (S-3)
     locator_inventory: List[LocatorInventoryItem] = Field(min_length=1)
 
-    # --- Optional: present in current model, keep ---
-    page_title: Optional[str] = None             # Optional metadata; retain for compat
+    # --- Optional metadata (retained) ---
+    page_title: Optional[str] = None
 
     # --- F-03-08 only (probe context) ---
     probe_outcome: Optional[str] = None
@@ -118,6 +127,50 @@ class GenerateTestCasesWithInventoryPayload(BaseModel):
     expected_result: Optional[str] = None
     tc_id: Optional[str] = None
     language: Optional[Literal["typescript", "python"]] = None
+
+    # --- v2.0 additions (ASP-OUT-013) ---
+    categories_to_generate: Optional[List[str]] = None   # S-1: caller selects subset
+    covered_categories: Optional[List[str]] = None        # S-1: consumer-echo symmetry (not rendered in v4 prompt)
+    form_data: Optional[dict[str, str]] = None           # S-2: seed values for realistic test data
+
+
+# ---------------------------------------------------------------------------
+# refactor_script_locators models (v2.0 new task, §S-5)
+# ---------------------------------------------------------------------------
+
+class LocatorDiffItem(BaseModel):
+    """One entry in a locator_diff list — a single old→new replacement."""
+    model_config = ConfigDict(extra="forbid")
+    element_name: str
+    old_locator: str
+    new_locator: str
+    change_type: Optional[str] = None          # optional hint: "role" | "attr" | "text" | other
+
+
+class RefactorScriptLocatorsPayload(BaseModel):
+    """Validated payload for refactor_script_locators task.
+
+    Aligned to ASP-OUT-012 authoritative prompt-template placeholders.
+    `locator_diff` is a list of replacements to apply (NOT a full inventory).
+    """
+    model_config = ConfigDict(extra="ignore")  # ADR-033
+    script_body: str
+    locator_diff: List[LocatorDiffItem]
+    screen_key: str
+    language: str = "typescript"
+
+
+class RefactorScriptLocatorsResult(BaseModel):
+    """Output model for refactor_script_locators task.
+
+    Aligned to ASP-OUT-012 output JSON schema:
+      refactored_script, changes_made, unchanged_locators, warnings.
+    """
+    model_config = ConfigDict(extra="ignore")
+    refactored_script: str
+    changes_made: List[str] = []
+    unchanged_locators: List[str] = []
+    warnings: List[str] = []
 
 
 class GeneratePlaywrightScriptPayload(BaseModel):
