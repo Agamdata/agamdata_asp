@@ -52,6 +52,7 @@ from app.schemas.nlp_schemas import (
     EntityRecognitionPayload,
     SentimentAnalysisPayload,
     ClassifyProbeResultPayload,
+    SuggestScreenMappingPayload,     # BP-10 / PAP-ASP-REQ-ASP-01 v2.0 (ASP-OUT-020)
 )
 
 TASK_SCHEMA_MODELS[("nlp", "nl_to_sql")] = NlToSqlPayload
@@ -59,6 +60,7 @@ TASK_SCHEMA_MODELS[("nlp", "intent_extract")] = IntentExtractPayload
 TASK_SCHEMA_MODELS[("nlp", "entity_recognition")] = EntityRecognitionPayload
 TASK_SCHEMA_MODELS[("nlp", "sentiment_analysis")] = SentimentAnalysisPayload
 TASK_SCHEMA_MODELS[("nlp", "classify_probe_result")] = ClassifyProbeResultPayload
+TASK_SCHEMA_MODELS[("nlp", "suggest_screen_mapping")] = SuggestScreenMappingPayload  # BP-10
 
 
 # ---------------------------------------------------------------------------

@@ -23,6 +23,8 @@ from app.registry import prompt_registry, context_store
 from app.schemas.nlp_schemas import (
     ClassifyProbeResultPayload,
     ClassifyProbeResultOutput,
+    SuggestScreenMappingPayload,
+    SuggestScreenMappingResult,
 )
 from app.services._shared import anthropic_client, build_messages, build_invoke_response, strip_json
 from app.services import rag
@@ -81,6 +83,10 @@ TASK_OUTPUT_SCHEMAS = {
     "language_detection": LanguageDetectionOutput,
 }
 
+# suggest_screen_mapping (BP-10) uses dedicated handler with hallucination
+# guard — NOT registered in the generic TASK_OUTPUT_SCHEMAS map because
+# the dispatch in handle() branches explicitly to _handle_suggest_screen_mapping.
+
 
 async def handle(req: InvokeRequest, model: str, request_id: str) -> InvokeResponse:
     if req.task not in VALID_TASKS:
@@ -93,6 +99,8 @@ async def handle(req: InvokeRequest, model: str, request_id: str) -> InvokeRespo
         return await _handle_nl_to_sql(req, model, request_id)
     elif req.task == "classify_probe_result":
         return await _handle_classify_probe_result(req, model, request_id)
+    elif req.task == "suggest_screen_mapping":
+        return await _handle_suggest_screen_mapping(req, model, request_id)
     else:
         return await _handle_generic(req, model, request_id)
 
@@ -250,6 +258,93 @@ async def _handle_classify_probe_result(
 
     return build_invoke_response(
         request_id, "nlp", "classify_probe_result", output, response.usage, model
+    )
+
+
+async def _handle_suggest_screen_mapping(
+    req: InvokeRequest, model: str, request_id: str
+) -> InvokeResponse:
+    """Handle suggest_screen_mapping task (PAP-ASP-REQ-ASP-01 v2.0 / BP-10).
+
+    Maps a page (URL + title + type) to the best-matching internal module
+    from a caller-supplied list. LLM returns a module_key; handler verifies
+    it's in the allowed list (hallucination guard per AC-BP10-03).
+    """
+    # Payload validation
+    try:
+        payload = SuggestScreenMappingPayload(**req.payload)
+    except Exception as e:
+        raise HTTPException(
+            status_code=422,
+            detail=f"Invalid payload for suggest_screen_mapping: {e}",
+        )
+
+    allowed_keys = {m.module_key for m in payload.available_modules}
+
+    # Fetch prompt — use get_prompt for 4-level fallback chain; ab_variant is NULL for this task
+    maturity = req.user_context.maturity_level if req.user_context else "L2"
+    prompt = await prompt_registry.get_prompt(
+        "nlp", "suggest_screen_mapping", req.caller_module, maturity
+    )
+
+    # Render available_modules as newline-separated "key: name" list for the prompt
+    modules_rendered = "\n".join(
+        f"  - {m.module_key}: {m.module_name}" for m in payload.available_modules
+    )
+
+    user_message = prompt.user_prompt_template.format(
+        page_url=payload.page_url,
+        page_title=payload.page_title or "(not provided)",
+        page_type=payload.page_type or "(not provided)",
+        available_modules=modules_rendered,
+    )
+
+    # LLM call — standard tier (Haiku) per directive
+    response = await llm_call_with_retry(
+        anthropic_client,
+        model=model,
+        max_tokens=512,           # compact response — just 3 fields
+        system=prompt.system_prompt,
+        messages=[{"role": "user", "content": user_message}],
+        request_id=request_id,
+    )
+    raw = response.content[0].text
+
+    # Parse output → SuggestScreenMappingResult
+    try:
+        output = SuggestScreenMappingResult.model_validate_json(strip_json(raw))
+    except Exception as e:
+        log.error(
+            "nlp_parse_failed",
+            request_id=request_id,
+            task="suggest_screen_mapping",
+            error=str(e),
+            raw=raw[:500],
+        )
+        raise HTTPException(
+            status_code=500,
+            detail={"detail": "Internal error", "request_id": request_id},
+        )
+
+    # Hallucination guard (AC-BP10-03) — if LLM returned a key not in
+    # allowed_keys, scrub the output to safe defaults and log.
+    if output.suggested_module_key is not None and output.suggested_module_key not in allowed_keys:
+        log.warning(
+            "hallucinated_module_key",
+            request_id=request_id,
+            task="suggest_screen_mapping",
+            caller_feature=req.caller_feature,
+            hallucinated_key=output.suggested_module_key,
+            allowed_keys=sorted(allowed_keys),
+        )
+        output = SuggestScreenMappingResult(
+            suggested_module_key=None,
+            suggested_screen_name=None,
+            confidence=0.0,
+        )
+
+    return build_invoke_response(
+        request_id, "nlp", "suggest_screen_mapping", output, response.usage, model
     )
 
 
