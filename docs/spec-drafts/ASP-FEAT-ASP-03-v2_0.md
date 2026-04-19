@@ -498,7 +498,7 @@ v2.0 splits `generate_test_cases_with_inventory` into **two prompt rows** by `ca
 | Fragment ID | Purpose |
 |---|---|
 | `OUTPUT_CONTRACT_V3` | JSON-only output shape per OPS-003 simplified v3 schema |
-| `CATEGORIES_SCHEMA` (S-1) | Canonical category list + rendering of `categories_to_generate` block when present, with rules for populating `covered_categories` on the way out |
+| `CATEGORIES_SCHEMA` (S-1) | Canonical category list + rendering of `categories_to_generate` block when present, with rules for populating `covered_categories` on the way out. **Note (ASP-OUT-017):** `covered_categories` order is not governed — callers must treat it as a set, not a sequence. AC-S1-07 verifies uniqueness (no duplicates); AC-S1-06 verifies set-membership. |
 | `FORM_DATA_BLOCK` (S-2) | Rendering of `--- Form Data Context ---` + fallback instruction when absent |
 | `LOCATOR_SOURCE_BRANCH` (S-3) | Branching on `locator_source` value — `verified` path (trust inventory) vs `live_extracted` path (treat inventory as best-effort; prefer stable role/label selectors) |
 
@@ -786,7 +786,7 @@ ACs.
 | **AC-S1-04** | Request with `categories_to_generate=[]` (empty list) returns 422 at Pydantic validation | assert 422 + RFC 7807 envelope |
 | **AC-S1-05** | Request with an unknown category name (e.g. `"made_up_category"`) results in the LLM skipping it; `covered_categories` does not contain the unknown name; `missing_locators` (or equivalent warning channel) surfaces the skip | integration test |
 | **AC-S1-06** | `covered_categories` is always a **subset** of `categories_to_generate` when the latter is present (never a superset) | assertion on every response where `categories_to_generate` is provided |
-| **AC-S1-07** | Order of `categories_to_generate` is preserved in `covered_categories` when both are present | order-sensitive list compare |
+| **AC-S1-07** | `covered_categories` contains no duplicate entries (structural property — Haiku reliably produces uniqueness). Order is **not** a governed property at standard tier — LLM list-order is non-deterministic and callers must treat `covered_categories` as a set, not a sequence. (Amended per ASP-OUT-017 from original order-preservation wording.) | `len(set(cov)) == len(cov)` |
 | **AC-S1-08** | Coverage-gap detection: when `categories_to_generate=[A,B,C]` and the LLM covers only [A,B], the response has `covered_categories=[A,B]` (not `[A,B,C]`) so callers can detect the gap | integration test; induce partial coverage via constrained prompt or short max_tokens |
 
 ### S-2 — `form_data` seed context (4 ACs)
