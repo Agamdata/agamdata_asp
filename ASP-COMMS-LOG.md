@@ -37,10 +37,11 @@ this log — if PAP references them, we will back-populate them on request.
 | ASP-OUT-015 | Steps 4+5 confirmed clean + G-PROMPT-REACH gate directive + Step 8 green light (37-AC verification across 8 phases) | 2026-04-18 | **CLOSED** | 2026-04-18 (37/37 PASS on re-run; Steps 9+10 shipped; v2.0 GOVERNED) |
 | ASP-OUT-016 | AC-S1-04 ruling — Option A field_validator on categories_to_generate (empty list → 422) + re-run protocol | 2026-04-18 | **CLOSED** | 2026-04-18 (Commit 13 validator shipped + verified; AC-S1-04 PASS on re-run) |
 | ASP-OUT-017 | AC-S1-07 ruling — Option B + repurpose (uniqueness, not order) + §9 CATEGORIES_SCHEMA note + re-run | 2026-04-18 | **CLOSED** | 2026-04-18 (37/37 PASS — ASP-NOTE-009 v2.0 governance closure) |
-| ASP-OUT-019 | (content not delivered to this session — Architect referenced as "awaiting PAP ack" at ASP-OUT-020) | 2026-04-18 | **OPEN** | 2026-04-18 (placeholder entry — no Dev Team action item; inherited state from ASP-OUT-020 directive) |
+| ASP-OUT-019 | Architect's formal PAP notification of BP-10 readiness — outbound; no Dev Team action | 2026-04-18 | **CLOSED** | 2026-04-18 (per ASP-OUT-021 clarification — PAP ack arrives through standard channel; Dev Team responsibility ends at shipping BP-10) |
 | ASP-OUT-020 | suggest_screen_mapping build (PAP-ASP-REQ-ASP-01 v2.0 ACCEPTED; ASP-OUT-003 closed). Pydantic + migration 025 + handler + 8 ACs. | 2026-04-18 | **CLOSED** | 2026-04-18 (8/8 AC PASS — ASP-NOTE-010 closure; Commits A+B+C+D shipped) |
+| ASP-OUT-021 | BP-10 confirmed + ASP-OUT-019 cleanup + DEFECT-022 deferred-to-maintenance note + ASP-02 Batch 2 authoring directive | 2026-04-18 | **OPEN** | 2026-04-18 (DEV-IN-021 in flight — see Batch 1 gap surface) |
 
-Totals as of 2026-04-19 02:30 IST: **1 OPEN** (ASP-OUT-019 — awaiting PAP ack, no Dev Team action), **15 CLOSED** (incl. ASP-OUT-003, ASP-OUT-020). BP-10 suggest_screen_mapping shipped via ASP-NOTE-010.
+Totals as of 2026-04-19 03:00 IST: **1 OPEN** (ASP-OUT-021), **16 CLOSED** (incl. ASP-OUT-019 per ASP-OUT-021 clarification).
 
 ---
 
