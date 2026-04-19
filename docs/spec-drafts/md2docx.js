@@ -100,16 +100,25 @@ function hr() {
 }
 
 function makeTable(rows) {
-  const nCols = rows[0].length;
+  // Some rows may have more or fewer columns than the header. Normalise:
+  // use the max column count across all rows, pad shorter rows with empty
+  // strings, truncate wider rows to the max (safe fallback).
+  const nCols = rows.reduce((m, r) => Math.max(m, r.length), 0);
+  if (nCols === 0) return new Paragraph({ children: [new TextRun('')] });
+  const normRows = rows.map(r => {
+    if (r.length < nCols) return r.concat(Array(nCols - r.length).fill(''));
+    if (r.length > nCols) return r.slice(0, nCols);
+    return r;
+  });
   const colWidth = Math.floor(CONTENT_WIDTH / nCols);
   const columnWidths = new Array(nCols).fill(colWidth);
   columnWidths[nCols - 1] = CONTENT_WIDTH - colWidth * (nCols - 1);
 
-  const tRows = rows.map((cells, rowIdx) => new TableRow({
+  const tRows = normRows.map((cells, rowIdx) => new TableRow({
     tableHeader: rowIdx === 0,
     children: cells.map((cell, colIdx) => new TableCell({
       borders: allBorders,
-      width: { size: columnWidths[colIdx], type: WidthType.DXA },
+      width: { size: columnWidths[colIdx] || colWidth, type: WidthType.DXA },
       shading: rowIdx === 0
         ? { type: ShadingType.CLEAR, fill: 'D9E2F3' }
         : undefined,

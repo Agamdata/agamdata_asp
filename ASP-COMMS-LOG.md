@@ -34,11 +34,11 @@ this log — if PAP references them, we will back-populate them on request.
 | ASP-OUT-012 | v4 prompt content ruling + DEFECT-022 disposition (Option B + C) + migration 024 implementation sequence | 2026-04-18 | **CLOSED** | 2026-04-18 (DEV-IN-012 + DEV-IN-013 + DEV-IN-014 milestone reports; migration 024 applied; Pydantic + handler + VALID_TASKS shipped) |
 | ASP-OUT-013 | Migration 024 confirmed clean + Rule 8 ruling (no Rule 8) + Steps 4–5 green light | 2026-04-18 | **CLOSED** | 2026-04-18 (DEV-IN-013 stop-and-report + DEV-IN-014 resume; Rule 8 §9.2 clarification applied) |
 | ASP-OUT-014 | CRITICAL migration 024 regression ruling — Option A get_prompt_variant fallback chain | 2026-04-18 | **CLOSED** | 2026-04-18 (DEV-IN-014 milestone; 4-level fallback implemented + verified; PAP production path restored) |
-| ASP-OUT-015 | Steps 4+5 confirmed clean + G-PROMPT-REACH gate directive + Step 8 green light (37-AC verification across 8 phases) | 2026-04-18 | **OPEN** | 2026-04-18 (Commit 12a G-PROMPT-REACH shipped; suite authored + interrupted at AC-S1-04; resumes after Commit 13 validator fix) |
+| ASP-OUT-015 | Steps 4+5 confirmed clean + G-PROMPT-REACH gate directive + Step 8 green light (37-AC verification across 8 phases) | 2026-04-18 | **CLOSED** | 2026-04-18 (37/37 PASS on re-run; Steps 9+10 shipped; v2.0 GOVERNED) |
 | ASP-OUT-016 | AC-S1-04 ruling — Option A field_validator on categories_to_generate (empty list → 422) + re-run protocol | 2026-04-18 | **CLOSED** | 2026-04-18 (Commit 13 validator shipped + verified; AC-S1-04 PASS on re-run) |
-| ASP-OUT-017 | AC-S1-07 ruling — Option B + repurpose (uniqueness, not order) + §9 CATEGORIES_SCHEMA note + re-run | 2026-04-18 | **OPEN** | 2026-04-18 (DEV-IN-017 in flight — Commit 13a spec amendment shipped; 37-AC re-run from AC-S1-01) |
+| ASP-OUT-017 | AC-S1-07 ruling — Option B + repurpose (uniqueness, not order) + §9 CATEGORIES_SCHEMA note + re-run | 2026-04-18 | **CLOSED** | 2026-04-18 (37/37 PASS — ASP-NOTE-009 v2.0 governance closure) |
 
-Totals as of 2026-04-19 01:00 IST: **3 OPEN** (ASP-OUT-003, ASP-OUT-015, ASP-OUT-017), **11 CLOSED** (incl. ASP-OUT-016).
+Totals as of 2026-04-19 01:30 IST: **1 OPEN** (ASP-OUT-003), **13 CLOSED** (incl. ASP-OUT-015, ASP-OUT-016, ASP-OUT-017). ASP-03 v2.0 GOVERNED via ASP-NOTE-009.
 
 ---
 

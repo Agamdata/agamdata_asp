@@ -138,7 +138,7 @@ Migrations 002–005 were active in the codebase but untracked in ASP-INDEX prio
 | ASP-00 | Gateway | Synchronous | **GOVERNED** | ASP-FEAT-ASP-00 v1.0 | — |
 | ASP-01 | NLP Service | Synchronous | **GOVERNED** | ASP-FEAT-ASP-01 v1.2 | — |
 | ASP-02 | RAG Service | Synchronous | ACTIVE (pre-governance) | — | — |
-| ASP-03 | Generation Service | Synchronous | **GOVERNED** | ASP-FEAT-ASP-03 v1.1 | — |
+| ASP-03 | Generation Service | Synchronous | **GOVERNED v2.0** | ASP-FEAT-ASP-03 v2.0 | TSCD-001, v2.0 amendment |
 | ASP-04 | Doc Intelligence | Asynchronous | ACTIVE (pre-governance) | — | — |
 | ASP-05 | Prediction Service | Asynchronous | ACTIVE (pre-governance) | — | — |
 | ASP-06 | Prompt Registry | Infrastructure | ACTIVE (pre-governance) | — | — |
@@ -202,6 +202,7 @@ Next TSCD: ASP-TSCD-002
 | ASP-NOTE-005 | ASP-03 governance closure + ASP-NOTE-004 closeout. 32/32 AC PASS. AC-Close-01(b) confirmed by PAP (commit 1b32600). 2/14 GOVERNED. ADR-026.2 locked. | CLOSURE | 2026-04-12 |
 | ASP-NOTE-006 | TSCD-001 completion. Migration 019, 11/11 AC PASS, 58/58 regression. DEFECT-012 MITIGATED, DEFECT-013 RESOLVED. Two production deployment gates tracked. | PROCESS | 2026-04-15 |
 | ASP-NOTE-008 | ASP-00 Gateway governance closure. 36/36 AC PASS. Migration 023. ADR-030 amended, ADR-032 QUEUED→ACCEPTED, ADR-034 new. DEFECT-010/021 RESOLVED. 3/14 GOVERNED. PE-1 Type C sunset pending. | CLOSURE | 2026-04-18 |
+| ASP-NOTE-009 | ASP-03 v2.0 governance closure. 37/37 AC PASS. Migration 024. Coverage-aware generation + form_data + locator_source=live_extracted + F-01-10 third caller + refactor_script_locators. ASP-DEFECT-022 filed (cost aggregator, separate task). ASP-OUT-014 regression caught + fixed (get_prompt_variant 4-level fallback). G-PROMPT-REACH gate added to playbook. | CLOSURE | 2026-04-18 |
 
 ### ASP-NOTE-002 — ASP-01 Governance Closure
 
@@ -270,6 +271,7 @@ Next TSCD: ASP-TSCD-002
 | ASP-FEAT-ASP-03 | Generation Service Detailed Spec | v1.0 | SUPERSEDED by v1.1 | 2026-04-11 |
 | ASP-FEAT-ASP-03 | Generation Service Detailed Spec | v1.1 | GOVERNED — 32/32 AC PASS (e8e3896), PAP confirmed (1b32600) | 2026-04-12 |
 | ASP-FEAT-ASP-00 | Gateway Service Detailed Spec | v1.0 | **GOVERNED** — 36/36 AC PASS (ecaa1ce). Migration 023 applied. ADR-030/032/034 locked. DEFECT-010/021 RESOLVED. ASP-NOTE-008 issued 2026-04-18. | 2026-04-18 |
+| ASP-FEAT-ASP-03 | Generation Service Detailed Spec (amendment) | v2.0 | **GOVERNED** — 37/37 AC PASS. Migration 024 applied (prompt-only: 2 v4 rows split by caller + refactor_script_locators v1). Coverage-aware generation + form_data + locator_source=live_extracted + F-01-10 third caller + refactor_script_locators new task. ASP-NOTE-009 issued 2026-04-18. ASP-DEFECT-022 filed (cost aggregator psycopg2; separate maintenance task). | 2026-04-18 |
 
 ## Naming quick-ref
 
