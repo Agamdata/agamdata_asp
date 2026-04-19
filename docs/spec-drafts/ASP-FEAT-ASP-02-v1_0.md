@@ -145,6 +145,9 @@ class ChunkMetadata(BaseModel):
     for filtering — ADR-004 `exclude_tables` filter keys on `table_name`;
     S-5 defence-in-depth tenant filter keys on `tenant_id`.
     """
+    # Zone 1 internal — extra="forbid" intentional. Drift between ASP-12
+    # write contract and ASP-02 read contract must fail loudly. (Comment
+    # added per ASP-OUT-024 §5 ChunkMetadata ruling.)
     model_config = ConfigDict(extra="forbid")
 
     table_name: str                                       # ADR-004 filter key
@@ -222,4 +225,331 @@ NLP's `_handle_nl_to_sql` catches `RAGCollectionMissingError` and raises `HTTPEx
 
 ---
 
-**End of Batch 1 (§1–§5).** Awaiting Architect review before Batch 2 (§6 API Contract · §7 Request/Response Detail · §8 Caller Integration · §9 LLM and Prompt Design · §10 Security Requirements).
+**End of Batch 1 (§1–§5).** Batch 2 follows.
+
+---
+
+## §6 API Contract
+
+RAG and Ontology Manager expose **two internal Python surfaces only** — **no external HTTP endpoints**. Both services are explicitly excluded from the Gateway and the capabilities surface per Zone 1 classification (ADR-001).
+
+### §6.1 Governed capabilities-exclusion decision
+
+`rag` and `ontology_manager` are **not** present in `GET /api/v1/ai/capabilities` and must remain absent. This is verified by AC-CC-02 in ASP-FEAT-ASP-00 v1.0 (the capabilities response enumerates `nlp`, `generation`, `doc_intelligence`, `prediction`, `dashboard_intelligence` only).
+
+**Governed statement (this spec, ASP-OUT-024 §6 ruling):**
+
+> *The absence of RAG from `GET /api/v1/ai/capabilities` is correct and permanent. Any future TSCD proposing to expose RAG as a gateway service requires a Zone reclassification ADR before it can proceed.*
+
+This language is binding. A future TSCD or ADR that attempts to expose RAG externally must:
+1. Cite this paragraph.
+2. Produce a Zone reclassification ADR (Zone 1 → Zone 2 or Zone 3) as a prerequisite.
+3. Separately re-spec tenant isolation, auth, cost emission, rate limiting — none of which are currently wired for RAG because RAG is internal.
+
+### §6.2 RAG read-path contract (ASP-02)
+
+```python
+# app/services/rag.py  (module-scoped public surface)
+
+async def retrieve(
+    query: str,
+    tenant_id: str,
+    top_k: int = 5,
+    exclude_tables: Optional[list[str]] = None,
+) -> list[ChunkResult]:
+    """Retrieve top-k relevant chunks for an NLP query.
+
+    Raises RAGCollectionMissingError if the tenant has no ontology
+    seeded (S-6 fail-closed).
+
+    Applies the ADR-004 exclude_tables filter (primary enforcement)
+    AND the S-5 defence-in-depth tenant_id filter in the ChromaDB
+    `where=` clause.
+    """
+
+
+def format_chunks(chunks: list[ChunkResult]) -> str:
+    """Convert retrieval results to a string suitable for LLM prompt
+    injection as `{schema_context}`. See §7.2 for format details.
+    Returns "" for an empty list (distinct from RAGCollectionMissingError).
+    """
+```
+
+### §6.3 Ontology-manager write-path contract (ASP-12)
+
+```python
+# app/ontology/manager.py
+
+async def upsert_chunks(
+    tenant_id: str,
+    chunks: list[ChunkCandidate],
+) -> int:
+    """Idempotent upsert of chunks into `asp_schema_{tenant_id}`.
+    ChunkCandidate → ChunkMetadata validated at boundary; extra=forbid
+    rejection of unknown fields per §5 / ASP-OUT-024 ruling.
+    Returns the number of chunks upserted.
+    """
+
+
+@celery_app.task(name="app.ontology.manager.run_ontology_sync")
+def run_ontology_sync(
+    tenant_id: Optional[str] = None,
+    db: Optional[AsyncSession] = None,
+) -> dict:
+    """Celery entry point. Two modes:
+      - Cron (no args): scheduled no-op in v1.0 pilot; logs
+        ontology_sync_scheduled_trigger. Real scheduled sync
+        logic is a future extension.
+      - Explicit (tenant_id + db): introspects Postgres schema
+        for the tenant and upserts chunks.
+    Returns {"tenant_id": ..., "chunks_upserted": N, "skipped": N}.
+    """
+```
+
+### §6.4 Error matrix (internal, not HTTP)
+
+| Error condition | Exception | Downstream behaviour |
+|---|---|---|
+| Collection missing for tenant | `RAGCollectionMissingError` (new, S-6) | NLP handler converts to `HTTPException(503)`; Gateway renders RFC 7807 envelope with `type=/errors/rag-collection-missing` |
+| ChromaDB corruption / IO error | `chromadb.errors.*` (library) | NLP handler wraps in 500 via existing generic error path; operator alerted via structlog |
+| Empty retrieve result (collection exists, 0 matches) | **No exception** | NLP proceeds with empty `schema_context`; LLM response quality degrades silently. Fail-open, not fail-closed. Distinct from S-6 (missing collection). |
+| `ChunkMetadata` validation failure at upsert | `ValidationError` (pydantic) | Ontology manager fails the task with `ontology_sync_failed` event; admin re-runs after fixing source data. Not caller-visible. |
+| Embedding-model mismatch at collection open | Warning only (v1.0 per OQ-RAG-CACHE-01) | `rag_embedding_model_mismatch` structlog event; retrieval continues. ADR-035 (deferred) will govern fail-closed. |
+
+### §6.5 Out-of-process boundaries
+
+- Ontology manager runs in **celery-worker** process; RAG read runs in **ai-service** process.
+- Shared ChromaDB storage via **`/chroma/data` volume** (PersistentClient).
+- Cross-process write-visibility window: **5-minute TTL** on `_chroma_client` singleton per OQ-RAG-CACHE-01 Option B (`CHROMA_CLIENT_TTL_SECONDS=300`). A chunk upserted by ontology-sync at 02:00 UTC will become visible to ai-service's retrieve path within 5 minutes of its next call.
+- No IPC, no Redis, no DB coupling between the two services beyond ChromaDB storage.
+
+## §7 Request / Response Detail
+
+Zone 1 internal contract — these are Python object shapes, not HTTP payloads. Shapes are nevertheless governed at Pydantic-model precision because they cross the ontology-manager / RAG boundary.
+
+### §7.1 `ChunkResult` — retrieval output model
+
+```python
+# app/schemas/rag_schemas.py  (NEW FILE — also houses ChunkMetadata from §5)
+
+from pydantic import BaseModel, ConfigDict
+from typing import Literal
+
+
+class ChunkResult(BaseModel):
+    """One chunk returned by RAG retrieve()."""
+    model_config = ConfigDict(extra="forbid")   # Zone 1 internal — forbid
+
+    chunk_id: str                          # stable identifier (hash of tenant+table+chunk_type+content)
+    document: str                          # the document text the LLM consumes
+    metadata: ChunkMetadata                # full metadata per §5 contract
+    distance: float                        # cosine distance [0.0, 2.0]; lower = more relevant
+```
+
+### §7.2 `format_chunks()` — LLM prompt injection format
+
+Converts `list[ChunkResult]` to a structured string suitable for `{schema_context}` template substitution in the NLP prompt:
+
+```
+Table: {metadata.table_name}
+{document}
+---
+Table: {metadata.table_name}
+{document}
+---
+...
+```
+
+**Contract:**
+- Empty list input → empty string output (`""`). NOT an error; fail-open semantics per §6.4.
+- Order preserved from the retrieval result (ChromaDB returns in distance-ascending order; `format_chunks` preserves that order).
+- Trailing `---` separator is included after every chunk (including the last) for consistent parser behaviour in future extensions.
+
+### §7.3 `ChunkCandidate` — upsert input model
+
+```python
+class ChunkCandidate(BaseModel):
+    """One chunk presented to upsert_chunks() by ASP-12 Ontology Manager.
+
+    Distinct from ChunkResult (which is the read-path output shape).
+    Candidate has no distance (pre-retrieval) and no chunk_id (computed
+    by the upserter).
+    """
+    model_config = ConfigDict(extra="forbid")
+
+    document: str
+    metadata: ChunkMetadata
+```
+
+### §7.4 OQ-RAG-CACHE-01 resolution (reference)
+
+**CLOSED** in ASP-FEAT-ASP-00 governance cycle. Recorded here for completeness:
+
+- Policy: **5-minute TTL** on the `_chroma_client` singleton (`CHROMA_CLIENT_TTL_SECONDS=300`).
+- Cross-container write visibility: ai-service reader sees celery-worker upserts within the TTL window.
+- Re-initialisation emits `rag_chroma_client_initialised` with `reason=stale_ttl` for observability.
+- Acceptable for pilot scale; Atrium-era will re-evaluate if concurrency grows.
+
+### §7.5 Structlog event schema (RAG + Ontology Manager)
+
+| Event | Emitter | Fields bound |
+|---|---|---|
+| `rag_chroma_client_initialised` | `get_chroma_client()` first call / TTL expiry | `path`, `client_type`, `reason` (`first_init` \| `stale_ttl`), `ttl_seconds` |
+| `rag_embedding_function_initialised` | `_get_embedding_function()` first call | `model_name`, `ef_class` |
+| `rag_embedding_model_mismatch` | `_check_embedding_model_snapshot()` on drift detection | `collection_name`, `stored_model`, `configured_model` |
+| `rag_chunks_upserted` | `upsert_chunks()` success | `tenant_id`, `collection_name`, `count` |
+| `rag_collection_not_found` | `retrieve()` catches `ChromaError` on missing collection | `tenant_id`, `collection`, `remediation` |
+| `rag_collection_create_failed` | `upsert_chunks()` catches `ChromaError` on create | `tenant_id`, `error` |
+| `ontology_sync_scheduled_trigger` | `run_ontology_sync()` cron-path (no args) | (minimal — pilot no-op signal) |
+| `ontology_sync_complete` | `run_ontology_sync()` with explicit args | `tenant_id`, `chunks_upserted`, `skipped` |
+
+All events inherit `request_id`, `tenant_id`, `caller_module`, `caller_feature` from `structlog.contextvars` when present (ASP-FEAT-ASP-00 v1.0 contract).
+
+## §8 Caller Integration Guide
+
+RAG has **one caller**: `app.services.nlp._handle_nl_to_sql`. Ontology Manager is called by Celery beat and (future) an operator admin endpoint.
+
+### §8.1 NLP integration contract
+
+Sole caller: `_handle_nl_to_sql` in `app/services/nlp.py`. The call sequence is:
+
+```python
+from app.services.rag import get_chroma_client, retrieve, format_chunks
+from app.services.rag import RAGCollectionMissingError
+
+async def _handle_nl_to_sql(req, model, request_id):
+    # ... payload validation ...
+
+    try:
+        chunks = await retrieve(
+            query=payload.query,
+            tenant_id=req.tenant_id,
+            top_k=5,
+            exclude_tables=schema_hints.exclude_tables if schema_hints else None,
+        )
+    except RAGCollectionMissingError:
+        log.warning(
+            "nl_to_sql_missing_ontology",
+            tenant_id=req.tenant_id,
+            request_id=request_id,
+            remediation="run admin ontology_sync for this tenant",
+        )
+        raise HTTPException(
+            status_code=503,
+            detail={
+                "detail": "Schema ontology not available for this tenant",
+                "request_id": request_id,
+                "remediation": "admin ontology_sync required",
+            },
+        )
+
+    schema_context = format_chunks(chunks)
+    # ... LLM call with schema_context injected into prompt ...
+```
+
+### §8.2 Error-path semantics (critical distinction)
+
+Two failure modes, distinct treatment:
+
+| Condition | Code path | HTTP outcome |
+|---|---|---|
+| **Tenant has no ontology seeded** (collection doesn't exist) | `retrieve()` raises `RAGCollectionMissingError` | NLP → `HTTPException(503)` → Gateway renders RFC 7807 envelope `type=/errors/rag-collection-missing` — **fail-closed** |
+| **Tenant has ontology but retrieve returns 0 matches** (collection exists, query has no close chunks) | `retrieve()` returns `[]` normally | NLP proceeds with empty `schema_context`; LLM quality degrades silently — **fail-open** |
+| **ChromaDB corruption / IO error** | library exception propagates | NLP 500 (Internal Server Error) via existing generic error path |
+
+The fail-open path for empty-query-matches is intentional: a tenant with a sparse schema may still have legitimate natural-language queries that don't strongly match any table; the LLM should still attempt to answer (with lower confidence) rather than fail the whole call. Only the **missing-collection** case is fail-closed, because it represents a **setup/operational** defect (ontology sync hasn't run) rather than a query/data issue.
+
+### §8.3 Operator-side ontology sync (admin path)
+
+Ontology sync for a new tenant is an operator-triggered event in v1.0 pilot:
+
+```bash
+# From ops host
+docker compose exec celery-worker python -c "
+from app.worker import celery_app
+r = celery_app.send_task('app.ontology.manager.run_ontology_sync',
+                          kwargs={'tenant_id': '<TENANT>'})
+print(r.get(timeout=60))
+"
+```
+
+A scheduled per-tenant sync via beat is out of scope for v1.0 (the current `ontology-sync-daily` beat fires a no-op). A future TSCD can wire up real per-tenant iteration when the tenant/schema registry is defined.
+
+### §8.4 Consumer visibility of RAG failures
+
+Consumers (PAP, LogiCRM) do NOT see RAG errors directly. Their visibility is:
+
+- **503 on `nl_to_sql` with `remediation` field** → tenant ontology not seeded. Consumer action: contact ops to seed; retry later.
+- **Low-quality `sql` result** → possibly no matching chunks but collection exists. Consumer action: treat as a generic low-confidence response; none of their business whether RAG failed silently.
+- No other direct exposure of RAG state.
+
+## §9 LLM and Prompt Design
+
+**N/A — RAG makes no LLM calls.** All LLM invocation remains in the calling NLP handler and is governed by ASP-FEAT-ASP-01 v1.2. RAG is a vector retrieval + prompt-context-assembly service only; no prompt registry entries are owned by ASP-02 or ASP-12.
+
+(Section retained per playbook 14-section template discipline, matching the Gateway spec's §9 treatment.)
+
+## §10 Security Requirements
+
+### §10.1 Tenant isolation — two layers
+
+**Layer 1 (primary) — Collection-name scoping.**
+
+Every tenant has a dedicated ChromaDB collection named `asp_schema_{tenant_id}`. `get_collection()` and `get_or_create_collection()` both use this scoped name. A query against tenant A's collection CAN NOT return chunks from tenant B because they live in separate collection-level namespaces inside ChromaDB.
+
+**Layer 2 (defence-in-depth) — `tenant_id` filter in `where=` clause.** *(S-5 — net-new in v1.0, not yet implemented; spec first, implementation after Batch 3 acceptance.)*
+
+Every `collection.query()` additionally filters on `metadata.tenant_id == tenant_id`:
+
+```python
+where = {"tenant_id": tenant_id}
+if exclude_tables:
+    where = {"$and": [
+        {"tenant_id": tenant_id},
+        {"table_name": {"$nin": exclude_tables}},
+    ]}
+```
+
+**Rationale.** Any future bug in collection-name construction (typo, tenant_id mutation, shared pooled collection rewrite) cannot leak cross-tenant data because the metadata filter still applies. Two independent layers, either alone sufficient; both together is governed defence-in-depth. Performance cost is negligible on pilot-scale collections.
+
+### §10.2 Embedding model — local inference only
+
+**All embedding computation is local.** No external model API is called during embedding computation. `sentence-transformers` loads `all-MiniLM-L6-v2` from the local Hugging Face cache (pre-populated at Dockerfile build time — see I-RAG-02 `b4fbce9`). No query text, document content, or metadata leaves the container during embedding.
+
+This is explicitly verified by the absence of any outbound HTTP client instantiation in `app/services/rag.py` or `app/ontology/manager.py`. The only external dependency is Anthropic (via the NLP service's LLM call), which receives the already-retrieved `schema_context` — NOT the raw chunks, NOT the query-embedding vectors.
+
+### §10.3 `ChunkMetadata extra="forbid"` as a security property
+
+The strict Pydantic model on chunk metadata is not just a type-safety feature — it's a **governed security property**. Specifically:
+
+- Unknown metadata fields from a future ASP-12 version (e.g., a hypothetical `sensitive: true` flag added by a future extension) **cannot silently pass through** to the retrieval layer.
+- If ASP-12 evolves to write a new metadata field, ASP-02's retrieve path must be updated in lockstep (via this spec or a future TSCD) so the contract is explicit.
+- Drift between writer and reader is caught at write time (ValidationError on upsert) rather than silently propagating through to retrieval.
+
+This is a narrow but real security property: it prevents "oh by the way we added a marker; make sure to filter on it" from being a runtime surprise.
+
+### §10.4 ADR-004 compliance — `exclude_tables` enforcement
+
+**ADR-004 locked (pre-existing):** `exclude_tables` is enforced at the RAG metadata layer (primary mechanism), with the NLP prompt's `{exclude_tables}` placeholder serving as defence-in-depth only.
+
+**v1.0 preserves and reaffirms this**:
+
+- The `where={"table_name": {"$nin": exclude_tables}}` clause in `retrieve()` is the primary enforcement. Chunks for excluded tables are never returned to the NLP handler.
+- The `{exclude_tables}` prompt placeholder in the NLP system prompt is a secondary advisory — it reminds the LLM not to reference excluded tables even if some slipped through.
+- If a future retrieval bug ever passed excluded-table chunks to the LLM, the prompt advisory is the last line of defence. Not acceptable to rely on it; documented as defence-in-depth only.
+
+### §10.5 Data handling
+
+- **No raw query text persisted.** `retrieve()` sends the query to ChromaDB for embedding; ChromaDB does not persist the query. No ASP-side storage.
+- **No embedding vectors persisted.** Document embeddings are stored in ChromaDB tied to chunks. Query embeddings are transient — computed for the query, matched against document embeddings, discarded.
+- **Structlog emits metadata, not content.** `rag_chunks_upserted` carries `tenant_id` and `count` — never raw document text. `rag_collection_not_found` carries `tenant_id` and `collection` name — never the user's query.
+
+### §10.6 No new auth / rate-limit surface
+
+RAG is not gateway-exposed, so inherits nothing from ASP-FEAT-ASP-00 v1.0's auth or rate limiter. Ontology sync is admin-triggered (Celery or ops shell), not caller-driven; access control is at the ops-host layer, not the application layer.
+
+No new ADRs introduced by this section. ADR-001 (Zone 1 exclusion), ADR-004 (`exclude_tables` at RAG layer), and ADR-013 (tenant scoping on every DB query) all apply by reference.
+
+---
+
+**End of Batch 2 (§6–§10).** Batch 3 (§11 Implementation Checklist · §12 Acceptance Criteria · §13 Open Questions · §14 Change Log) follows on review.

@@ -40,13 +40,49 @@ this log — if PAP references them, we will back-populate them on request.
 | ASP-OUT-019 | Architect's formal PAP notification of BP-10 readiness — outbound; no Dev Team action | 2026-04-18 | **CLOSED** | 2026-04-18 (per ASP-OUT-021 clarification — PAP ack arrives through standard channel; Dev Team responsibility ends at shipping BP-10) |
 | ASP-OUT-020 | suggest_screen_mapping build (PAP-ASP-REQ-ASP-01 v2.0 ACCEPTED; ASP-OUT-003 closed). Pydantic + migration 025 + handler + 8 ACs. | 2026-04-18 | **CLOSED** | 2026-04-18 (8/8 AC PASS — ASP-NOTE-010 closure; Commits A+B+C+D shipped) |
 | ASP-OUT-021 | BP-10 confirmed + ASP-OUT-019 cleanup + DEFECT-022 deferred-to-maintenance note + ASP-02 Batch 2 authoring directive | 2026-04-18 | **CLOSED** | 2026-04-18 (superseded by ASP-OUT-022 which corrected the Batch 1 gap and fast-tracked DEFECT-022) |
-| ASP-OUT-022 | ASP-FEAT-ASP-02 Batch 1 authoring + DEFECT-022 asyncpg port (parallel) | 2026-04-18 | **OPEN** | 2026-04-18 (DEV-IN-022 in flight — Batch 1 surfaced; DEFECT-022 RESOLVED) |
+| ASP-OUT-022 | ASP-FEAT-ASP-02 Batch 1 authoring + DEFECT-022 asyncpg port (parallel) | 2026-04-18 | **CLOSED** | 2026-04-19 (Batch 1 ACCEPTED per ASP-OUT-024 §1–§5 rulings; DEFECT-022 RESOLVED via per-invocation engine) |
+| ASP-OUT-023 | (Architect-filed; did not reach this session — routing gap noted per ASP-OUT-024) | 2026-04-19 | **CLOSED** | 2026-04-19 (superseded by ASP-OUT-024) |
+| ASP-OUT-024 | Batch 1 rulings (§1–§5, incl. ChunkMetadata extra="forbid" comment) + Batch 2 authoring green light + loop-affinity lesson to ENGINEERING-PLAYBOOK + single consolidated doc-only commit directive | 2026-04-19 | **OPEN** | 2026-04-19 (DEV-IN-024 in flight — Batch 2 §6–§10 authored; playbook + COMMS-LOG updated; commit pending) |
 
-Totals as of 2026-04-19 03:30 IST: **1 OPEN** (ASP-OUT-022), **17 CLOSED** (incl. ASP-OUT-021).
+Totals as of 2026-04-19: **1 OPEN** (ASP-OUT-024), **19 CLOSED**.
 
 ---
 
 ## Open threads
+
+### ASP-OUT-024 — ASP-FEAT-ASP-02 Batch 1 rulings + Batch 2 authoring + loop-affinity lesson — OPEN
+
+- **Filed:** 2026-04-19 by Principal Architect, ASP
+- **Supersedes:** ASP-OUT-021 (Batch 2 authoring directive), ASP-OUT-022 (Batch 1 authoring + DEFECT-022 asyncpg port), ASP-OUT-023 (routing-gap placeholder)
+- **Subject:** Close-out of Batch 1 review + green light for Batch 2 §6–§10 authoring + process housekeeping.
+
+**Architect rulings applied this turn:**
+
+1. **§1–§4 Batch 1 ACCEPTED** as authored (scope, responsibilities, dependencies, config boundaries).
+2. **§5 Data Models ACCEPTED with one clarifying comment** — `ChunkMetadata` retains `extra="forbid"`. Comment added above `model_config` line stating: *Zone 1 internal — extra="forbid" intentional. Drift between ASP-12 write contract and ASP-02 read contract must fail loudly.*
+3. **Defence-in-depth tenant_id in `where=` filter ACCEPTED** — kept as primary isolation belt alongside ADR-004 metadata layer.
+4. **RAGCollectionMissingError → 503 fail-closed ACCEPTED** — distinct from empty-retrieve fail-open.
+5. **Batch 2 (§6 API Contract, §7 Request/Response Detail, §8 Caller Integration, §9 LLM/Prompt N/A, §10 Security) green-lit** — authored this turn.
+6. **ENGINEERING-PLAYBOOK loop-affinity lesson directive** — asyncpg connections carry event loop affinity; use per-invocation `create_async_engine()` + `engine.dispose()` for Celery beat tasks using `asyncio.run()`. Verbatim text added under §12 Celery & Async Patterns.
+7. **Commit discipline** — single consolidated doc-only commit at end of Batch 2 (this turn) covering: Batch 2 §6–§10, §5 ChunkMetadata comment, ENGINEERING-PLAYBOOK loop-affinity lesson, COMMS-LOG state transitions.
+8. **No implementation** — S-4/S-5/S-6 items specified by Batch 2 remain spec-only until Batch 3 acceptance per governance discipline.
+
+**DEV-IN-024 milestone status (this turn):**
+
+- Batch 2 §6–§10 authored in `docs/spec-drafts/ASP-FEAT-ASP-02-v1_0.md`.
+- §5 ChunkMetadata comment added per ruling 2.
+- ENGINEERING-PLAYBOOK §12 updated per ruling 6.
+- COMMS-LOG state transitions applied per ruling 7.
+- 4-way sha256 governance sync pending this commit.
+- Awaiting Architect review of Batch 2 before Batch 3 (§11–§14) authoring.
+
+**Cross-references:**
+- `docs/spec-drafts/ASP-FEAT-ASP-02-v1_0.md` — spec draft (Batch 1 + Batch 2)
+- `ENGINEERING-PLAYBOOK.md` §12 — loop-affinity pattern
+- `app/cost/aggregator.py` — governed per-invocation engine reference implementation
+- `ASP-DEFECT-REGISTER.md` — DEFECT-022 RESOLVED (asyncpg port)
+
+---
 
 ### ASP-OUT-003 — `suggest_screen_mapping` lead time — OPEN
 
@@ -371,4 +407,6 @@ Completion artefacts:
 
 ## Last Updated
 
-2026-04-18 23:45 IST — CLOSED ASP-OUT-012/013/014. Migration 024 applied + v2.0 Pydantic + v2.0 handler shipped. Critical regression surfaced and fixed mid-session (ASP-OUT-014 Option A — 4-level fallback chain in get_prompt_variant). PAP production path restored. All 11 Step 5 unit tests PASS. Totals: 1 OPEN (ASP-OUT-003), 10 CLOSED.
+2026-04-18 23:45 IST — CLOSED ASP-OUT-012/013/014. Migration 024 applied + v2.0 Pydantic + v2.0 handler shipped. Critical regression surfaced and fixed mid-session (ASP-OUT-014 Option A — 4-level fallback chain in get_prompt_variant). PAP production path restored. All 11 Step 5 unit tests PASS.
+
+2026-04-19 — CLOSED ASP-OUT-022 (Batch 1 ACCEPTED; DEFECT-022 RESOLVED via per-invocation asyncpg engine) and ASP-OUT-023 (routing-gap placeholder, superseded). OPENED ASP-OUT-024 (Batch 1 rulings §1–§5 + Batch 2 §6–§10 authoring + loop-affinity lesson to ENGINEERING-PLAYBOOK). Totals: 1 OPEN (ASP-OUT-024), 19 CLOSED.

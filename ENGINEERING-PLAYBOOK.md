@@ -318,3 +318,16 @@ Doc Intelligence (ASP-04) and Prediction (ASP-05) use Celery for long-running ta
 - Exponential backoff on failure
 - HMAC-SHA256 signing for payload integrity
 - Configured per-tenant in `webhook_registrations` table
+
+### Asyncpg Loop Affinity in Celery Beat Tasks (ASP-DEFECT-022)
+
+asyncpg connections carry event loop affinity. Never reuse a connection pool
+across `asyncio.run()` calls in Celery tasks — each task invocation creates
+a new event loop. Use per-invocation `create_async_engine()` +
+`engine.dispose()` for beat tasks with monthly or infrequent schedules. The
+overhead is acceptable when the task fires rarely.
+
+Symptom when violated: first invocation succeeds; second invocation fails
+with `got Future <Future pending> attached to a different loop` because the
+pool created against loop A is reused from loop B. See
+`app/cost/aggregator.py` for the governed pattern.
