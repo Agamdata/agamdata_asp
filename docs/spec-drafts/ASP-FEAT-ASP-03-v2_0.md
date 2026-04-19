@@ -492,6 +492,8 @@ v2.0 splits `generate_test_cases_with_inventory` into **two prompt rows** by `ca
 
 **Governed invariant (ASP-OUT-010):** **Shared fragments must be identical across both rows. Any divergence is a prompt drift defect.** The four named fragments below appear verbatim in both v4 `INSERT` statements in migration 024 operations 3 and 4. AC-SHARED-01 (§12) verifies via substring match that every row contains each fragment with its marker comment `<!-- SHARED_FRAGMENT: <NAME> -->`.
 
+**Note on rule numbering (ASP-OUT-013 clarification).** Rules 6 and 7 are **system-prompt additions**. `FORM_DATA_BLOCK` is a **user-prompt-template addition** — not a numbered rule. Rule 9 applies to the **v4-interactive row only** (test_generator caller). The numbering 6, 7, (skip 8), 9 is intentional — there is no Rule 8. An earlier directive outline listed "6, 7, 8" during planning but the detailed content only materialised RULE 6 (CATEGORIES_SCHEMA) and RULE 7 (LOCATOR_SOURCE_BRANCH); FORM_DATA_BLOCK lives in the user-prompt block, not as a system rule.
+
 | Fragment ID | Purpose |
 |---|---|
 | `OUTPUT_CONTRACT_V3` | JSON-only output shape per OPS-003 simplified v3 schema |

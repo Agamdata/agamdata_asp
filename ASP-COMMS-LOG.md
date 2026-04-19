@@ -31,9 +31,11 @@ this log — if PAP references them, we will back-populate them on request.
 | ASP-OUT-009 | Batch 1 review ruling (ACCEPTED with 2 notes) + Batch 2 green light + I-RAG-03 directive | 2026-04-18 | **CLOSED** | 2026-04-18 (DEV-IN-009 milestone report; I-RAG-03 complete; Batch 2 accepted at ASP-OUT-010) |
 | ASP-OUT-010 | Batch 2 review ruling (ACCEPTED with 3 notes) + Batch 3 green light + I-RAG-04 checklist integration | 2026-04-18 | **CLOSED** | 2026-04-18 (DEV-IN-010 milestone report; Batch 3 accepted at ASP-OUT-011) |
 | ASP-OUT-011 | Batch 3 review ruling (ACCEPTED) + OQ-1/2/3 rulings + migration 024 green light (pre-write gate first — v3 prompt extraction) + I-RAG-04 go | 2026-04-18 | **CLOSED** | 2026-04-18 (DEV-IN-011 + DEV-IN-012 milestone reports; v3 prompts surfaced; OQ rulings applied; I-RAG-04 complete) |
-| ASP-OUT-012 | v4 prompt content ruling + DEFECT-022 disposition (Option B + C) + migration 024 implementation sequence | 2026-04-18 | **OPEN** | 2026-04-18 (DEV-IN-012 in flight — DEFECT-022 filed and mitigated; migration 024 written + fresh-DB verified + applied to live) |
+| ASP-OUT-012 | v4 prompt content ruling + DEFECT-022 disposition (Option B + C) + migration 024 implementation sequence | 2026-04-18 | **CLOSED** | 2026-04-18 (DEV-IN-012 + DEV-IN-013 + DEV-IN-014 milestone reports; migration 024 applied; Pydantic + handler + VALID_TASKS shipped) |
+| ASP-OUT-013 | Migration 024 confirmed clean + Rule 8 ruling (no Rule 8) + Steps 4–5 green light | 2026-04-18 | **CLOSED** | 2026-04-18 (DEV-IN-013 stop-and-report + DEV-IN-014 resume; Rule 8 §9.2 clarification applied) |
+| ASP-OUT-014 | CRITICAL migration 024 regression ruling — Option A get_prompt_variant fallback chain | 2026-04-18 | **CLOSED** | 2026-04-18 (DEV-IN-014 milestone; 4-level fallback implemented + verified; PAP production path restored) |
 
-Totals as of 2026-04-18 23:00 IST: **2 OPEN** (ASP-OUT-003, ASP-OUT-012), **7 CLOSED** (ASP-OUT-004, ASP-OUT-006, ASP-OUT-007, ASP-OUT-008, ASP-OUT-009, ASP-OUT-010, ASP-OUT-011).
+Totals as of 2026-04-18 23:45 IST: **1 OPEN** (ASP-OUT-003), **10 CLOSED** (ASP-OUT-004, ASP-OUT-006, ASP-OUT-007, ASP-OUT-008, ASP-OUT-009, ASP-OUT-010, ASP-OUT-011, ASP-OUT-012, ASP-OUT-013, ASP-OUT-014).
 
 ---
 
@@ -88,7 +90,38 @@ Totals as of 2026-04-18 23:00 IST: **2 OPEN** (ASP-OUT-003, ASP-OUT-012), **7 CL
 
 ## Closed threads
 
-### ASP-OUT-012 — v4 prompt content ruling + DEFECT-022 disposition + migration 024 implementation sequence — OPEN
+### ASP-OUT-014 — CRITICAL migration 024 regression + Option A fallback ruling — CLOSED 2026-04-18
+
+- **Filed:** 2026-04-18 by Principal Architect, ASP (response to DEV-IN-013 stop-and-report)
+- **State at filing:** OPEN (CRITICAL — production-path regression)
+- **Scope:** After migration 024 applied, PAP production path (`playwright_runner/L2/inventory`) hit PromptNotFoundError because `get_prompt_variant` required exact `(caller, maturity)` match and v4 rows were at `maturity="*"`. Architect ruled Option A: add 4-level fallback chain to `get_prompt_variant` mirroring `get_prompt`.
+
+**Resolution (Commit 11, `e9b0a99`):**
+
+- `app/registry/prompt_registry.py` — `get_prompt_variant` rewritten with priority-ordered SQL: `(caller, mat) → (caller, *) → (*, mat) → (*, *)`, `LIMIT 1`. `ab_variant` remains exact — loud failure preserved for unknown variants.
+- Verification T-A1..T-A5 all PASS: PAP F-03-08/F-03-04 path restored, F-01-10 path works, unknown-caller/unknown-variant correctly fail loud.
+- Spec §9.2 note on rule numbering (Rule 8 gap clarification): Rules 6 + 7 are system-prompt additions; FORM_DATA_BLOCK is a user-prompt addition; Rule 9 is v4-interactive-only; no Rule 8.
+
+**Impl-log entry recorded under ASP-FEAT-ASP-02-v1_0-IMPL-LOG.md** (critical regression + fix narrative + T-A1..T-A5 verification matrix + cache-hygiene note).
+
+---
+
+### ASP-OUT-013 — Migration 024 confirmed clean + Rule 8 ruling + Steps 4–5 green light — CLOSED 2026-04-18
+
+- **Filed:** 2026-04-18 by Principal Architect, ASP
+- **Scope:** Migration 024 accepted post-fresh-DB verification; Rule 8 numbering gap ruled (no Rule 8 intended — my directive authoring was inconsistent); Steps 4 and 5 green-lit with detailed Pydantic and handler-change instructions.
+
+**Resolution:**
+
+- §9.2 note on rule numbering added (Commit 12).
+- Step 4 (I-024-02 Pydantic) shipped as Commit 10 (`81afb83`): 8/8 Pydantic verification PASS.
+- Step 5 (I-024-03..07 handlers) shipped as Commit 11 (`e9b0a99`): 11/11 targeted unit tests PASS (includes ASP-OUT-014 Option A fix surfaced during Step 5 verification).
+
+**DEV-IN-013 was a stop-and-report after Step 5 unit tests surfaced the regression** — Architect responded with ASP-OUT-014 Option A ruling; Step 5 resumed and completed.
+
+---
+
+### ASP-OUT-012 — v4 prompt content ruling + DEFECT-022 disposition + migration 024 implementation sequence — CLOSED 2026-04-18
 
 - **Filed:** 2026-04-18 by Principal Architect, ASP
 - **State at filing:** OPEN (10-step implementation sequence; DEFECT-022 filed; migration 024 + Pydantic + handler + AC verification + OpenAPI + .docx)
@@ -331,4 +364,4 @@ Completion artefacts:
 
 ## Last Updated
 
-2026-04-18 23:00 IST — ASP-OUT-011 CLOSED (v4 prompt ruling in ASP-OUT-012 received via DEV-IN-011). Added ASP-OUT-012 (v4 prompt content + DEFECT-022 disposition + migration 024 sequence). DEV-IN-012 milestone report: DEFECT-022 filed + mitigated, migration 024 authored + fresh-DB verified + applied to live (head=0024), spec §7 aligned to directive prompt placeholders. Totals: 2 OPEN (ASP-OUT-003, ASP-OUT-012), 7 CLOSED.
+2026-04-18 23:45 IST — CLOSED ASP-OUT-012/013/014. Migration 024 applied + v2.0 Pydantic + v2.0 handler shipped. Critical regression surfaced and fixed mid-session (ASP-OUT-014 Option A — 4-level fallback chain in get_prompt_variant). PAP production path restored. All 11 Step 5 unit tests PASS. Totals: 1 OPEN (ASP-OUT-003), 10 CLOSED.
