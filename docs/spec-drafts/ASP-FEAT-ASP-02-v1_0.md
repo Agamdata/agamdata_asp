@@ -397,9 +397,13 @@ class ChunkCandidate(BaseModel):
 | `rag_chroma_client_initialised` | `get_chroma_client()` first call / TTL expiry | `path`, `client_type`, `reason` (`first_init` \| `stale_ttl`), `ttl_seconds` |
 | `rag_embedding_function_initialised` | `_get_embedding_function()` first call | `model_name`, `ef_class` |
 | `rag_embedding_model_mismatch` | `_check_embedding_model_snapshot()` on drift detection | `collection_name`, `stored_model`, `configured_model` |
+| `rag_retrieve_start` | `retrieve()` entry | `tenant_id`, `top_k`, `has_exclude_tables`, `has_primary_entity` |
+| `rag_chunks_returned` | `retrieve()` exit (success path) | `tenant_id`, `collection`, `count` |
 | `rag_chunks_upserted` | `upsert_chunks()` success | `tenant_id`, `collection_name`, `count` |
+| `rag_upsert_failed` | `upsert_chunks()` exception on `collection.upsert()` (post-validation, post-create) | `tenant_id`, `collection`, `error`, `count` |
 | `rag_collection_not_found` | `retrieve()` catches `ChromaError` on missing collection | `tenant_id`, `collection`, `remediation` |
 | `rag_collection_create_failed` | `upsert_chunks()` catches `ChromaError` on create | `tenant_id`, `error` |
+| `rag_chunk_metadata_validation_failed` | `retrieve()` defensive ChunkMetadata parse on returned metadatas | `tenant_id`, `collection`, `errors` |
 | `ontology_sync_scheduled_trigger` | `run_ontology_sync()` cron-path (no args) | (minimal — pilot no-op signal) |
 | `ontology_sync_complete` | `run_ontology_sync()` with explicit args | `tenant_id`, `chunks_upserted`, `skipped` |
 
@@ -458,6 +462,8 @@ Two failure modes, distinct treatment:
 | **ChromaDB corruption / IO error** | library exception propagates | NLP 500 (Internal Server Error) via existing generic error path |
 
 The fail-open path for empty-query-matches is intentional: a tenant with a sparse schema may still have legitimate natural-language queries that don't strongly match any table; the LLM should still attempt to answer (with lower confidence) rather than fail the whole call. Only the **missing-collection** case is fail-closed, because it represents a **setup/operational** defect (ontology sync hasn't run) rather than a query/data issue.
+
+**Write-time boundary rule (ASP-OUT-027).** `ChunkMetadata` validation is enforced loudly at the **write-time boundary** (`upsert_chunks()` — raises `ValidationError` and aborts the batch) but is only **warned** at the read-time boundary (`retrieve()` — emits `rag_chunk_metadata_validation_failed` and proceeds). This asymmetry is deliberate: writes are the moment to reject malformed contract drift, while reads must preserve fail-open semantics for the live NLP path. A tenant that already has malformed data persisted (e.g. from a pre-governance upsert) can still be queried; the warning lets operators spot and remediate without breaking production.
 
 ### §8.3 Operator-side ontology sync (admin path)
 

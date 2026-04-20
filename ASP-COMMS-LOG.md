@@ -43,13 +43,51 @@ this log — if PAP references them, we will back-populate them on request.
 | ASP-OUT-022 | ASP-FEAT-ASP-02 Batch 1 authoring + DEFECT-022 asyncpg port (parallel) | 2026-04-18 | **CLOSED** | 2026-04-19 (Batch 1 ACCEPTED per ASP-OUT-024 §1–§5 rulings; DEFECT-022 RESOLVED via per-invocation engine) |
 | ASP-OUT-023 | (Architect-filed; did not reach this session — routing gap noted per ASP-OUT-024) | 2026-04-19 | **CLOSED** | 2026-04-19 (superseded by ASP-OUT-024) |
 | ASP-OUT-024 | Batch 1 rulings (§1–§5, incl. ChunkMetadata extra="forbid" comment) + Batch 2 authoring green light + loop-affinity lesson to ENGINEERING-PLAYBOOK + single consolidated doc-only commit directive | 2026-04-19 | **CLOSED** | 2026-04-19 (DEV-IN-024 milestone shipped commit afd0d2a; Batch 2 surfaced for review) |
-| ASP-OUT-025 | Batch 2 review ruling (ACCEPTED with 3 verbatim-alignment notes) + Batch 3 (§11–§14) green light + I-RAG-05/06/07 post-acceptance sequencing | 2026-04-19 | **OPEN** | 2026-04-19 (DEV-IN-025 in flight — Notes 1/3 aligned verbatim, Note 2 confirmed present; Batch 3 §11–§14 authored) |
+| ASP-OUT-025 | Batch 2 review ruling (ACCEPTED with 3 verbatim-alignment notes) + Batch 3 (§11–§14) green light + I-RAG-05/06/07 post-acceptance sequencing | 2026-04-19 | **CLOSED** | 2026-04-19 (DEV-IN-025 milestone shipped commit b348951; Batch 3 surfaced for review) |
+| ASP-OUT-026 | Batch 3 review ruling (ACCEPTED) + I-RAG-05/06/07 green light + AC-S3-02 verbatim wording | 2026-04-19 | **CLOSED** | 2026-04-19 (Commits E/F/G shipped 5cebcbf/81e07dd/223543c; AC-S3-02 verbatim confirmed) |
+| ASP-OUT-027 | I-RAG-08 directive (26-AC verification suite tests/test_rag_v1.py; §8.2 write-time boundary rule; COMMS-LOG + 4-way sync) | 2026-04-19 | **CLOSED** | 2026-04-20 (DEV-IN-029 milestone — 26/26 AC PASS; Commit H shipped this entry) |
+| ASP-OUT-028 | (Architect-filed; did not reach this session — routing gap noted per ASP-OUT-029) | 2026-04-20 | **CLOSED** | 2026-04-20 (superseded by ASP-OUT-029) |
+| ASP-OUT-029 | Pending-work summary + single active directive clarification (all pending work contained in ASP-OUT-027: Commits H/I/J) | 2026-04-20 | **OPEN** | 2026-04-20 (DEV-IN-029 in flight — Commit H test suite 26/26 PASS; I-RAG-09 governance sync + I-RAG-10 .docx next) |
 
-Totals as of 2026-04-19: **1 OPEN** (ASP-OUT-025), **20 CLOSED**.
+Totals as of 2026-04-20: **1 OPEN** (ASP-OUT-029), **24 CLOSED**.
 
 ---
 
 ## Open threads
+
+### ASP-OUT-029 — ASP-FEAT-ASP-02 v1.0 closing sequence (Commits H/I/J) — OPEN
+
+- **Filed:** 2026-04-20 by Principal Architect, ASP
+- **Supersedes:** ASP-OUT-027 (single active directive — all pending work contained in that ticket); ASP-OUT-028 (routing-gap placeholder, superseded)
+- **Subject:** Three-commit close-out for ASP-FEAT-ASP-02 v1.0 — Commit H (I-RAG-08 AC suite), Commit I (I-RAG-09 governance sync), Commit J (I-RAG-10 .docx render).
+
+**Scope recap from Architect directive (reference):**
+
+1. **Commit H** — `tests/test_rag_v1.py` with 26 ACs across 9 phases; §8.2 write-time boundary rule sentence in spec; COMMS-LOG state transitions; 4-way sync. **STOP-ON-FIRST-FAILURE discipline.**
+2. **Commit I** — ASP-SCHEMA-CURRENT.md + ASP-INDEX.md (ASP-02/ASP-12 → GOVERNED, governed count 4/14 → 6/14) + ASP-ADR.md (ADR-004 defence-in-depth annotation) + ASP-DEFECT-REGISTER.md (0 open confirmation) + 4-way sync.
+3. **Commit J** — `.docx` render via the docx skill to `asp-projects/04-features/02-RAG/ASP-FEAT-ASP-02-v1_0.docx`.
+
+**DEV-IN-029 milestone status (this turn — partial):**
+
+- Commit H: **SHIPPED**. 26/26 ACs PASS (AC-S1-03 verified from host — `asp_chroma_data:/chroma/data` mounted on both `ai-service` and `celery-worker`; all other 25 ACs passed inside container via `pytest -x`). Spec §7.5 event table extended with `rag_retrieve_start`, `rag_chunks_returned`, `rag_upsert_failed`, `rag_chunk_metadata_validation_failed`. §8.2 write-time boundary rule sentence added.
+- Commit I: pending this turn.
+- Commit J: pending this turn.
+
+**Nothing else pending** per Architect's ASP-OUT-029 clarification:
+- DEFECT-022: RESOLVED (d158221)
+- suggest_screen_mapping: LIVE (58c4232)
+- Migration 024: GOVERNED (18ab7c6)
+- Gateway spec: GOVERNED (f274be4)
+- Open defects: 0
+- Only open work is the RAG spec completion (this OUT-029).
+
+**Cross-references:**
+
+- `tests/test_rag_v1.py` — 26-AC suite
+- `docs/spec-drafts/ASP-FEAT-ASP-02-v1_0.md` — §7.5 + §8.2 updates
+- `app/services/rag.py` — +3 structlog events (rag_retrieve_start/returned/upsert_failed)
+
+---
 
 ### ASP-OUT-025 — ASP-FEAT-ASP-02 Batch 2 acceptance + Batch 3 authoring — OPEN
 
@@ -447,4 +485,6 @@ Completion artefacts:
 
 2026-04-19 — CLOSED ASP-OUT-022 (Batch 1 ACCEPTED; DEFECT-022 RESOLVED via per-invocation asyncpg engine) and ASP-OUT-023 (routing-gap placeholder, superseded). OPENED ASP-OUT-024 (Batch 1 rulings §1–§5 + Batch 2 §6–§10 authoring + loop-affinity lesson to ENGINEERING-PLAYBOOK).
 
-2026-04-19 (later) — CLOSED ASP-OUT-024 (commit afd0d2a shipped; Batch 2 surfaced for review). OPENED ASP-OUT-025 (Batch 2 ACCEPTED with 3 verbatim-alignment notes; Batch 3 §11–§14 authored; I-RAG-05/06/07 post-acceptance sequence). Totals: 1 OPEN (ASP-OUT-025), 20 CLOSED.
+2026-04-19 (later) — CLOSED ASP-OUT-024 (commit afd0d2a shipped; Batch 2 surfaced for review). OPENED ASP-OUT-025 (Batch 2 ACCEPTED with 3 verbatim-alignment notes; Batch 3 §11–§14 authored; I-RAG-05/06/07 post-acceptance sequence).
+
+2026-04-20 — CLOSED ASP-OUT-025 (commit b348951 shipped; Batch 3 surfaced). CLOSED ASP-OUT-026 (Batch 3 ACCEPTED; I-RAG-05/06/07 shipped 5cebcbf/81e07dd/223543c). CLOSED ASP-OUT-027 (I-RAG-08 AC suite 26/26 PASS; Commit H shipped). CLOSED ASP-OUT-028 (routing-gap placeholder). OPENED ASP-OUT-029 (RAG spec closing sequence — Commit H complete; Commits I/J in flight). Totals: 1 OPEN (ASP-OUT-029), 24 CLOSED.

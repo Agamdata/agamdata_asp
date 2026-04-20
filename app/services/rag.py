@@ -139,6 +139,17 @@ async def retrieve(
     (ADR-004). The embedding function is bound explicitly at get_collection time
     so the query embedding is computed with the same model used at ingest.
     """
+    # AC-CC-01 (ASP-OUT-027 I-RAG-08): observability entry event on every
+    # retrieve call. Pairs with rag_chunks_returned at the exit point so the
+    # full retrieve path has start/end span coverage in structlog.
+    log.info(
+        "rag_retrieve_start",
+        tenant_id=tenant_id,
+        top_k=top_k,
+        has_exclude_tables=bool(exclude_tables),
+        has_primary_entity=bool(primary_entity),
+    )
+
     client = get_chroma_client()
     collection_name = _collection_name(tenant_id)
 
@@ -212,7 +223,18 @@ async def retrieve(
                 errors=ve.errors(include_url=False),
             )
 
-    return results["documents"][0] if results["documents"] else []
+    documents = results["documents"][0] if results["documents"] else []
+
+    # AC-CC-01 (ASP-OUT-027 I-RAG-08): exit-event paired with
+    # rag_retrieve_start. `count` is the observable chunks-returned metric.
+    log.info(
+        "rag_chunks_returned",
+        tenant_id=tenant_id,
+        collection=collection_name,
+        count=len(documents),
+    )
+
+    return documents
 
 
 def format_chunks(chunks: list[str]) -> str:
@@ -261,6 +283,21 @@ def upsert_chunks(
     documents = [c["text"] for c in chunks]
     metadatas = validated
 
-    collection.upsert(ids=ids, documents=documents, metadatas=metadatas)
+    # AC-CC-02 (ASP-OUT-027 I-RAG-08): rag_upsert_failed on any exception
+    # raised by collection.upsert() itself (post-validation, post-collection-
+    # create). Distinct from rag_collection_create_failed (creation failure)
+    # and ValidationError (validation failure).
+    try:
+        collection.upsert(ids=ids, documents=documents, metadatas=metadatas)
+    except Exception as e:
+        log.error(
+            "rag_upsert_failed",
+            tenant_id=tenant_id,
+            collection=collection_name,
+            error=str(e),
+            count=len(chunks),
+        )
+        raise
+
     log.info("rag_chunks_upserted", tenant_id=tenant_id, count=len(chunks),
              collection=collection_name)
