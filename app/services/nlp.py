@@ -42,6 +42,7 @@ VALID_TASKS = {
     "language_detection",
     "classify_probe_result",
     "suggest_screen_mapping",   # PAP-ASP-REQ-ASP-01 v2.0 / BP-10 (ASP-OUT-020)
+    "extract_test_entities",    # F-03-02 / PAP-ASP-REQ-ASP-02 v1.0 (ASP-OUT-036, migration 027)
 }
 
 
