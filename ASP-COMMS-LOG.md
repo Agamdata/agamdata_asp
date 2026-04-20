@@ -48,15 +48,108 @@ this log — if PAP references them, we will back-populate them on request.
 | ASP-OUT-027 | I-RAG-08 directive (26-AC verification suite tests/test_rag_v1.py; §8.2 write-time boundary rule; COMMS-LOG + 4-way sync) | 2026-04-19 | **CLOSED** | 2026-04-20 (DEV-IN-029 milestone — 26/26 AC PASS; Commit H shipped this entry) |
 | ASP-OUT-028 | (Architect-filed; did not reach this session — routing gap noted per ASP-OUT-029) | 2026-04-20 | **CLOSED** | 2026-04-20 (superseded by ASP-OUT-029) |
 | ASP-OUT-029 | Pending-work summary + single active directive clarification (all pending work contained in ASP-OUT-027: Commits H/I/J) | 2026-04-20 | **CLOSED** | 2026-04-20 (DEV-IN-029 milestone shipped — Commits H/I/J delivered as baf5a78/9064f93/f7d1cfa; ASP-02 + ASP-12 GOVERNED; ASP-NOTE-011 issued) |
-| ASP-OUT-030 | ASP-02 v1.0 GOVERNED acknowledgement + single conftest.py cleanup directive (authed_client fixture migration 023 schema alignment) + next-queue summary | 2026-04-20 | **OPEN** | 2026-04-20 (DEV-IN-030 in flight — conftest fixture updated to TenantApiKey + new-format key; full regression sweep 87 passed / 1 skipped) |
+| ASP-OUT-030 | ASP-02 v1.0 GOVERNED acknowledgement + single conftest.py cleanup directive (authed_client fixture migration 023 schema alignment) + next-queue summary | 2026-04-20 | **CLOSED** | 2026-04-20 (DEV-IN-030 shipped commit c27279b — 87 passed / 1 skipped / 0 failed; 61 previously-broken tests restored) |
+| ASP-OUT-031 | Session-complete acknowledgement; ASP-OUT-030 closed; standing-by for next session | 2026-04-20 | **CLOSED** | 2026-04-20 (acknowledgement only; no Dev Team action) |
+| ASP-OUT-033 | PAP-ASP-REQ-ASP-02 v1.0 inbound (MVP-3 integration; 2 services / 4 tasks); conditional acceptance pending PAP task-split confirmation | 2026-04-21 | **OPEN** | 2026-04-21 (awaiting PAP ack; no Dev Team build action — pre-assessment only in OUT-034) |
+| ASP-OUT-034 | PAP-ASP-REQ-ASP-02 v1.0 pre-assessment directive — run three pre-write gates (migration number availability, VALID_TASKS state, payload field collisions) without writing any migration or implementation code | 2026-04-21 | **OPEN** | 2026-04-21 (DEV-IN-034 in flight — pre-write gate results surfaced; no migration files or handler code written) |
 
-Totals as of 2026-04-20: **1 OPEN** (ASP-OUT-030), **25 CLOSED**.
+Totals as of 2026-04-21: **2 OPEN** (ASP-OUT-033, ASP-OUT-034), **27 CLOSED**.
 
 ---
 
 ## Open threads
 
-### ASP-OUT-030 — ASP-02 v1.0 GOVERNED acknowledgement + conftest cleanup + next-queue — OPEN
+### ASP-OUT-034 — PAP-ASP-REQ-ASP-02 v1.0 pre-assessment — OPEN
+
+- **Filed:** 2026-04-21 by Principal Architect, ASP
+- **Parallel to:** ASP-OUT-033 (PAP-ASP-REQ-ASP-02 v1.0 inbound; awaiting PAP task-split confirmation).
+- **Scope:** Pre-write gate only. **No migration files or implementation code.** Gate results surfaced for Architect review; build blocked until PAP confirms task split AND Architect issues explicit green light.
+
+**Directive recap:**
+
+PAP-ASP-REQ-ASP-02 v1.0 proposes:
+- **ASP-03 Generation** — 3 new tasks (`draft_steps`, `suggest_preconditions`, `propose_edge_cases`) sharing a `DraftTestContentPayload` (`screen_key`, `module_key`, `title`, `objective`, `category`, `priority`, `existing_steps: list[StepContext]`, `preconditions: list[str]`; `StepContext: {step_no, action, expected}`). Three result models: `DraftStepsResult`, `SuggestPreconditionsResult`, `ProposeEdgeCasesResult`.
+- **ASP-02/ASP-01 NLP** — 1 new task (`extract_test_entities`) with `ExtractTestEntitiesPayload(text, context: TestEntityContext)` where `TestEntityContext: {screen_key, module_key, category}`. Result: `ExtractTestEntitiesResult(entities: TestEntities, confidence: float)` with `TestEntities: {required_fields, actions, validation_cases, success_outcomes}`.
+- **Migrations:** 026 (ASP-03 three prompts) + 027 (NLP one prompt).
+- **Quality tier:** `standard` (Haiku) for all four tasks.
+
+> **Service-naming note for the record:** the Architect directive labels the NLP task as "ASP-02 (nlp)" — however, ASP-02 in the repo is the RAG service (just governed under ASP-FEAT-ASP-02 v1.0). NLP is ASP-01. I am **not** acting on this ambiguity; flagging it here so the Architect can confirm the target service in the build green-light directive. The build blueprint itself unambiguously targets the NLP service (`app/services/nlp.py`, `app/schemas/nlp_schemas.py`, VALID_TASKS set).
+
+**Pre-write gate results:**
+
+**Gate 1 — Migration number availability.** ✅ **PASS**
+- Current migration head: `0025` (confirmed in-repo at `alembic/versions/` and live in DB via `alembic heads` + `alembic current` — both return `0025 (head)`).
+- Numbers `0026` and `0027` both free — no files present at those revision IDs; no branching.
+
+**Gate 2 — VALID_TASKS current state on both services.** ✅ **PASS** (no collisions; clean addition slots)
+
+ASP-01 NLP (`app/services/nlp.py:37-45`) — current 7 tasks:
+```
+nl_to_sql, intent_extraction, entity_recognition, sentiment,
+language_detection, classify_probe_result, suggest_screen_mapping
+```
+- `extract_test_entities` **absent** ✓ clean addition.
+
+ASP-03 Generation (`app/services/generation.py:72-82`) — current 9 tasks:
+```
+draft_email, summarise_customer, generate_quote_narrative,
+suggest_fields, draft_whatsapp, generate_test_cases,
+generate_playwright_script, generate_test_cases_with_inventory,
+refactor_script_locators
+```
+- `draft_steps`, `suggest_preconditions`, `propose_edge_cases` **all absent** ✓ three clean slots.
+
+**Gate 3 — Payload field / class name conflicts.** ✅ **PASS with two naming-drift flags**
+
+Class name scan — `DraftTestContentPayload`, `StepContext`, `DraftStepsResult`, `SuggestPreconditionsResult`, `ProposeEdgeCasesResult`, `ExtractTestEntitiesPayload`, `ExtractTestEntitiesResult`, `TestEntityContext`, `TestEntities`: **zero pre-existing definitions** repo-wide.
+
+Field name re-use map (semantically compatible — no code collisions):
+
+| Proposed field | Pre-existing use | Compatibility |
+|---|---|---|
+| `screen_key` | `GenerateTestCasesWithInventoryPayload.screen_key` (v1.1 CHG-06), `RefactorScriptLocatorsPayload.screen_key` (v2.0) | ✓ same semantic (caller-supplied page identifier) |
+| `module_key` | `AvailableModule.module_key` + `suggested_module_key` (NLP BP-10) | ✓ same semantic |
+| `category` | `TestCaseOutput.category: str = "Functional"` | ✓ same semantic |
+| `preconditions` | `TestCaseOutput.preconditions: list[str]` | ✓ identical shape |
+| `action` | `StepOutput.action: str` | ✓ same semantic |
+
+**Naming-drift flags surfaced for Architect ruling before build begins:**
+
+1. **`StepContext.step_no` vs existing `StepOutput.step_number`** — same semantic concept (ordinal step index), two different names. Options:
+   - (a) Honour PAP's `step_no` verbatim — introduces intra-repo naming inconsistency.
+   - (b) Map to existing `step_number` in the Pydantic model with a PAP-visible alias.
+   - (c) Rename existing `StepOutput.step_number` → `step_no` (breaking change, out of scope).
+   - **Recommend (a) with an inline comment.** Zero-risk path for PAP; documented drift is acceptable Zone 1 detail.
+
+2. **`DraftTestContentPayload.priority: str` vs existing `TestCaseOutput.priority: Literal['Critical','High','Medium','Low']`** — PAP-filed `priority` is loose `str`; existing output model constrains to a four-value Literal. Options:
+   - (a) Honour PAP's loose `str` on the payload — accept any incoming priority string; output path's Literal remains authoritative when the LLM emits new test cases.
+   - (b) Tighten payload to the same Literal — rejects payloads with non-canonical priority. Stronger input validation; may surface PAP casing issues.
+   - **Recommend (b) with `field_validator(mode='before')` normalising case** — mirrors the existing `normalise_priority` validator on `TestCaseOutput`. Consistent with ADR-008 `extra="forbid"` posture.
+
+**Standing:** No migration files written. No handler code written. No Pydantic models added. No prompt rows seeded. Awaiting:
+- PAP confirmation of task-split (blocks ASP-OUT-033 closure).
+- Architect build green light (blocks ASP-OUT-034 transition to build execution).
+- Architect rulings on naming-drift flags 1 and 2 (recommended paths noted).
+- Architect clarification on the "ASP-02 (nlp)" vs "ASP-01 NLP" service-naming note.
+
+**Cross-references:**
+- `app/services/nlp.py` — NLP VALID_TASKS
+- `app/services/generation.py` — Generation VALID_TASKS
+- `app/schemas/nlp_schemas.py` — `AvailableModule`, `module_key` existing use
+- `app/schemas/generation_schemas.py` — `screen_key` existing use
+- `app/models/generation_outputs.py` — `StepOutput`, `TestCaseOutput` naming-drift references
+
+---
+
+### ASP-OUT-033 — PAP-ASP-REQ-ASP-02 v1.0 inbound conditional acceptance — OPEN
+
+- **Filed:** 2026-04-21 by Principal Architect, ASP
+- **Awaiting:** PAP confirmation of the four-task split (`draft_steps`, `suggest_preconditions`, `propose_edge_cases`, `extract_test_entities`).
+- **Dev Team action:** none (thread is Architect↔PAP). Pre-assessment work is tracked under ASP-OUT-034.
+
+---
+
+### ASP-OUT-030 — ASP-02 v1.0 GOVERNED acknowledgement + conftest cleanup + next-queue — CLOSED 2026-04-20
 
 - **Filed:** 2026-04-20 by Principal Architect, ASP
 - **Supersedes:** ASP-OUT-029 (CLOSED — 0 open before this cleanup)
@@ -538,4 +631,8 @@ Completion artefacts:
 
 2026-04-20 — CLOSED ASP-OUT-025 (commit b348951 shipped; Batch 3 surfaced). CLOSED ASP-OUT-026 (Batch 3 ACCEPTED; I-RAG-05/06/07 shipped 5cebcbf/81e07dd/223543c). CLOSED ASP-OUT-027 (I-RAG-08 AC suite 26/26 PASS; Commit H shipped). CLOSED ASP-OUT-028 (routing-gap placeholder). OPENED ASP-OUT-029 (RAG spec closing sequence — Commit H complete; Commits I/J in flight).
 
-2026-04-20 (later) — CLOSED ASP-OUT-029 (Commits H/I/J shipped baf5a78/9064f93/f7d1cfa; ASP-02 + ASP-12 GOVERNED; ASP-NOTE-011 issued; 5/14 services governed). OPENED ASP-OUT-030 (GOVERNED acknowledgement + conftest.py migration 023 cleanup + next-queue summary). Totals: 1 OPEN (ASP-OUT-030), 25 CLOSED.
+2026-04-20 (later) — CLOSED ASP-OUT-029 (Commits H/I/J shipped baf5a78/9064f93/f7d1cfa; ASP-02 + ASP-12 GOVERNED; ASP-NOTE-011 issued; 5/14 services governed). OPENED ASP-OUT-030 (GOVERNED acknowledgement + conftest.py migration 023 cleanup + next-queue summary).
+
+2026-04-20 (session close) — CLOSED ASP-OUT-030 (c27279b shipped; 87 passed / 1 skipped; 61 previously-broken tests restored). CLOSED ASP-OUT-031 (session-complete acknowledgement; no Dev Team action). Session closed. Totals: 0 OPEN, 26 CLOSED.
+
+2026-04-21 — OPENED ASP-OUT-033 (PAP-ASP-REQ-ASP-02 v1.0 inbound; conditional acceptance pending PAP task-split ack; Architect↔PAP thread; no Dev Team build action). OPENED ASP-OUT-034 (pre-assessment directive; three pre-write gates with stop-before-build rule). DEV-IN-034 milestone: Gate 1 (migration numbers 0026/0027 free) PASS; Gate 2 (no VALID_TASKS collision on either service) PASS; Gate 3 (zero class-name conflicts + field name reuse is semantically consistent) PASS with two naming-drift flags surfaced for Architect ruling (`step_no` vs `step_number`; `priority: str` vs `Literal`). Service-naming ambiguity flagged: directive says "ASP-02 (nlp)" but ASP-02 is the RAG service; NLP is ASP-01. No migration or handler code written. Totals: 2 OPEN (ASP-OUT-033, ASP-OUT-034), 27 CLOSED.
