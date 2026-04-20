@@ -51,9 +51,12 @@ this log — if PAP references them, we will back-populate them on request.
 | ASP-OUT-030 | ASP-02 v1.0 GOVERNED acknowledgement + single conftest.py cleanup directive (authed_client fixture migration 023 schema alignment) + next-queue summary | 2026-04-20 | **CLOSED** | 2026-04-20 (DEV-IN-030 shipped commit c27279b — 87 passed / 1 skipped / 0 failed; 61 previously-broken tests restored) |
 | ASP-OUT-031 | Session-complete acknowledgement; ASP-OUT-030 closed; standing-by for next session | 2026-04-20 | **CLOSED** | 2026-04-20 (acknowledgement only; no Dev Team action) |
 | ASP-OUT-033 | PAP-ASP-REQ-ASP-02 v1.0 inbound (MVP-3 integration; 2 services / 4 tasks); conditional acceptance pending PAP task-split confirmation | 2026-04-21 | **OPEN** | 2026-04-21 (awaiting PAP ack; no Dev Team build action — pre-assessment only in OUT-034) |
-| ASP-OUT-034 | PAP-ASP-REQ-ASP-02 v1.0 pre-assessment directive — run three pre-write gates (migration number availability, VALID_TASKS state, payload field collisions) without writing any migration or implementation code | 2026-04-21 | **OPEN** | 2026-04-21 (DEV-IN-034 in flight — pre-write gate results surfaced; no migration files or handler code written) |
+| ASP-OUT-034 | PAP-ASP-REQ-ASP-02 v1.0 pre-assessment directive — run three pre-write gates (migration number availability, VALID_TASKS state, payload field collisions) without writing any migration or implementation code | 2026-04-21 | **CLOSED** | 2026-04-21 (pre-assessment absorbed into ASP-OUT-036 build) |
+| ASP-OUT-033 | PAP-ASP-REQ-ASP-02 v1.0 inbound (MVP-3 integration; 2 services / 4 tasks); conditional acceptance pending PAP task-split confirmation | 2026-04-21 | **CLOSED** | 2026-04-21 (PAP confirmed task-split; build green light issued at ASP-OUT-036) |
+| ASP-OUT-035 | (Architect-filed; superseded by ASP-OUT-036 directive) | 2026-04-21 | **CLOSED** | 2026-04-21 (superseded) |
+| ASP-OUT-036 | F-03-02 BUILD GREEN LIGHT — four tasks across NLP (extract_test_entities) + Generation (draft_steps, suggest_preconditions, propose_edge_cases); migrations 026 + 027; 16 ACs minimum; commit sequence A→B→C→D→E | 2026-04-21 | **OPEN** | 2026-04-21 (DEV-IN-036 in flight — Commit A Pydantic models shipped; migrations + handlers + AC suite next) |
 
-Totals as of 2026-04-21: **2 OPEN** (ASP-OUT-033, ASP-OUT-034), **27 CLOSED**.
+Totals as of 2026-04-21: **1 OPEN** (ASP-OUT-036), **30 CLOSED**.
 
 ---
 

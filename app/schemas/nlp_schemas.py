@@ -185,3 +185,56 @@ class SuggestScreenMappingResult(BaseModel):
     suggested_module_key: Optional[str] = None
     suggested_screen_name: Optional[str] = None
     confidence: float = 0.0
+
+
+# ---------------------------------------------------------------------------
+# extract_test_entities — F-03-02 / PAP-ASP-REQ-ASP-02 v1.0 (ASP-OUT-036)
+# ---------------------------------------------------------------------------
+#
+# Service-naming note (ASP-OUT-034 flag acknowledged by ASP-OUT-036): the
+# Architect directive refers to this task as "ASP-02 (nlp)" but in the repo
+# ASP-02 is the RAG service (governed under ASP-FEAT-ASP-02 v1.0) and NLP is
+# ASP-01. The task lives on the NLP service — `service_type="nlp"` in the
+# prompt_templates row (migration 027) and is dispatched through
+# app/services/nlp.py. Directive body unambiguously targets NLP; the ASP-02
+# label in the directive header is an informal grouping.
+
+class TestEntityContext(BaseModel):
+    """Context accompanying a freeform text for entity extraction.
+
+    Caller supplies the screen/module/category triple so the LLM can scope
+    its extraction to the relevant test surface. None of the three are
+    validated against an allowlist at this layer — that is caller-side.
+    """
+    model_config = ConfigDict(extra="ignore")  # F-03-02 / ASP-OUT-036
+    screen_key: str
+    module_key: str
+    category: str
+
+
+class ExtractTestEntitiesPayload(BaseModel):
+    """Payload for the extract_test_entities task."""
+    model_config = ConfigDict(extra="ignore")
+    text: str
+    context: TestEntityContext
+
+
+class TestEntities(BaseModel):
+    """The four governed entity buckets. All list[str] with [] defaults so
+    the LLM may return any subset without tripping 422 on the missing keys.
+
+    AC-F3-12 (empty lists valid) and AC-F3-13 (low-confidence all-empty)
+    are both satisfied by this shape.
+    """
+    model_config = ConfigDict(extra="ignore")
+    required_fields: list[str] = []
+    actions: list[str] = []
+    validation_cases: list[str] = []
+    success_outcomes: list[str] = []
+
+
+class ExtractTestEntitiesResult(BaseModel):
+    """Output of extract_test_entities."""
+    model_config = ConfigDict(extra="ignore")
+    entities: TestEntities
+    confidence: float = 0.0

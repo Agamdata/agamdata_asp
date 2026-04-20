@@ -197,3 +197,84 @@ class GeneratePlaywrightScriptPayload(BaseModel):
     script_variant: str = "playwright_typescript_pom"
     title_format: Optional[str] = None
     title_format_example: Optional[str] = None
+
+
+# ---------------------------------------------------------------------------
+# F-03-02 / PAP-ASP-REQ-ASP-02 v1.0 (ASP-OUT-036) — three draft-test-content
+# tasks share a single payload model: DraftTestContentPayload.
+#
+# Field-naming note (ASP-OUT-034 flag acknowledged by ASP-OUT-036):
+#   StepContext.step_no — directive signature quoted verbatim. Semantically
+#     identical to StepOutput.step_number (app/models/generation_outputs.py).
+#     Intentional drift; governed by PAP-facing payload contract.
+#   DraftTestContentPayload.priority: str — directive signature quoted
+#     verbatim. Existing TestCaseOutput.priority constrains to
+#     Literal['Critical','High','Medium','Low']; the F-03-02 payload is
+#     deliberately looser because it is *input context*, not a generated
+#     output. The LLM may emit the canonical Literal on its own outputs;
+#     no normalisation applied to incoming payload.
+# ---------------------------------------------------------------------------
+
+class StepContext(BaseModel):
+    """One existing step provided as context to the draft_steps task."""
+    model_config = ConfigDict(extra="ignore")
+    step_no: int
+    action: str
+    expected: str
+
+
+class DraftTestContentPayload(BaseModel):
+    """Shared payload for draft_steps / suggest_preconditions /
+    propose_edge_cases. One payload model, three LLM tasks — differentiation
+    is entirely prompt-based (migration 026)."""
+    model_config = ConfigDict(extra="ignore")
+    screen_key: str
+    module_key: str
+    title: str
+    objective: str
+    category: str
+    priority: str
+    existing_steps: List[StepContext] = []
+    preconditions: List[str] = []
+
+
+class StepDraft(BaseModel):
+    """One draft step emitted by draft_steps.
+
+    selector is always None per prompt STRICT RULE 3 and AC-F3-02 — PAP
+    resolves locators separately via the Playwright locator inventory path;
+    this task deliberately does not mint locators.
+    """
+    model_config = ConfigDict(extra="ignore")
+    step_no: int
+    action: str
+    selector: Optional[str] = None
+    expected: str
+
+
+class DraftStepsResult(BaseModel):
+    """Output of draft_steps."""
+    model_config = ConfigDict(extra="ignore")
+    result: List[StepDraft]
+    confidence: float = 0.0
+
+
+class SuggestPreconditionsResult(BaseModel):
+    """Output of suggest_preconditions."""
+    model_config = ConfigDict(extra="ignore")
+    result: List[str]
+    confidence: float = 0.0
+
+
+class EdgeCase(BaseModel):
+    """One edge case emitted by propose_edge_cases."""
+    model_config = ConfigDict(extra="ignore")
+    title: str
+    objective: str
+
+
+class ProposeEdgeCasesResult(BaseModel):
+    """Output of propose_edge_cases."""
+    model_config = ConfigDict(extra="ignore")
+    result: List[EdgeCase]
+    confidence: float = 0.0
