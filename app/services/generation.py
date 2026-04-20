@@ -79,6 +79,9 @@ VALID_TASKS = {
     "generate_playwright_script",             # TypeScript and Python
     "generate_test_cases_with_inventory",     # verified-locator path
     "refactor_script_locators",               # v2.0 — I-024-07
+    "draft_steps",                            # F-03-02 / ASP-OUT-036 (migration 026)
+    "suggest_preconditions",                  # F-03-02 / ASP-OUT-036 (migration 026)
+    "propose_edge_cases",                     # F-03-02 / ASP-OUT-036 (migration 026)
 }
 
 TASK_OUTPUT_SCHEMAS = {
