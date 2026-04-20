@@ -480,3 +480,83 @@ entries) is unaffected by this finding.
 aggregator bug. Both beat entries verifiably fire; `ontology-sync-daily`
 executes end-to-end; `monthly-cost-aggregation` dispatches correctly
 but its task has a latent `psycopg2` import bug documented here.
+
+---
+
+## I-RAG-05 through I-RAG-10 — ASP-02 v1.0 closing sequence
+
+### I-RAG-05 — `ChunkMetadata` Pydantic model (Commit E, `5cebcbf`)
+
+New module `app/schemas/rag_schemas.py` defines `ChunkMetadata` with
+`ConfigDict(extra="forbid")` and the four governed fields (`table_name`,
+`module`, `tenant_id`, `chunk_type`). Wired into `app/services/rag.py`:
+- `upsert_chunks()` validates every chunk's metadata loudly (write-time
+  boundary rule per §8.2; raises `ValidationError` on drift).
+- `retrieve()` parses returned metadatas defensively; on validation
+  failure emits `rag_chunk_metadata_validation_failed` WARNING but
+  preserves fail-open by not dropping chunks at read time.
+
+### I-RAG-06 — `tenant_id` defence-in-depth (Commit F, `81e07dd`)
+
+`retrieve()` `where=` clause now always carries
+`{"tenant_id": {"$eq": tenant_id}}`. When `exclude_tables` is set,
+`$and`-wrapped with the ADR-004 `$nin` clause. See §10.1 Layer 2.
+
+### I-RAG-07 — `RAGCollectionMissingError` + NLP 503 (Commit G, `223543c`)
+
+New exception class; NLP `_handle_nl_to_sql` catches it and converts to
+`HTTPException(503)` with RFC 7807 envelope (`type`, `title`, `detail`,
+`request_id`, `remediation`). Fail-closed path for missing collection;
+empty-retrieve remains fail-open (§8.2).
+
+### I-RAG-08 — 26-AC verification suite (Commit H, `baf5a78`)
+
+`tests/test_rag_v1.py` — 9 phases, 26 ACs. **26/26 PASS** with
+stop-on-first-failure discipline. Executed via `docker compose exec
+ai-service python -m pytest tests/test_rag_v1.py -x` (25 passed inside
+container) + AC-S1-03 verified from host via `docker inspect`
+(`asp_chroma_data:/chroma/data` mounted on both services).
+
+Additional rag.py instrumentation added in same commit:
+`rag_retrieve_start`, `rag_chunks_returned`, `rag_upsert_failed` — all
+referenced by AC-CC-01/02.
+
+Spec §7.5 event table extended with the three new events plus
+`rag_chunk_metadata_validation_failed`. Spec §8.2 write-time boundary
+rule sentence added per ASP-OUT-027 directive.
+
+### I-RAG-09 — Governance sync (Commit I, `9064f93`)
+
+- `ASP-INDEX.md`: ASP-02 + ASP-12 → **GOVERNED**. 5/14. ASP-NOTE-011
+  detail block authored.
+- `ASP-SCHEMA-CURRENT.md`: new ChromaDB persistence section (no
+  Alembic migration).
+- `ASP-ADR.md`: ADR-004 annotated with defence-in-depth clarification.
+- `ASP-DEFECT-REGISTER.md`: Open: 0 confirmed at closure gate;
+  AC-S7-02 cited as DEFECT-022 regression lock.
+- `CLAUDE.md`: state line updated.
+- 4-way sha256 sync verified on all four governance docs.
+
+### I-RAG-10 — `.docx` render (Commit J, this entry)
+
+Rendered via `docs/spec-drafts/md2docx.js` + global `docx@9.6.1`:
+
+```
+node md2docx.js ASP-FEAT-ASP-02-v1_0.md \
+  asp-projects/04-features/02-RAG/ASP-FEAT-ASP-02-v1_0.docx
+```
+
+Output: `asp-projects/04-features/02-RAG/ASP-FEAT-ASP-02-v1_0.docx`
+(39,063 bytes, 628 block elements). Note: `asp-projects` is the
+governance mirror outside the main repo; the `.docx` is not tracked in
+the asp git tree (same convention as ASP-FEAT-ASP-00 and
+ASP-FEAT-ASP-03 .docx renders — see prior commit `18ab7c6`).
+
+### Closure
+
+ASP-FEAT-ASP-02 v1.0 fully closed with **26/26 AC PASS** and
+**ASP-NOTE-011** issued 2026-04-20. Joint governance for ASP-02 RAG +
+ASP-12 Ontology Manager. Governed count **5/14**. No open defects.
+Commit chain: `a15e3fc` → `b4fbce9` → `40ff092` → `7538fb9` →
+`5cebcbf` → `81e07dd` → `223543c` → `baf5a78` → `9064f93` → (this
+commit).
