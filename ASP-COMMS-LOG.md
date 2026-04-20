@@ -54,9 +54,11 @@ this log — if PAP references them, we will back-populate them on request.
 | ASP-OUT-034 | PAP-ASP-REQ-ASP-02 v1.0 pre-assessment directive — run three pre-write gates (migration number availability, VALID_TASKS state, payload field collisions) without writing any migration or implementation code | 2026-04-21 | **CLOSED** | 2026-04-21 (pre-assessment absorbed into ASP-OUT-036 build) |
 | ASP-OUT-033 | PAP-ASP-REQ-ASP-02 v1.0 inbound (MVP-3 integration; 2 services / 4 tasks); conditional acceptance pending PAP task-split confirmation | 2026-04-21 | **CLOSED** | 2026-04-21 (PAP confirmed task-split; build green light issued at ASP-OUT-036) |
 | ASP-OUT-035 | (Architect-filed; superseded by ASP-OUT-036 directive) | 2026-04-21 | **CLOSED** | 2026-04-21 (superseded) |
-| ASP-OUT-036 | F-03-02 BUILD GREEN LIGHT — four tasks across NLP (extract_test_entities) + Generation (draft_steps, suggest_preconditions, propose_edge_cases); migrations 026 + 027; 16 ACs minimum; commit sequence A→B→C→D→E | 2026-04-21 | **OPEN** | 2026-04-21 (DEV-IN-036 milestone — Commits A/B/C/D/E shipped; 16/16 AC PASS; ASP-NOTE-012 issued) |
+| ASP-OUT-036 | F-03-02 BUILD GREEN LIGHT — four tasks across NLP (extract_test_entities) + Generation (draft_steps, suggest_preconditions, propose_edge_cases); migrations 026 + 027; 16 ACs minimum; commit sequence A→B→C→D→E | 2026-04-21 | **CLOSED** | 2026-04-21 (confirmed clean per ASP-OUT-040; 16/16 AC PASS; 102 passed / 1 skipped; ASP-NOTE-012 issued) |
+| ASP-OUT-037 | (Architect-filed; superseded by ASP-OUT-040 confirmation + defect-filing directive) | 2026-04-21 | **CLOSED** | 2026-04-21 (superseded) |
+| ASP-OUT-040 | F-03-02 confirmation + ASP-DEFECT-023 filing directive (pre-existing test_ac19_cost_meter_resilience multi-module ordering flake — LOW, test-only) + standing-by for next-queue priority ordering | 2026-04-21 | **OPEN** | 2026-04-21 (DEV-IN-040 in flight — ASP-DEFECT-023 filed; 4-way sync applied) |
 
-Totals as of 2026-04-21: **1 OPEN** (ASP-OUT-036 pending Architect acknowledgement), **30 CLOSED**.
+Totals as of 2026-04-21: **1 OPEN** (ASP-OUT-040), **32 CLOSED**.
 
 ---
 

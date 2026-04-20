@@ -1,8 +1,10 @@
 # ASP Defect Register
 
-Last updated: 2026-04-20 | Total: 20 | **Open: 0** | Mitigated: 1 | Resolved: 18 | Already Fixed: 2
+Last updated: 2026-04-21 | Total: 21 | **Open: 1** (ASP-DEFECT-023) | Mitigated: 1 | Resolved: 18 | Already Fixed: 2
 
 **Open-defect confirmation (ASP-NOTE-011 closure gate, 2026-04-20):** zero open defects as ASP-02 / ASP-12 enter GOVERNED status. AC-S7-02 in `tests/test_rag_v1.py` locks the DEFECT-022 resolution — the `monthly-cost-aggregation` beat entry cannot silently regress.
+
+**2026-04-21 update (ASP-OUT-040):** ASP-DEFECT-023 filed — pre-existing test-isolation flake in `test_ac19_cost_meter_resilience` surfaced during F-03-02 regression sweep (DEV-IN-036). LOW severity; test-only; not a production-path issue. Not a regression — confirmed reproducible without the new `tests/test_f0302.py` suite.
 
 ## Summary
 
@@ -28,6 +30,7 @@ Last updated: 2026-04-20 | Total: 20 | **Open: 0** | Mitigated: 1 | Resolved: 18
 | ASP-DEFECT-020 | Gateway cost emission not wrapped in try/except — ADR-006 violation | INTERNAL | ASP-00 | HIGH | RESOLVED | ASP Dev Team | 2026-04-16 |
 | ASP-DEFECT-021 | alembic/env.py load_dotenv(override=True) defeats shell-level DATABASE_URL overrides | INTERNAL | INFRASTRUCTURE | LOW | RESOLVED | ASP Dev Team | 2026-04-17 |
 | ASP-DEFECT-022 | cost aggregator fails with No module named psycopg2 | INTERNAL | ASP-10 | HIGH | RESOLVED | ASP Dev Team | 2026-04-18 |
+| ASP-DEFECT-023 | test_ac19_cost_meter_resilience fails under multi-module test ordering — test isolation gap | INTERNAL | ASP-08 / test suite | LOW | **OPEN** | ASP Dev Team | 2026-04-21 |
 
 ---
 
@@ -730,3 +733,66 @@ Applied inline during TSCD-001 AC-T07 verification. No migration required.
 - 2026-04-18: `monthly-cost-aggregation` entry re-enabled in `app/worker.py`
 - 2026-04-18: End-to-end verified — 9/9 successive Celery invocations SUCCESS (T1–T4 + 5-invocation stress). April 2026 aggregation produced 2 rows in `cost_monthly_reports`.
 - 2026-04-18: RESOLVED.
+
+---
+
+## ASP-DEFECT-023 — test_ac19_cost_meter_resilience test-isolation gap
+
+- **ID:** ASP-DEFECT-023
+- **Title:** `test_ac19_cost_meter_resilience` fails under multi-module test ordering — test isolation gap
+- **Source:** INTERNAL (surfaced by ASP Dev Team during F-03-02 regression sweep, DEV-IN-036)
+- **Domain:** ASP-08 Cost Meter / test suite (`tests/test_nlp.py`)
+- **Severity:** LOW (test-only; no production-path impact)
+- **Status:** OPEN
+- **Filed:** 2026-04-21 (Architect-filed per ASP-OUT-040)
+- **Reporter:** ASP Dev Team
+
+**Symptom.** Running `tests/test_nlp.py::test_ac19_cost_meter_resilience` in isolation passes. Running the same test as part of a multi-module pytest invocation (e.g. `pytest tests/test_rag_v1.py tests/test_nlp.py tests/test_generation.py tests/test_generation_ac.py tests/test_f0302.py`) fails with a `RuntimeError`. The failure is ordering-dependent — reproducible whether or not the new F-03-02 test suite is included in the invocation, which confirms the gap predates ASP-OUT-036.
+
+**Evidence.**
+
+```
+# Full sweep (includes test_f0302.py)
+$ pytest tests/test_rag_v1.py tests/test_nlp.py tests/test_generation.py \
+         tests/test_generation_ac.py tests/test_f0302.py --tb=no -q
+FAILED tests/test_nlp.py::test_ac19_cost_meter_resilience - RuntimeError: The...
+1 failed, 102 passed, 1 skipped
+
+# Full sweep WITHOUT test_f0302.py — same failure, confirming pre-existing
+$ pytest tests/test_rag_v1.py tests/test_nlp.py tests/test_generation.py \
+         tests/test_generation_ac.py --tb=no -q
+FAILED tests/test_nlp.py::test_ac19_cost_meter_resilience - RuntimeError: The...
+1 failed, 86 passed, 1 skipped
+
+# In isolation — passes
+$ pytest tests/test_nlp.py::test_ac19_cost_meter_resilience --tb=short
+1 passed
+```
+
+**Root cause (provisional).** Ordering dependency — likely shared state or a mock not properly reset between test modules. Candidates to investigate:
+
+- Module-scoped fixtures in `tests/conftest.py` (`client`, `authed_client`, `mock_db_session`) retain state across the multi-module run; the cost-meter resilience test may rely on a fresh `mock_anthropic` / `emit_cost_event` mock that an earlier module left patched or unpatched.
+- `app.cost.meter.emit_cost_event` is patched per-test in multiple modules; patch-stack interaction may leave it in an unexpected state.
+- Module-level imports of `app.main.app` capture middleware + dependency state; re-import across modules could leak dependency overrides from prior modules.
+
+**Fix scope (next maintenance slot).**
+
+- Audit `tests/test_nlp.py::test_ac19_cost_meter_resilience` for assumptions about the initial mock state.
+- Add explicit `monkeypatch` reset or fixture teardown for `emit_cost_event`.
+- Consider converting the `client` / `authed_client` fixtures to `function` scope for tests that mutate dependency overrides.
+
+**Blast radius.** None in production. Test-only; CI flake risk is real once multi-module runs are used in gating.
+
+**Reproduction command.**
+
+```
+docker compose exec -T ai-service bash -c \
+  "cd /app && python -m pytest \
+    tests/test_rag_v1.py tests/test_nlp.py tests/test_generation.py \
+    tests/test_generation_ac.py tests/test_f0302.py --tb=no -q"
+```
+
+**Timeline.**
+- 2026-04-21: Surfaced during F-03-02 full-repo regression sweep (DEV-IN-036).
+- 2026-04-21: Architect-filed per ASP-OUT-040.
+- Pending: fix in next maintenance slot. LOW severity; no production-path impact.
