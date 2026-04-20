@@ -38,12 +38,17 @@ from app.schemas.generation_schemas import (
     GenerateTestCasesWithInventoryPayload,
     GeneratePlaywrightScriptPayload,
     RefactorScriptLocatorsPayload,          # v2.0 (I-024-07)
+    DraftTestContentPayload,                # F-03-02 (ASP-OUT-036)
 )
 
 TASK_SCHEMA_MODELS[("generation", "generate_test_cases")] = GenerateTestCasesPayload
 TASK_SCHEMA_MODELS[("generation", "generate_test_cases_with_inventory")] = GenerateTestCasesWithInventoryPayload
 TASK_SCHEMA_MODELS[("generation", "generate_playwright_script")] = GeneratePlaywrightScriptPayload
 TASK_SCHEMA_MODELS[("generation", "refactor_script_locators")] = RefactorScriptLocatorsPayload   # v2.0
+# F-03-02 / ASP-OUT-036 — three tasks share DraftTestContentPayload
+TASK_SCHEMA_MODELS[("generation", "draft_steps")] = DraftTestContentPayload
+TASK_SCHEMA_MODELS[("generation", "suggest_preconditions")] = DraftTestContentPayload
+TASK_SCHEMA_MODELS[("generation", "propose_edge_cases")] = DraftTestContentPayload
 
 # Register NLP payload schemas
 from app.schemas.nlp_schemas import (
@@ -53,6 +58,7 @@ from app.schemas.nlp_schemas import (
     SentimentAnalysisPayload,
     ClassifyProbeResultPayload,
     SuggestScreenMappingPayload,     # BP-10 / PAP-ASP-REQ-ASP-01 v2.0 (ASP-OUT-020)
+    ExtractTestEntitiesPayload,      # F-03-02 / PAP-ASP-REQ-ASP-02 v1.0 (ASP-OUT-036)
 )
 
 TASK_SCHEMA_MODELS[("nlp", "nl_to_sql")] = NlToSqlPayload
@@ -61,6 +67,7 @@ TASK_SCHEMA_MODELS[("nlp", "entity_recognition")] = EntityRecognitionPayload
 TASK_SCHEMA_MODELS[("nlp", "sentiment_analysis")] = SentimentAnalysisPayload
 TASK_SCHEMA_MODELS[("nlp", "classify_probe_result")] = ClassifyProbeResultPayload
 TASK_SCHEMA_MODELS[("nlp", "suggest_screen_mapping")] = SuggestScreenMappingPayload  # BP-10
+TASK_SCHEMA_MODELS[("nlp", "extract_test_entities")] = ExtractTestEntitiesPayload    # F-03-02
 
 
 # ---------------------------------------------------------------------------

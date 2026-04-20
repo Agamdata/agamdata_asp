@@ -76,6 +76,8 @@ ASP-02 RAG + ASP-12 Ontology Manager persist schema chunks in ChromaDB. Governed
 | 0023 | Create `tenant_api_keys` junction; backfill legacy rows; drop `tenants.api_key_hash`; add `cost_events.caller_feature` | ASP-FEAT-ASP-00 v1.0 Gateway governance |
 | 0024 | ASP-FEAT-ASP-03 v2.0 — prompt-only: deactivate v3 + v1-L2; insert v4 playwright_runner + v4 test_generator (split by caller); seed refactor_script_locators v1 | ASP-FEAT-ASP-03 v2.0 (GOVERNED) |
 | 0025 | Seed `suggest_screen_mapping` v1 prompt row (nlp / test_generator / * / v1 / NULL) | PAP-ASP-REQ-ASP-01 v2.0 / BP-10 (ASP-OUT-020) |
+| 0026 | Seed three generation prompt rows: `draft_steps`, `suggest_preconditions`, `propose_edge_cases` (generation / test_generator / * / v1 / NULL) | F-03-02 / PAP-ASP-REQ-ASP-02 v1.0 (ASP-OUT-036) |
+| 0027 | Seed `extract_test_entities` v1 prompt row (nlp / test_generator / * / v1 / NULL) | F-03-02 / PAP-ASP-REQ-ASP-02 v1.0 (ASP-OUT-036) |
 
 ## Last Updated
-2026-04-20 — ChromaDB section added per ASP-FEAT-ASP-02 v1.0 governance (ASP-NOTE-011). Migration head unchanged at 0025.
+2026-04-21 — Migrations 0026 + 0027 applied (prompt-only seeds for F-03-02). Migration head 0027. No DDL changes; four new prompt rows total across `generation` (3) and `nlp` (1) services.

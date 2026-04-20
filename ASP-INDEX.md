@@ -1,6 +1,6 @@
 # ASP-INDEX
 
-Last updated: 2026-04-20 | Migration head: 025 | Phase: ASP-02 RAG + ASP-12 Ontology Manager governance closure (ASP-NOTE-011) | 5/14 services GOVERNED
+Last updated: 2026-04-21 | Migration head: 027 | Phase: F-03-02 / PAP-ASP-REQ-ASP-02 v1.0 additive (ASP-NOTE-012) | 5/14 services GOVERNED
 
 ## ASP-INDEX Maintenance Protocol (ADR-026 — BINDING)
 
@@ -136,9 +136,9 @@ Migrations 002–005 were active in the codebase but untracked in ASP-INDEX prio
 | ID | Name | Type | Status | Spec Doc | TSCDs |
 |---|---|---|---|---|---|
 | ASP-00 | Gateway | Synchronous | **GOVERNED** | ASP-FEAT-ASP-00 v1.0 | — |
-| ASP-01 | NLP Service | Synchronous | **GOVERNED** | ASP-FEAT-ASP-01 v1.2 + BP-10 additive (ASP-NOTE-010) | — |
+| ASP-01 | NLP Service | Synchronous | **GOVERNED** | ASP-FEAT-ASP-01 v1.2 + BP-10 additive (ASP-NOTE-010) + F-03-02 additive (ASP-NOTE-012) | — |
 | ASP-02 | RAG Service | Synchronous | **GOVERNED** | ASP-FEAT-ASP-02 v1.0 | — |
-| ASP-03 | Generation Service | Synchronous | **GOVERNED v2.0** | ASP-FEAT-ASP-03 v2.0 | TSCD-001, v2.0 amendment |
+| ASP-03 | Generation Service | Synchronous | **GOVERNED v2.0** | ASP-FEAT-ASP-03 v2.0 + F-03-02 additive (ASP-NOTE-012) | TSCD-001, v2.0 amendment |
 | ASP-04 | Doc Intelligence | Asynchronous | ACTIVE (pre-governance) | — | — |
 | ASP-05 | Prediction Service | Asynchronous | ACTIVE (pre-governance) | — | — |
 | ASP-06 | Prompt Registry | Infrastructure | ACTIVE (pre-governance) | — | — |
@@ -205,6 +205,7 @@ Next TSCD: ASP-TSCD-002
 | ASP-NOTE-009 | ASP-03 v2.0 governance closure. 37/37 AC PASS. Migration 024. Coverage-aware generation + form_data + locator_source=live_extracted + F-01-10 third caller + refactor_script_locators. ASP-DEFECT-022 filed (cost aggregator, separate task). ASP-OUT-014 regression caught + fixed (get_prompt_variant 4-level fallback). G-PROMPT-REACH gate added to playbook. | CLOSURE | 2026-04-18 |
 | ASP-NOTE-010 | ASP-01 NLP — suggest_screen_mapping task added (BP-10 / PAP-ASP-REQ-ASP-01 v2.0). 8/8 AC PASS. Migration 025 (prompt-only). Type B additive. Hallucination guard verified. ASP-OUT-003 closed. | CLOSURE | 2026-04-18 |
 | ASP-NOTE-011 | ASP-02 RAG + ASP-12 Ontology Manager joint governance closure. 26/26 AC PASS. No new Alembic migration (ChromaDB config only). S-4/S-5/S-6 net-new shipped: ChunkMetadata Pydantic (extra="forbid"), tenant_id defence-in-depth in where=, RAGCollectionMissingError→503 fail-closed path. Stream B commits a15e3fc..223543c resolved G-1..G-10 gap matrix. ADR-004 defence-in-depth posture formalised. 6/14 GOVERNED. | CLOSURE | 2026-04-20 |
+| ASP-NOTE-012 | F-03-02 / PAP-ASP-REQ-ASP-02 v1.0 — four new tasks additive. ASP-03: draft_steps, suggest_preconditions, propose_edge_cases (migration 026). ASP-01 NLP: extract_test_entities (migration 027). 16/16 ACs PASS. Quality tier=standard (Haiku). Type B additive — no existing contract changed. Naming-drift flags from ASP-OUT-034 resolved per Architect's directive-verbatim signatures (step_no vs step_number; priority: str vs Literal). Service-naming ambiguity ("ASP-02 (nlp)" vs NLP=ASP-01) flagged and noted in migration 027 docstring. No new GOVERNED service (F-03-02 is additive to existing governed surfaces of ASP-01 and ASP-03). | CLOSURE | 2026-04-21 |
 
 ### ASP-NOTE-002 — ASP-01 Governance Closure
 
