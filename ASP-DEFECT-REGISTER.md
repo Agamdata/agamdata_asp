@@ -1,10 +1,12 @@
 # ASP Defect Register
 
-Last updated: 2026-04-21 | Total: 21 | **Open: 1** (ASP-DEFECT-023) | Mitigated: 1 | Resolved: 18 | Already Fixed: 2
+Last updated: 2026-04-21 | Total: 22 | **Open: 2** (ASP-DEFECT-023, ASP-DEFECT-024) | Mitigated: 1 | Resolved: 18 | Already Fixed: 2
 
 **Open-defect confirmation (ASP-NOTE-011 closure gate, 2026-04-20):** zero open defects as ASP-02 / ASP-12 enter GOVERNED status. AC-S7-02 in `tests/test_rag_v1.py` locks the DEFECT-022 resolution — the `monthly-cost-aggregation` beat entry cannot silently regress.
 
 **2026-04-21 update (ASP-OUT-040):** ASP-DEFECT-023 filed — pre-existing test-isolation flake in `test_ac19_cost_meter_resilience` surfaced during F-03-02 regression sweep (DEV-IN-036). LOW severity; test-only; not a production-path issue. Not a regression — confirmed reproducible without the new `tests/test_f0302.py` suite.
+
+**2026-04-21 update (ASP-OUT-042):** ASP-DEFECT-024 filed — `app/services/doc_intelligence.py` uses sync `psycopg2` via `sqlalchemy.create_engine` at three sites (regex-strips `+asyncpg` from `DATABASE_URL`). `psycopg2` is NOT in `requirements.txt` — identical class of bug to DEFECT-022. Surfaced by ASP Dev Team during the ASP-FEAT-ASP-04 pre-spec survey (DEV-IN-041). CRITICAL severity — any ASP-04 Celery task that writes to Postgres has never succeeded in this environment. Fix: DEFECT-022 playbook (per-invocation `create_async_engine` + `engine.dispose()`). Scheduled for the ASP-FEAT-ASP-04 v1.0 spec cycle (S-1).
 
 ## Summary
 
@@ -31,6 +33,7 @@ Last updated: 2026-04-21 | Total: 21 | **Open: 1** (ASP-DEFECT-023) | Mitigated:
 | ASP-DEFECT-021 | alembic/env.py load_dotenv(override=True) defeats shell-level DATABASE_URL overrides | INTERNAL | INFRASTRUCTURE | LOW | RESOLVED | ASP Dev Team | 2026-04-17 |
 | ASP-DEFECT-022 | cost aggregator fails with No module named psycopg2 | INTERNAL | ASP-10 | HIGH | RESOLVED | ASP Dev Team | 2026-04-18 |
 | ASP-DEFECT-023 | test_ac19_cost_meter_resilience fails under multi-module test ordering — test isolation gap | INTERNAL | ASP-08 / test suite | LOW | **OPEN** | ASP Dev Team | 2026-04-21 |
+| ASP-DEFECT-024 | ASP-04 doc_intelligence.py uses sync psycopg2 via create_engine — identical class of bug to DEFECT-022 | INTERNAL | ASP-04 | **CRITICAL** | **OPEN** — fix in ASP-FEAT-ASP-04 v1.0 cycle (S-1) | ASP Dev Team | 2026-04-21 |
 
 ---
 
@@ -796,3 +799,53 @@ docker compose exec -T ai-service bash -c \
 - 2026-04-21: Surfaced during F-03-02 full-repo regression sweep (DEV-IN-036).
 - 2026-04-21: Architect-filed per ASP-OUT-040.
 - Pending: fix in next maintenance slot. LOW severity; no production-path impact.
+
+---
+
+## ASP-DEFECT-024 — ASP-04 sync psycopg2 latent bug (DEFECT-022 class)
+
+- **ID:** ASP-DEFECT-024
+- **Title:** `app/services/doc_intelligence.py` uses sync `psycopg2` via `sqlalchemy.create_engine` — identical class of bug to DEFECT-022
+- **Source:** INTERNAL (surfaced by ASP Dev Team during ASP-FEAT-ASP-04 pre-spec survey, DEV-IN-041)
+- **Domain:** ASP-04 Doc Intelligence
+- **Severity:** **CRITICAL** — every ASP-04 Celery task that writes to Postgres is affected. Task has never succeeded end-to-end in the pilot environment because the Celery worker will hit the missing `psycopg2` import on first DB write.
+- **Status:** **OPEN** — fix in the ASP-FEAT-ASP-04 v1.0 spec cycle (Stream A / S-1)
+- **Filed:** 2026-04-21 per ASP-OUT-042
+- **Reporter:** ASP Dev Team (pre-spec survey)
+
+**Symptom.** The three sync helpers in `app/services/doc_intelligence.py` construct a SQLAlchemy engine by regex-stripping `+asyncpg` from `settings.DATABASE_URL`:
+
+```python
+# app/services/doc_intelligence.py — three call sites
+sync_url = re.sub(r"postgresql\+asyncpg", "postgresql", settings.DATABASE_URL)
+engine = create_engine(sync_url)
+```
+
+This implicitly selects the `psycopg2` driver. `psycopg2` is **not** in `requirements.txt` (verified: only `asyncpg==0.29.0` is listed). The Celery worker image will raise `ModuleNotFoundError: No module named 'psycopg2'` the first time any of the three sites executes.
+
+**Affected sites (all in `app/services/doc_intelligence.py`):**
+
+1. `_sync_update_job_status` (lines 130-163) — writes `async_jobs` status transitions (`running`, `completed`, `failed`).
+2. `_sync_emit_cost` (lines 166-186) — wraps `emit_cost_event` in `asyncio.run` (secondary issue — ADR-006 not honoured; tracked as G-04-04 in the pre-spec survey).
+3. Inline prompt-row fetch inside the Celery task (lines 208-229) — resolves the prompt template used for classification/extraction.
+
+**Root cause.** Identical to DEFECT-022 (ASP-10 cost aggregator, resolved 2026-04-18 via asyncpg port). The doc_intelligence module pre-dates the DEFECT-022 remediation discipline and was never audited for the same class of bug. The pilot environment has never exercised an ASP-04 Celery task end-to-end, so the latent bug was invisible until this survey.
+
+**Why it was invisible.** No ASP-04 integration test exists in the repo (no `tests/test_doc_intelligence.py`). The tasks are registered and the enqueue path (`handle()`) works, but the worker path has never been driven by a live request in CI or a manual ops probe.
+
+**Fix (scoped into ASP-FEAT-ASP-04 v1.0 S-1).** Apply the DEFECT-022 playbook verbatim:
+
+- Replace `_sync_update_job_status` with an async implementation; wrap with `asyncio.run(_async_fn(...))` at the Celery task boundary.
+- Same for `_sync_emit_cost` (and honour ADR-006 try/except while we are there — see G-04-04).
+- Replace the inline sync prompt-row fetch with an async fetch via the existing `app.registry.prompt_registry.get_prompt` (async) — or a direct `asyncpg` select if registry caching is undesirable in the Celery path.
+- All three sites use per-invocation `create_async_engine(settings.DATABASE_URL, pool_pre_ping=False)` + `await engine.dispose()` per `ENGINEERING-PLAYBOOK.md` §12 (loop-affinity rule added post-DEFECT-022).
+
+**Verification contract** (mirrors DEFECT-022 closure): after fix, enqueue 9 successive ASP-04 Celery invocations (mixed `classify_document` + `extract_invoice`) — all 9 must reach `status='completed'` end-to-end, with 9 rows persisted in `cost_events`.
+
+**Atrium relevance.** **AVOID.** Any Celery task that writes to Postgres must use asyncpg with per-invocation engine creation. Never reuse a connection pool across `asyncio.run()` calls. This is already codified in `ENGINEERING-PLAYBOOK.md` §12; DEFECT-024 is evidence that the lesson needs to be **applied** during every pre-governance audit of existing services, not just written down.
+
+**Timeline.**
+
+- 2026-04-21: Surfaced in pre-spec survey (DEV-IN-041 / G-04-06).
+- 2026-04-21: Architect-filed per ASP-OUT-042.
+- Scheduled: fix in ASP-FEAT-ASP-04 v1.0 Stream A / S-1, BEFORE any other implementation work in the spec cycle per Architect directive.

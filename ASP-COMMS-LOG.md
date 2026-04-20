@@ -57,9 +57,10 @@ this log — if PAP references them, we will back-populate them on request.
 | ASP-OUT-036 | F-03-02 BUILD GREEN LIGHT — four tasks across NLP (extract_test_entities) + Generation (draft_steps, suggest_preconditions, propose_edge_cases); migrations 026 + 027; 16 ACs minimum; commit sequence A→B→C→D→E | 2026-04-21 | **CLOSED** | 2026-04-21 (confirmed clean per ASP-OUT-040; 16/16 AC PASS; 102 passed / 1 skipped; ASP-NOTE-012 issued) |
 | ASP-OUT-037 | (Architect-filed; superseded by ASP-OUT-040 confirmation + defect-filing directive) | 2026-04-21 | **CLOSED** | 2026-04-21 (superseded) |
 | ASP-OUT-040 | F-03-02 confirmation + ASP-DEFECT-023 filing directive (pre-existing test_ac19_cost_meter_resilience multi-module ordering flake — LOW, test-only) + standing-by for next-queue priority ordering | 2026-04-21 | **CLOSED** | 2026-04-21 (DEFECT-023 filed commit 3f208f7; standing-by period ended with ASP-OUT-041) |
-| ASP-OUT-041 | ASP-FEAT-ASP-04 + ASP-13 Doc Intelligence demo pre-spec survey directive — run two parallel surveys (ASP-04 backend + ASP-13 dashboard) for the invoice-upload/classify/extract/review demo; report as single consolidated survey; no spec writing until review complete | 2026-04-22 | **OPEN** | 2026-04-22 (DEV-IN-041 in flight — consolidated survey + gap matrix + Q-1..Q-6 decisions surfaced for Architect review) |
+| ASP-OUT-041 | ASP-FEAT-ASP-04 + ASP-13 Doc Intelligence demo pre-spec survey directive — run two parallel surveys (ASP-04 backend + ASP-13 dashboard) for the invoice-upload/classify/extract/review demo; report as single consolidated survey; no spec writing until review complete | 2026-04-21 | **CLOSED** | 2026-04-21 (survey accepted per ASP-OUT-042; all 11 gaps confirmed as spec input; DEV-IN-041 shipped commit cf09432) |
+| ASP-OUT-042 | Survey rulings Q-1..Q-6 (Option C tasks / A upload / INCLUDE documents table / A asyncpg remediation / D Jinja2+HTMX+pdf.js / confirmed ExtractInvoiceOutput) + DEFECT-024 filing directive + Batch 1 §1–§5 green light with confirmed scope | 2026-04-21 | **OPEN** | 2026-04-21 (DEV-IN-042 in flight — DEFECT-024 filed; Batch 1 authoring to follow) |
 
-Totals as of 2026-04-22: **1 OPEN** (ASP-OUT-041), **33 CLOSED**.
+Totals as of 2026-04-21: **1 OPEN** (ASP-OUT-042), **34 CLOSED**.
 
 ---
 
