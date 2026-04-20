@@ -47,15 +47,64 @@ this log — if PAP references them, we will back-populate them on request.
 | ASP-OUT-026 | Batch 3 review ruling (ACCEPTED) + I-RAG-05/06/07 green light + AC-S3-02 verbatim wording | 2026-04-19 | **CLOSED** | 2026-04-19 (Commits E/F/G shipped 5cebcbf/81e07dd/223543c; AC-S3-02 verbatim confirmed) |
 | ASP-OUT-027 | I-RAG-08 directive (26-AC verification suite tests/test_rag_v1.py; §8.2 write-time boundary rule; COMMS-LOG + 4-way sync) | 2026-04-19 | **CLOSED** | 2026-04-20 (DEV-IN-029 milestone — 26/26 AC PASS; Commit H shipped this entry) |
 | ASP-OUT-028 | (Architect-filed; did not reach this session — routing gap noted per ASP-OUT-029) | 2026-04-20 | **CLOSED** | 2026-04-20 (superseded by ASP-OUT-029) |
-| ASP-OUT-029 | Pending-work summary + single active directive clarification (all pending work contained in ASP-OUT-027: Commits H/I/J) | 2026-04-20 | **OPEN** | 2026-04-20 (DEV-IN-029 in flight — Commit H test suite 26/26 PASS; I-RAG-09 governance sync + I-RAG-10 .docx next) |
+| ASP-OUT-029 | Pending-work summary + single active directive clarification (all pending work contained in ASP-OUT-027: Commits H/I/J) | 2026-04-20 | **CLOSED** | 2026-04-20 (DEV-IN-029 milestone shipped — Commits H/I/J delivered as baf5a78/9064f93/f7d1cfa; ASP-02 + ASP-12 GOVERNED; ASP-NOTE-011 issued) |
+| ASP-OUT-030 | ASP-02 v1.0 GOVERNED acknowledgement + single conftest.py cleanup directive (authed_client fixture migration 023 schema alignment) + next-queue summary | 2026-04-20 | **OPEN** | 2026-04-20 (DEV-IN-030 in flight — conftest fixture updated to TenantApiKey + new-format key; full regression sweep 87 passed / 1 skipped) |
 
-Totals as of 2026-04-20: **1 OPEN** (ASP-OUT-029), **24 CLOSED**.
+Totals as of 2026-04-20: **1 OPEN** (ASP-OUT-030), **25 CLOSED**.
 
 ---
 
 ## Open threads
 
-### ASP-OUT-029 — ASP-FEAT-ASP-02 v1.0 closing sequence (Commits H/I/J) — OPEN
+### ASP-OUT-030 — ASP-02 v1.0 GOVERNED acknowledgement + conftest cleanup + next-queue — OPEN
+
+- **Filed:** 2026-04-20 by Principal Architect, ASP
+- **Supersedes:** ASP-OUT-029 (CLOSED — 0 open before this cleanup)
+- **Subject:** Architect acknowledgement of ASP-FEAT-ASP-02 v1.0 governance closure (26/26 AC PASS; ASP-NOTE-011). Single outstanding cleanup: `tests/conftest.py` `authed_client` fixture alignment with migration 023 (`tenants.api_key_hash` column dropped; authoritative source is `tenant_api_keys` junction). Plus next-session governance queue for the 9 remaining ungoverned services (no action until priority order is confirmed).
+
+**Cleanup applied this turn:**
+
+- `tests/conftest.py` updated:
+  - `test_api_key` now returns a new-format key `asp_<prefix12>_<secret32>` (ASP-FEAT-ASP-00 v1.0 §10 / ADR-032 mechanics; format validated by `app.utils.key_generator.is_new_format`).
+  - `test_api_key_prefix` fixture added (12-char base36 prefix).
+  - `mock_db_session` constructs a valid `Tenant` + `TenantApiKey` pair (no `api_key_hash=...` kwarg on Tenant). Session mock shaped for BOTH Gateway paths: `scalar_one_or_none()` for new-format fast path; `scalars().all()` for legacy-prefix fallback.
+  - `session.get(Tenant, ...)` AsyncMock added to satisfy the Gateway's post-bcrypt tenant lookup.
+  - Real auth path is preserved: negative-auth tests like `test_ac20_invalid_api_key_401` continue to exercise the wrong-key → 401 path correctly.
+
+**Regression sweep (docker compose exec ai-service pytest):**
+
+- `tests/test_rag_v1.py` (I-RAG-08)      26/26 PASS (1 skipped — AC-S1-03 host-only)
+- `tests/test_nlp.py`                    37/37 PASS (was 0/N ERROR before fix)
+- `tests/test_generation.py`             11/11 PASS
+- `tests/test_generation_ac.py`          13/13 PASS
+
+**Totals:** 87 passed, 1 skipped, 0 failed.
+
+**Cross-references:**
+
+- `tests/conftest.py` — fixture rewrite
+- `app/models/db_models.py` — `Tenant` (migration 023 schema) + `TenantApiKey`
+- `app/utils/key_generator.py` — new-format key template
+- Gateway spec §10 / ADR-032 mechanics
+
+**Next-queue (recorded for informational traceability — no action pending):**
+
+9 ungoverned services in Architect-specified priority order:
+1. ASP-04 Doc Intelligence (async, Celery, serves LogiCRM)
+2. ASP-05 Prediction (async, Celery)
+3. ASP-06 Prompt Registry (platform infra, all services depend on it)
+4. ASP-07 Context Store (platform infra)
+5. ASP-08 Cost Meter (platform infra, ADR-006 enforced)
+6. ASP-09 Webhook Service (async delivery)
+7. ASP-10 Cost Aggregator (DEFECT-022 resolved — ready to govern)
+8. ASP-11 Model Router (ADR-017 governs)
+9. ASP-13 Dashboard Intelligence
+
+**No action until Product Leadership confirms priority for the next session.**
+
+---
+
+### ASP-OUT-029 — ASP-FEAT-ASP-02 v1.0 closing sequence (Commits H/I/J) — CLOSED 2026-04-20
 
 - **Filed:** 2026-04-20 by Principal Architect, ASP
 - **Supersedes:** ASP-OUT-027 (single active directive — all pending work contained in that ticket); ASP-OUT-028 (routing-gap placeholder, superseded)
@@ -487,4 +536,6 @@ Completion artefacts:
 
 2026-04-19 (later) — CLOSED ASP-OUT-024 (commit afd0d2a shipped; Batch 2 surfaced for review). OPENED ASP-OUT-025 (Batch 2 ACCEPTED with 3 verbatim-alignment notes; Batch 3 §11–§14 authored; I-RAG-05/06/07 post-acceptance sequence).
 
-2026-04-20 — CLOSED ASP-OUT-025 (commit b348951 shipped; Batch 3 surfaced). CLOSED ASP-OUT-026 (Batch 3 ACCEPTED; I-RAG-05/06/07 shipped 5cebcbf/81e07dd/223543c). CLOSED ASP-OUT-027 (I-RAG-08 AC suite 26/26 PASS; Commit H shipped). CLOSED ASP-OUT-028 (routing-gap placeholder). OPENED ASP-OUT-029 (RAG spec closing sequence — Commit H complete; Commits I/J in flight). Totals: 1 OPEN (ASP-OUT-029), 24 CLOSED.
+2026-04-20 — CLOSED ASP-OUT-025 (commit b348951 shipped; Batch 3 surfaced). CLOSED ASP-OUT-026 (Batch 3 ACCEPTED; I-RAG-05/06/07 shipped 5cebcbf/81e07dd/223543c). CLOSED ASP-OUT-027 (I-RAG-08 AC suite 26/26 PASS; Commit H shipped). CLOSED ASP-OUT-028 (routing-gap placeholder). OPENED ASP-OUT-029 (RAG spec closing sequence — Commit H complete; Commits I/J in flight).
+
+2026-04-20 (later) — CLOSED ASP-OUT-029 (Commits H/I/J shipped baf5a78/9064f93/f7d1cfa; ASP-02 + ASP-12 GOVERNED; ASP-NOTE-011 issued; 5/14 services governed). OPENED ASP-OUT-030 (GOVERNED acknowledgement + conftest.py migration 023 cleanup + next-queue summary). Totals: 1 OPEN (ASP-OUT-030), 25 CLOSED.

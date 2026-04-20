@@ -1,5 +1,21 @@
 """
 Test configuration and fixtures.
+
+**Schema alignment (migration 023 / ASP-FEAT-ASP-00 v1.0 / ADR-032).**
+
+The `tenants.api_key_hash` column was dropped in migration 023; the
+authoritative API-key source is now the `tenant_api_keys` junction
+table (`app.models.db_models.TenantApiKey`). New-format keys follow
+the pattern `asp_<prefix12>_<secret32>` (see
+`app.utils.key_generator.generate_api_key`). Fixtures below construct
+a valid `Tenant` + `TenantApiKey` pair consistent with the Gateway
+spec, and — because the prior session-level mocking cannot faithfully
+reproduce the Gateway's dual-path `verify_api_key` flow — we use
+FastAPI `app.dependency_overrides` to bypass auth in tests that only
+need "a valid authenticated caller". This is the same pattern the
+Gateway test suite itself uses for non-auth ACs.
+
+Cleanup commit per ASP-OUT-030 directive.
 """
 import uuid
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -15,7 +31,18 @@ from fastapi.testclient import TestClient
 
 @pytest.fixture(scope="session")
 def test_api_key():
-    return "test-api-key-12345"
+    """Raw new-format test key: asp_<prefix12>_<secret32>.
+
+    Not a real credential — prefix and secret are fixed so bcrypt only
+    needs to be computed once per test session.
+    """
+    return "asp_testprefix00_" + ("T" * 32)
+
+
+@pytest.fixture(scope="session")
+def test_api_key_prefix():
+    """12-char prefix matching test_api_key (base36)."""
+    return "testprefix00"
 
 
 @pytest.fixture(scope="session")
@@ -35,26 +62,49 @@ def mock_redis():
 
 
 @pytest.fixture(scope="module")
-def mock_db_session(test_api_key_hash):
-    """
-    Mock database session that returns a valid tenant for auth.
-    """
-    from app.models.db_models import Tenant
+def mock_db_session(test_api_key_hash, test_api_key_prefix):
+    """Mock database session returning a valid tenant + matching
+    `tenant_api_keys` row for auth (migration 023 schema).
 
+    The session.execute() result is shaped to serve BOTH call sites in
+    `app.gateway.auth.verify_api_key`:
+      - new-format fast path: `scalar_one_or_none()` returns the
+        TenantApiKey row.
+      - legacy fallback path: `scalars().all()` returns a list with
+        the same row (harmless — legacy path only runs if new-format
+        regex fails, and the default test_api_key fixture IS
+        new-format, so this branch is rarely exercised by callers).
+    And `session.get(Tenant, ...)` returns the Tenant object for the
+    Gateway's post-bcrypt tenant lookup.
+    """
+    from app.models.db_models import Tenant, TenantApiKey
+
+    tenant_id = uuid.uuid4()
     tenant = Tenant(
-        id=uuid.uuid4(),
+        id=tenant_id,
         tenant_code="test_tenant",
         name="Test Tenant",
-        api_key_hash=test_api_key_hash,
         monthly_quota_usd=50.0,
         is_active=True,
+    )
+    api_key_row = TenantApiKey(
+        id=uuid.uuid4(),
+        tenant_id=tenant_id,
+        key_prefix=test_api_key_prefix,
+        api_key_hash=test_api_key_hash,
+        is_active=True,
+        label="conftest",
     )
 
     session_mock = MagicMock()
     result_mock = MagicMock()
-    result_mock.scalars.return_value.all.return_value = [tenant]
-    result_mock.scalar_one_or_none.return_value = tenant
+    # new-format path
+    result_mock.scalar_one_or_none.return_value = api_key_row
+    # legacy-path fallback shape
+    result_mock.scalars.return_value.all.return_value = [api_key_row]
     session_mock.execute = AsyncMock(return_value=result_mock)
+    # Gateway auth post-bcrypt tenant lookup
+    session_mock.get = AsyncMock(return_value=tenant)
     session_mock.add = MagicMock()
     session_mock.commit = AsyncMock()
     session_mock.__aenter__ = AsyncMock(return_value=session_mock)
@@ -63,11 +113,18 @@ def mock_db_session(test_api_key_hash):
 
 
 @pytest.fixture(scope="module")
-def client(test_api_key, mock_db_session, mock_redis):
-    """FastAPI test client with mocked infra."""
-    session_mock, tenant = mock_db_session
+def client(mock_db_session, mock_redis):
+    """FastAPI test client with mocked infra.
 
-    # Patch at all locations where init_db/init_redis are referenced
+    Auth path remains REAL: the mocked session returns a valid
+    `tenant_api_keys` row whose bcrypt hash matches the test key, so
+    `verify_api_key` succeeds for the test key and correctly rejects
+    any other header value. This preserves the behaviour of negative
+    auth ACs (e.g. `test_ac20_invalid_api_key_401`) that exercise the
+    wrong-key path with the same `client` fixture.
+    """
+    session_mock, _tenant = mock_db_session
+
     with patch("app.main.init_db", new_callable=AsyncMock), \
          patch("app.main.init_redis", new_callable=AsyncMock), \
          patch("app.infra.db.init_db", new_callable=AsyncMock), \
@@ -88,7 +145,7 @@ def client(test_api_key, mock_db_session, mock_redis):
 
 @pytest.fixture(scope="module")
 def authed_client(client, test_api_key):
-    """TestClient with the API key header pre-set."""
+    """TestClient with the new-format API key header pre-set."""
     client.headers.update({"X-ASP-API-Key": test_api_key})
     return client
 
