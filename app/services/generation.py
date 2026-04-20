@@ -27,6 +27,10 @@ from app.schemas.generation_schemas import (
     GenerateTestCasesWithInventoryPayload,
     RefactorScriptLocatorsPayload,
     RefactorScriptLocatorsResult,
+    DraftTestContentPayload,
+    DraftStepsResult,
+    SuggestPreconditionsResult,
+    ProposeEdgeCasesResult,
 )
 from app.models.generation_outputs import (
     GenerateTestCasesOutput,
@@ -94,6 +98,10 @@ TASK_OUTPUT_SCHEMAS = {
     "generate_test_cases_with_inventory":     GenerateTestCasesWithInventoryOutput,
     "generate_playwright_script":             GeneratePlaywrightScriptOutput,
     "refactor_script_locators":               RefactorScriptLocatorsResult,   # v2.0 — I-024-07
+    # F-03-02 / ASP-OUT-036 (migration 026)
+    "draft_steps":                            DraftStepsResult,
+    "suggest_preconditions":                  SuggestPreconditionsResult,
+    "propose_edge_cases":                     ProposeEdgeCasesResult,
 }
 
 TASK_PAYLOAD_VALIDATORS = {
@@ -101,6 +109,10 @@ TASK_PAYLOAD_VALIDATORS = {
     "generate_playwright_script":             GeneratePlaywrightScriptPayload,
     "generate_test_cases_with_inventory":     GenerateTestCasesWithInventoryPayload,
     "refactor_script_locators":               RefactorScriptLocatorsPayload,  # v2.0 — I-024-07
+    # F-03-02 / ASP-OUT-036 — three tasks share one payload model
+    "draft_steps":                            DraftTestContentPayload,
+    "suggest_preconditions":                  DraftTestContentPayload,
+    "propose_edge_cases":                     DraftTestContentPayload,
 }
 
 TASK_MAX_TOKENS = {
@@ -113,6 +125,11 @@ TASK_MAX_TOKENS = {
     "generate_test_cases_with_inventory":     12288,  # DEFECT-017: raised from 8192
     "generate_playwright_script":             32000,
     "refactor_script_locators":               8192,   # v2.0 §9.6 — I-024-07
+    # F-03-02 / ASP-OUT-036 — short-form outputs (3-7 steps / 2-5 preconditions
+    # / 3-5 edge cases). 2048 is ample; quality_tier=standard (Haiku).
+    "draft_steps":                            2048,
+    "suggest_preconditions":                  1024,
+    "propose_edge_cases":                     2048,
 }
 
 # v2.0 (§11 I-024-03 / OQ-2 ruling): interactive-panel ceiling.
@@ -236,6 +253,29 @@ async def handle(req: InvokeRequest, model: str, request_id: str) -> InvokeRespo
             locator_diff=locator_diff_rendered,
             screen_key=validated_payload.get("screen_key", ""),
             language=validated_payload.get("language", "typescript"),
+        )
+
+    elif task in ("draft_steps", "suggest_preconditions", "propose_edge_cases"):
+        # F-03-02 / ASP-OUT-036. Three tasks share DraftTestContentPayload.
+        # Render list fields as indented JSON so the LLM reads structured
+        # inputs rather than Python repr. Templates (migration 026) use the
+        # placeholders: screen_key, module_key, category, priority, title,
+        # objective, existing_steps, preconditions.
+        existing_steps_rendered = json.dumps(
+            validated_payload.get("existing_steps", []), indent=2, default=str
+        )
+        preconditions_rendered = json.dumps(
+            validated_payload.get("preconditions", []), indent=2, default=str
+        )
+        user_message = prompt.user_prompt_template.format(
+            screen_key=validated_payload.get("screen_key", ""),
+            module_key=validated_payload.get("module_key", ""),
+            category=validated_payload.get("category", ""),
+            priority=validated_payload.get("priority", ""),
+            title=validated_payload.get("title", ""),
+            objective=validated_payload.get("objective", ""),
+            existing_steps=existing_steps_rendered,
+            preconditions=preconditions_rendered,
         )
 
     else:

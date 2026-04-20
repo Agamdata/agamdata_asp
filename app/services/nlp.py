@@ -25,6 +25,9 @@ from app.schemas.nlp_schemas import (
     ClassifyProbeResultOutput,
     SuggestScreenMappingPayload,
     SuggestScreenMappingResult,
+    ExtractTestEntitiesPayload,
+    ExtractTestEntitiesResult,
+    TestEntities,
 )
 from app.services._shared import anthropic_client, build_messages, build_invoke_response, strip_json
 from app.services import rag
@@ -102,6 +105,8 @@ async def handle(req: InvokeRequest, model: str, request_id: str) -> InvokeRespo
         return await _handle_classify_probe_result(req, model, request_id)
     elif req.task == "suggest_screen_mapping":
         return await _handle_suggest_screen_mapping(req, model, request_id)
+    elif req.task == "extract_test_entities":
+        return await _handle_extract_test_entities(req, model, request_id)
     else:
         return await _handle_generic(req, model, request_id)
 
@@ -395,3 +400,64 @@ async def _handle_generic(req: InvokeRequest, model: str, request_id: str) -> In
         raise HTTPException(status_code=500, detail={"detail": "Internal error", "request_id": request_id})
 
     return build_invoke_response(request_id, "nlp", req.task, output, response.usage, model)
+
+
+async def _handle_extract_test_entities(
+    req: InvokeRequest, model: str, request_id: str
+) -> InvokeResponse:
+    """Handle extract_test_entities task (F-03-02 / PAP-ASP-REQ-ASP-02 v1.0).
+
+    Given freeform `text` + a `TestEntityContext`, extract four governed
+    entity buckets (required_fields, actions, validation_cases,
+    success_outcomes) and a confidence score. All four lists default to
+    [] so the LLM may omit any bucket without tripping 422.
+    """
+    try:
+        payload = ExtractTestEntitiesPayload(**req.payload)
+    except Exception as e:
+        raise HTTPException(
+            status_code=422,
+            detail=f"Invalid payload for extract_test_entities: {e}",
+        )
+
+    maturity = req.user_context.maturity_level if req.user_context else "L2"
+    prompt = await prompt_registry.get_prompt(
+        "nlp", "extract_test_entities", req.caller_module, maturity
+    )
+
+    user_message = prompt.user_prompt_template.format(
+        screen_key=payload.context.screen_key,
+        module_key=payload.context.module_key,
+        category=payload.context.category,
+        text=payload.text,
+    )
+
+    # Standard tier (Haiku) per ASP-OUT-036 directive.
+    response = await llm_call_with_retry(
+        anthropic_client,
+        model=model,
+        max_tokens=1024,
+        system=prompt.system_prompt,
+        messages=[{"role": "user", "content": user_message}],
+        request_id=request_id,
+    )
+    raw = response.content[0].text
+
+    try:
+        output = ExtractTestEntitiesResult.model_validate_json(strip_json(raw))
+    except Exception as e:
+        log.error(
+            "nlp_parse_failed",
+            request_id=request_id,
+            task="extract_test_entities",
+            error=str(e),
+            raw=raw[:500],
+        )
+        raise HTTPException(
+            status_code=500,
+            detail={"detail": "Internal error", "request_id": request_id},
+        )
+
+    return build_invoke_response(
+        request_id, "nlp", "extract_test_entities", output, response.usage, model
+    )
