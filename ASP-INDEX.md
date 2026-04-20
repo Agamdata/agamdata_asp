@@ -1,6 +1,6 @@
 # ASP-INDEX
 
-Last updated: 2026-04-15 | Migration head: 019 | Phase: ASP-00 Gateway Governance
+Last updated: 2026-04-20 | Migration head: 025 | Phase: ASP-02 RAG + ASP-12 Ontology Manager governance closure (ASP-NOTE-011) | 5/14 services GOVERNED
 
 ## ASP-INDEX Maintenance Protocol (ADR-026 — BINDING)
 
@@ -137,7 +137,7 @@ Migrations 002–005 were active in the codebase but untracked in ASP-INDEX prio
 |---|---|---|---|---|---|
 | ASP-00 | Gateway | Synchronous | **GOVERNED** | ASP-FEAT-ASP-00 v1.0 | — |
 | ASP-01 | NLP Service | Synchronous | **GOVERNED** | ASP-FEAT-ASP-01 v1.2 + BP-10 additive (ASP-NOTE-010) | — |
-| ASP-02 | RAG Service | Synchronous | ACTIVE (pre-governance) | — | — |
+| ASP-02 | RAG Service | Synchronous | **GOVERNED** | ASP-FEAT-ASP-02 v1.0 | — |
 | ASP-03 | Generation Service | Synchronous | **GOVERNED v2.0** | ASP-FEAT-ASP-03 v2.0 | TSCD-001, v2.0 amendment |
 | ASP-04 | Doc Intelligence | Asynchronous | ACTIVE (pre-governance) | — | — |
 | ASP-05 | Prediction Service | Asynchronous | ACTIVE (pre-governance) | — | — |
@@ -147,7 +147,7 @@ Migrations 002–005 were active in the codebase but untracked in ASP-INDEX prio
 | ASP-09 | Webhook Service | Infrastructure | ACTIVE (pre-governance) | — | — |
 | ASP-10 | Cost Aggregator | Cron/Scheduled | ACTIVE (pre-governance) | — | — |
 | ASP-11 | Model Router | Infrastructure | ACTIVE (pre-governance) | — | — |
-| ASP-12 | Schema Ontology Mgr | Admin triggered | ACTIVE (pre-governance) | — | — |
+| ASP-12 | Schema Ontology Mgr | Admin triggered | **GOVERNED** | ASP-FEAT-ASP-02 v1.0 (joint with ASP-02) | — |
 | ASP-13 | Dashboard Intelligence | Synchronous | ACTIVE (pre-governance) | — | — |
 
 ### Service status definitions
@@ -204,6 +204,7 @@ Next TSCD: ASP-TSCD-002
 | ASP-NOTE-008 | ASP-00 Gateway governance closure. 36/36 AC PASS. Migration 023. ADR-030 amended, ADR-032 QUEUED→ACCEPTED, ADR-034 new. DEFECT-010/021 RESOLVED. 3/14 GOVERNED. PE-1 Type C sunset pending. | CLOSURE | 2026-04-18 |
 | ASP-NOTE-009 | ASP-03 v2.0 governance closure. 37/37 AC PASS. Migration 024. Coverage-aware generation + form_data + locator_source=live_extracted + F-01-10 third caller + refactor_script_locators. ASP-DEFECT-022 filed (cost aggregator, separate task). ASP-OUT-014 regression caught + fixed (get_prompt_variant 4-level fallback). G-PROMPT-REACH gate added to playbook. | CLOSURE | 2026-04-18 |
 | ASP-NOTE-010 | ASP-01 NLP — suggest_screen_mapping task added (BP-10 / PAP-ASP-REQ-ASP-01 v2.0). 8/8 AC PASS. Migration 025 (prompt-only). Type B additive. Hallucination guard verified. ASP-OUT-003 closed. | CLOSURE | 2026-04-18 |
+| ASP-NOTE-011 | ASP-02 RAG + ASP-12 Ontology Manager joint governance closure. 26/26 AC PASS. No new Alembic migration (ChromaDB config only). S-4/S-5/S-6 net-new shipped: ChunkMetadata Pydantic (extra="forbid"), tenant_id defence-in-depth in where=, RAGCollectionMissingError→503 fail-closed path. Stream B commits a15e3fc..223543c resolved G-1..G-10 gap matrix. ADR-004 defence-in-depth posture formalised. 6/14 GOVERNED. | CLOSURE | 2026-04-20 |
 
 ### ASP-NOTE-002 — ASP-01 Governance Closure
 
@@ -262,6 +263,38 @@ Next TSCD: ASP-TSCD-002
 **Issued by:** Principal Architect, ASP
 **Date:** 2026-04-18
 
+### ASP-NOTE-011 — ASP-02 RAG + ASP-12 Ontology Manager Governance Closure (joint)
+
+**Services:** ASP-02 RAG Service, ASP-12 Schema Ontology Manager (joint governance)
+**Spec:** ASP-FEAT-ASP-02 v1.0
+**AC Result:** 26/26 PASS (9 phases: S-1 Persistence 4, S-2 EF 4, S-3 Metadata 2, S-4 ChunkMetadata 3, S-5 Tenant defence 3, S-6 Fail-closed 3, S-7 Beat 3, ADR-004 2, Cross-cutting 2)
+
+**Commit chain (Stream B):** `a15e3fc` (I-RAG-01) → `b4fbce9` (I-RAG-02) → `40ff092` (I-RAG-03) → `7538fb9` (I-RAG-04) → `5cebcbf` (I-RAG-05) → `81e07dd` (I-RAG-06) → `223543c` (I-RAG-07) → `baf5a78` (I-RAG-08)
+
+**Migration:** None. Head remains **0025**. ASP-02 / ASP-12 are ChromaDB-backed — no Postgres schema changes. Dockerfile + docker-compose changes + `app/services/rag.py` + `app/schemas/rag_schemas.py` + `app/ontology/manager.py` + `app/worker.py` beat schedule are the governance surface.
+
+**Three net-new implementation items shipped in v1.0 cycle:**
+- S-4: `ChunkMetadata` Pydantic model with `extra="forbid"` at `app/schemas/rag_schemas.py` — validated loudly at upsert (write-time boundary rule, §8.2), warned at retrieve (preserves fail-open).
+- S-5: `tenant_id` defence-in-depth in ChromaDB `where=` clause — collection-name scoping is primary layer, `$eq` metadata filter is governed second belt (§10.1).
+- S-6: `RAGCollectionMissingError` → NLP `HTTPException(503)` RFC 7807 envelope fail-closed path, distinct from fail-open empty-retrieve (§6.4 / §8.2).
+
+**Gap matrix G-1..G-10 resolution:** all resolved or scoped in §14 change log.
+
+**ADRs:**
+- ADR-001 (Zone 1 classification) reaffirmed via §6.1 verbatim permanence statement.
+- ADR-004 (exclude_tables enforcement at RAG metadata layer) defence-in-depth posture formalised — primary mechanism is the $nin metadata filter; NLP prompt `{exclude_tables}` placeholder is defence-in-depth only (§10.4 verbatim statement).
+- ADR-035 (fail-closed on EF model mismatch) — **DEFERRED** per §13 OQ-1. Warn-only in v1.0.
+
+**Defects resolved in cycle:**
+- ASP-DEFECT-022 (cost aggregator psycopg2 absent from requirements.txt) — RESOLVED via asyncpg port with per-invocation `create_async_engine()` pattern (`d158221`). Locked by AC-S7-02 (monthly-cost-aggregation beat entry must remain present).
+
+**Verification harness:** `tests/test_rag_v1.py` — 26/26 PASS. Stop-on-first-failure discipline enforced. Ran inside `ai-service` container via `docker compose exec` + host-side `docker inspect` for AC-S1-03 volume mount verification.
+
+**Status:** ASP-02 → **GOVERNED**, ASP-12 → **GOVERNED**. Governed count: **5/14**.
+
+**Issued by:** Principal Architect, ASP
+**Date:** 2026-04-20
+
 ## Governance Documents
 
 | Document ID | Title | Version | Status | Date |
@@ -273,6 +306,7 @@ Next TSCD: ASP-TSCD-002
 | ASP-FEAT-ASP-03 | Generation Service Detailed Spec | v1.1 | GOVERNED — 32/32 AC PASS (e8e3896), PAP confirmed (1b32600) | 2026-04-12 |
 | ASP-FEAT-ASP-00 | Gateway Service Detailed Spec | v1.0 | **GOVERNED** — 36/36 AC PASS (ecaa1ce). Migration 023 applied. ADR-030/032/034 locked. DEFECT-010/021 RESOLVED. ASP-NOTE-008 issued 2026-04-18. | 2026-04-18 |
 | ASP-FEAT-ASP-03 | Generation Service Detailed Spec (amendment) | v2.0 | **GOVERNED** — 37/37 AC PASS. Migration 024 applied (prompt-only: 2 v4 rows split by caller + refactor_script_locators v1). Coverage-aware generation + form_data + locator_source=live_extracted + F-01-10 third caller + refactor_script_locators new task. ASP-NOTE-009 issued 2026-04-18. ASP-DEFECT-022 filed (cost aggregator psycopg2; separate maintenance task). | 2026-04-18 |
+| ASP-FEAT-ASP-02 | RAG Service + Schema Ontology Manager Detailed Spec (joint) | v1.0 | **GOVERNED** — 26/26 AC PASS (baf5a78). No migration (ChromaDB-only). S-4 ChunkMetadata + S-5 tenant_id defence-in-depth + S-6 RAGCollectionMissingError→503 shipped. ASP-NOTE-011 issued 2026-04-20. ASP-DEFECT-022 locked by AC-S7-02. | 2026-04-20 |
 
 ## Naming quick-ref
 

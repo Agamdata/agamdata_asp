@@ -17,8 +17,10 @@ AI Service Platform (ASP) — A FastAPI/Python backend providing a unified gatew
 - ADRs: ADR-001 through ADR-033 (see ASP-ADR.md)
 - Branch: `claude/asp-v2` (governance + new features)
 - Phase: Governance Onboarding
-- ASP-01 NLP: **GOVERNED** (25/25 ACs PASS — first service through governance)
-- ASP-03 Generation: **GOVERNED** (32/32 ACs PASS — ASP-NOTE-005 closure)
+- ASP-01 NLP: **GOVERNED** (25/25 ACs PASS) + BP-10 suggest_screen_mapping additive (ASP-NOTE-010)
+- ASP-03 Generation: **GOVERNED v2.0** (37/37 ACs PASS — ASP-NOTE-009 closure)
+- ASP-00 Gateway: **GOVERNED** (36/36 ACs PASS — ASP-NOTE-008 closure)
+- ASP-02 RAG + ASP-12 Ontology Manager: **GOVERNED** (26/26 ACs PASS — joint ASP-NOTE-011 closure, 2026-04-20). No migration (ChromaDB-only). **5/14 services governed.**
 
 ## Implemented Features
 | ID | Service | Status |

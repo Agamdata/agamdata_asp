@@ -59,6 +59,8 @@ ASP is built as a standalone microservice with REST API — not an internal Pyth
 ### ADR-004: exclude_tables at RAG Layer
 `schema_hints.exclude_tables` is enforced at RAG retrieval layer (ChromaDB metadata filter) BEFORE chunks are passed to the LLM. A prompt instruction alone is insufficient.
 
+**Defence-in-depth clarification (2026-04-20, ASP-NOTE-011):** The ChromaDB metadata filter (`where={"table_name": {"$nin": exclude_tables}}`, `$and`-wrapped with the S-5 `tenant_id` filter) is the **primary** enforcement mechanism. The NLP system prompt's `{exclude_tables}` placeholder is **defence-in-depth only** and must not be treated as the sole enforcement gate. Verified by AC-ADR004-01 / AC-ADR004-02 in `tests/test_rag_v1.py` (commit `baf5a78`). Governed verbatim in ASP-FEAT-ASP-02 v1.0 §10.4.
+
 ### ADR-005: Prompts in Database
 All prompt templates stored in `prompt_templates` table. No prompts hardcoded in application code. PromptNotFoundError raised when no template is found.
 

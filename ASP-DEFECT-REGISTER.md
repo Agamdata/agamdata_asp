@@ -1,6 +1,8 @@
 # ASP Defect Register
 
-Last updated: 2026-04-18 | Total: 20 | Open: 0 | Mitigated: 1 | Resolved: 18 | Already Fixed: 2
+Last updated: 2026-04-20 | Total: 20 | **Open: 0** | Mitigated: 1 | Resolved: 18 | Already Fixed: 2
+
+**Open-defect confirmation (ASP-NOTE-011 closure gate, 2026-04-20):** zero open defects as ASP-02 / ASP-12 enter GOVERNED status. AC-S7-02 in `tests/test_rag_v1.py` locks the DEFECT-022 resolution — the `monthly-cost-aggregation` beat entry cannot silently regress.
 
 ## Summary
 

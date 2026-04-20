@@ -43,6 +43,17 @@ Per-tenant webhook configuration for event delivery.
 Aggregated monthly cost rollups (idempotent).
 - Created in: 0001
 
+## Non-Postgres Persistence (ChromaDB)
+
+ASP-02 RAG + ASP-12 Ontology Manager persist schema chunks in ChromaDB. Governed by ASP-FEAT-ASP-02 v1.0 (joint, 2026-04-20 under ASP-NOTE-011). **No Alembic migration** — ChromaDB state lives on the `chroma_data` Docker volume mounted at `/chroma/data` on both `ai-service` and `celery-worker` (AC-S1-03 verified).
+
+- **Collection naming:** `asp_schema_{tenant_id}` (primary tenant isolation).
+- **Collection metadata:** `{"hnsw:space": "cosine", "asp_embedding_model": <settings.RAG_EMBEDDING_MODEL>}` — EF model snapshot for drift detection (warn-only per AC-S3-02; ADR-035 DEFERRED).
+- **Chunk metadata contract** (`app.schemas.rag_schemas.ChunkMetadata`, `extra="forbid"` — ASP-OUT-024 §5 ruling): `table_name`, `module`, `tenant_id`, `chunk_type: Literal["schema","example"]`.
+- **tenant_id defence-in-depth:** every `retrieve()` `where=` clause includes `{"tenant_id": {"$eq": tenant_id}}` regardless of `exclude_tables` state (§10.1 Layer 2 / AC-S5-01..03).
+- **Client:** `chromadb.PersistentClient(path=settings.CHROMA_PERSIST_PATH)` with a 5-minute TTL singleton (`CHROMA_CLIENT_TTL_SECONDS=300`) for cross-process visibility.
+- **Embedding function:** `SentenceTransformerEmbeddingFunction(model_name=settings.RAG_EMBEDDING_MODEL)` — pre-downloaded at Dockerfile build time (AC-S2-04); bound explicitly at both ingest and query.
+
 ## Migration Chain
 | ID | Description | Notes |
 |----|-------------|-------|
@@ -67,4 +78,4 @@ Aggregated monthly cost rollups (idempotent).
 | 0025 | Seed `suggest_screen_mapping` v1 prompt row (nlp / test_generator / * / v1 / NULL) | PAP-ASP-REQ-ASP-01 v2.0 / BP-10 (ASP-OUT-020) |
 
 ## Last Updated
-2026-04-18
+2026-04-20 — ChromaDB section added per ASP-FEAT-ASP-02 v1.0 governance (ASP-NOTE-011). Migration head unchanged at 0025.
