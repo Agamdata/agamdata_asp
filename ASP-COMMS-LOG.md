@@ -79,16 +79,17 @@ this log — if PAP references them, we will back-populate them on request.
 | ASP-OUT-062 | (Architect-filed; PAP notification of ASP-FEAT-ASP-04 v1.0 GOVERNED) | 2026-04-21 | **CLOSED** | 2026-04-21 (outbound; no Dev Team action) |
 | ASP-OUT-063 | Loop-affinity platform audit directive | 2026-04-21 | **CLOSED** | 2026-04-21 (audit accepted per ASP-OUT-064; DEFECT-025 CRITICAL filed then remediated in ASP-OUT-064) |
 | ASP-OUT-064 | DEFECT-025 remediation + §12 playbook + DEFECT-023 fix | 2026-04-21 | **CLOSED** | 2026-04-21 (both defects RESOLVED per ASP-OUT-066; 9/9 PASS + 103 passed sweep; platform clean) |
-| ASP-OUT-065 | Architect → PAP — service-naming correction for F-03-03 (ASP-12 → ASP-03) + 1-working-day accept+build commitment | 2026-04-21 | **OPEN** | 2026-04-21 (awaiting PAP-ASP-REQ-ASP-03 v3.0 filing; outbound no Dev Team action beyond prep) |
+| ASP-OUT-065 | Architect → PAP — F-03-03 service-naming correction + 1-working-day accept+build commitment | 2026-04-21 | **CLOSED** | 2026-04-22 (PAP v3.0 matched pre-prepared ASP-OUT-066 Task 2 draft; no schema delta; commitment met via commits 7ff2042/3f0e38e/a7f48c2/0bfb340; closed per ASP-OUT-074) |
 | ASP-OUT-066 | Platform-clean acknowledgement + ASP-05 pre-spec survey (Task 1) + F-03-03 assess_test_quality prep (Task 2) — no implementation | 2026-04-21 | **CLOSED** | 2026-04-21 (prep draft used as authoritative build sequence per ASP-OUT-070 resend) |
 | ASP-OUT-068 | (Architect-filed; routing gap — did not reach this session. Build sequence inferred from ASP-OUT-066 Task 2 prep draft per ASP-OUT-070 twice-sent confirmation) | 2026-04-21 | **CLOSED** | 2026-04-21 (superseded by ASP-OUT-070 explicit continue instruction) |
 | ASP-OUT-069 | (Architect-filed; routing gap — did not reach this session) | 2026-04-21 | **CLOSED** | 2026-04-21 (superseded by ASP-OUT-070 confirmation) |
 | ASP-OUT-070 | PAP F-03-03 authorisation confirmation — build sequence | 2026-04-21 | **CLOSED** | 2026-04-21 (Commits A/B/C/D shipped; 15/15 AC PASS; ASP-NOTE-014 issued; closed alongside DEV-IN-070 duplicate acknowledgement via ASP-OUT-073) |
 | ASP-OUT-071 | (Architect-filed; PAP notification of F-03-03 BUILT — outbound; did not reach ASP session) | 2026-04-21 | **CLOSED** | 2026-04-21 (routing gap; no Dev Team action required) |
 | ASP-OUT-072 | (Architect-filed; ASP-05 pre-spec survey directive with 8 enumerated items — did not reach ASP session) | 2026-04-21 | **CLOSED** | 2026-04-21 (routing gap; superseded by ASP-OUT-073 "proceed per ASP-OUT-072" confirmation — survey delivered via post-F-03-03 refresh of the existing 3d1bbec survey) |
-| ASP-OUT-073 | DEV-IN-070 duplicate acknowledgement + fifth routing-gap log directive + proceed per ASP-OUT-072 (read-only ASP-05 survey) | 2026-04-21 | **OPEN** | 2026-04-21 (DEV-IN-073 in flight — gap 5 logged in ASP-04 IMPL-LOG; ASP-05 survey refreshed with §12 post-F-03-03 delta; awaiting Architect closure ruling) |
+| ASP-OUT-073 | DEV-IN-070 duplicate acknowledgement + fifth routing-gap log directive + proceed per ASP-OUT-072 | 2026-04-21 | **CLOSED** | 2026-04-22 (DEV-IN-073 survey refresh accepted per ASP-OUT-074; eight ASP-OUT-072 items confirmed covered by existing §1–§12; gap 5 logged) |
+| ASP-OUT-074 | DEV-IN-073 confirmation + ASP-OUT-072 eight-item coverage map + ASP-OUT-065 closure (PAP v3.0 matched pre-prepared draft, no delta) + ASP-05 Batch 1 green light with confirmed §1–§5 scope | 2026-04-22 | **OPEN** | 2026-04-22 (DEV-IN-074 in flight — Batch 1 §1–§5 authored; DB-probe confirmed 0 prompt rows for ASP-05; 32-probe reach matrix planned for S-6) |
 
-Totals as of 2026-04-21: **2 OPEN** (ASP-OUT-065, ASP-OUT-073), **62 CLOSED**.
+Totals as of 2026-04-22: **1 OPEN** (ASP-OUT-074), **64 CLOSED**.
 
 ---
 
