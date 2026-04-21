@@ -2,8 +2,9 @@ import uuid
 from datetime import datetime, timezone
 
 from sqlalchemy import (
-    Boolean, BigInteger, Column, Date, DateTime, ForeignKey,
-    Integer, Numeric, String, Text, UniqueConstraint, Index,
+    Boolean, BigInteger, CheckConstraint, Column, Date, DateTime,
+    Float, ForeignKey, Integer, Numeric, String, Text,
+    UniqueConstraint, Index, text,
 )
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import DeclarativeBase, relationship
@@ -37,6 +38,12 @@ class Tenant(Base):
     async_jobs = relationship("AsyncJob", back_populates="tenant")
     webhook_registrations = relationship("WebhookRegistration", back_populates="tenant")
     monthly_reports = relationship("CostMonthlyReport", back_populates="tenant")
+    # ASP-FEAT-ASP-04 v1.0 §5.6 — cascade delete-orphan matches api_keys
+    # pattern (tenant purge removes registry rows atomically; DB-level
+    # CASCADE in migration 0029 is the ultimate guard).
+    documents = relationship(
+        "Document", back_populates="tenant", cascade="all, delete-orphan",
+    )
 
 
 class TenantApiKey(Base):
@@ -195,4 +202,61 @@ class WebhookRegistration(Base):
 
     __table_args__ = (
         UniqueConstraint("tenant_id", "caller_module", name="uq_webhook_tenant_module"),
+    )
+
+
+# ─────────────────────────────────────────────────────────────────────
+# ASP-FEAT-ASP-04 v1.0 §5.6 — documents registry (migration 0029).
+# ─────────────────────────────────────────────────────────────────────
+
+class Document(Base):
+    """Tracked-document registry for the ASP-04 Doc Intelligence demo
+    flow. One row per uploaded PDF; carries classification +
+    extraction state transitions and the final extracted fields
+    JSONB. See ASP-FEAT-ASP-04 v1.0 §5.1 for the governed column
+    contract."""
+
+    __tablename__ = "documents"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("tenants.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    original_filename = Column(String(255), nullable=False)
+    storage_path      = Column(String(512), nullable=False)
+    document_type     = Column(String(64),  nullable=True)
+    classification_confidence = Column(Float, nullable=True)
+    extraction_status = Column(String(32),  nullable=False, default="pending")
+    extraction_job_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("async_jobs.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    extracted_fields  = Column(JSONB, nullable=True)
+    uploaded_at = Column(
+        DateTime(timezone=True), nullable=False, default=utcnow,
+    )
+    updated_at  = Column(
+        DateTime(timezone=True), nullable=False, default=utcnow,
+        onupdate=utcnow,
+    )
+
+    tenant = relationship("Tenant", back_populates="documents")
+
+    __table_args__ = (
+        CheckConstraint(
+            "extraction_status IN ('pending','classifying','extracting',"
+            "'complete','failed')",
+            name="ck_documents_extraction_status",
+        ),
+        Index(
+            "ix_documents_tenant_uploaded",
+            "tenant_id", text("uploaded_at DESC"),
+        ),
+        # Partial index in migration 0029 is not replicated here —
+        # Alembic owns the WHERE clause; ORM metadata is for
+        # querying, not re-issuing DDL.
     )

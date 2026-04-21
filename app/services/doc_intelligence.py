@@ -52,25 +52,18 @@ from app.models.request import InvokeRequest
 from app.models.response import JobAcceptedResponse
 from app.infra.db import get_session
 from app.models.db_models import AsyncJob
+# I-DOC-04 — output schemas migrated to a dedicated module. Import
+# for backwards-compatible handler dispatch; no behavioural change.
+from app.schemas.doc_intelligence_schemas import (
+    ExtractDocumentOutput,
+    ClassifyDocumentOutput,
+    ExtractInvoiceOutput,  # I-DOC-07 wires this in the extract path
+    LineItem,
+)
 
 log = structlog.get_logger()
 
 VALID_TASKS = {"extract_document", "classify_document"}
-
-
-# --- Output schemas ---
-
-class ExtractDocumentOutput(BaseModel):
-    fields: dict
-    tables: list[dict]
-    confidence: float
-    page_count: int
-
-
-class ClassifyDocumentOutput(BaseModel):
-    doc_type: str
-    confidence: float
-    suggested_fields: list[str]
 
 
 TASK_OUTPUT_SCHEMAS = {
