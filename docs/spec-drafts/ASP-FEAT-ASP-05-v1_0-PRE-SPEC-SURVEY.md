@@ -207,3 +207,108 @@ output shapes + capabilities registration.
   or 0031), no DDL.
 - **Recommended next directive:** Architect review of this survey →
   spec cycle green light → Batch 1 authoring.
+
+---
+
+## §12 — Post-F-03-03 refresh (ASP-OUT-073, 2026-04-21 later)
+
+This section refreshes §1–§11 for platform shifts since the survey
+was originally filed at commit `3d1bbec` (ASP-OUT-066 Task 1). Filed
+in response to ASP-OUT-073 directive to "proceed per ASP-OUT-072"
+— ASP-OUT-072's enumerated eight items did not reach the ASP session
+(fifth session routing gap, logged in ASP-FEAT-ASP-04 v1.0 IMPL-LOG
+§Routing gaps). The refresh updates state where it has materially
+changed; §1–§11 remain otherwise valid.
+
+### §12.1 — Migration number allocation resolved
+
+**OQ-05-4 RESOLVED** at F-03-03 build time: F-03-03 took **0030**
+(commit `3f0e38e`, ASP-NOTE-014). Therefore **ASP-05 v1.0 prompt-seed
+migration is 0031**. Confirmed free: `ls alembic/versions/` tail is
+`0030_seed_f0303_assess_test_quality_prompt.py`. §7 G-5 row may now
+be written concretely as "Migration 0031" at spec-write time.
+
+### §12.2 — Platform state delta since 3d1bbec
+
+| Field | At `3d1bbec` | Now |
+|---|---|---|
+| Migration head | 0029 | **0030** |
+| Governed services | 7/14 | 7/14 (unchanged) |
+| Open defects | 0 | 0 |
+| ASP-03 `VALID_TASKS` size | 12 | 13 (assess_test_quality added per ASP-NOTE-014) |
+| Celery task DB-write rule | governed (ASP-OUT-064) | governed; applied to ASP-05 pre-spec check below |
+
+### §12.3 — Pre-build loop-affinity re-check (per ENGINEERING-PLAYBOOK §12 pre-spec rule)
+
+Re-ran the mandatory grep per the expanded playbook rule added in
+ASP-OUT-064:
+
+```
+grep -rn "create_engine\|asyncio.run\|get_session\|emit_cost" \
+    app/services/prediction.py app/api/
+```
+
+| Site | Risk | Notes |
+|---|---|---|
+| `prediction.py::handle()` — `async with get_session()` | LOW | FastAPI request path. Consistent event loop; shared pool correct. |
+| `prediction.py::run_prediction` (Celery task) — 5 `asyncio.run(...)` calls | LOW | All route through `_async_update_job_status` / `_async_emit_cost` / `_fire_webhook_async`, each using per-invocation `create_async_engine` + `engine.dispose()` per the DEFECT-025 fix (commit `0695c38`). No shared-pool helper calls from inside `asyncio.run()`. |
+| `prediction.py::_async_emit_cost` | LOW | Per-invocation engine + direct `INSERT INTO cost_events` SQL. Mirrors the doc_intelligence pattern. No shared-pool risk. |
+
+**Result: CLEAN.** No CRITICAL findings. Zero new defects surfaced
+by the loop-affinity re-check. ASP-05 v1.0 has no S-1 gate bug to
+remediate — Stream A / S-1 was handled pre-cycle by DEFECT-025
+resolution. This is the first governance cycle to benefit from the
+pre-build check passing on the first pass (ASP-04 had DEFECT-024
+CRITICAL; F-03-03 had the check marked N/A because ASP-03 is
+synchronous).
+
+### §12.4 — §8 gap matrix refinements
+
+No new gaps surfaced by the refresh. The 7 gaps identified in §8
+remain the authoritative input.
+
+**One clarification on G-05-04** (`extra="..."` on `PredictionOutput`):
+The existing `PredictionOutput` at `app/services/prediction.py:53`
+uses Pydantic defaults (no explicit `ConfigDict`). Per ADR-033, LLM
+output models should use `extra="ignore"` explicitly. This remains
+a LOW gap; spec Batch 1 will set it verbatim. No change to the gap
+itself — just note that the fix is a one-line addition to the
+model.
+
+### §12.5 — Cross-reference to F-03-03 lessons
+
+F-03-03 shipped in the same day as this survey was filed. Two
+patterns surfaced there that inform the ASP-05 spec:
+
+1. **In-process TestClient vs live httpx.** F-03-03 initially used
+   live httpx against the Docker ai-service and hit the live
+   Anthropic API because the test process cannot patch the server
+   process's LLM client. Rewrote to use `authed_client` +
+   `mock_anthropic` from `conftest.py`. **Lesson for ASP-05 v1.0
+   S-4 (AC suite):** start with in-process TestClient pattern;
+   avoid live httpx against Docker for any AC that needs to mock
+   an LLM.
+
+2. **Prep-draft-as-authoritative pattern.** F-03-03 build used the
+   ASP-OUT-066 Task 2 prep draft as the authoritative shape because
+   PAP's v3.0 formal schema had not arrived. Any later delta → TSCD.
+   **Lesson for ASP-05 v1.0:** if the spec is paused awaiting
+   external input, the Batch-1 draft can be authored as a prep
+   draft ahead of the cycle green light without blocking.
+
+### §12.6 — Open items for Architect at spec-write time
+
+No new items beyond the five OQ-05-N from §10. OQ-05-4 is now
+resolved in-line: migration 0031 for the ASP-05 prompt seed.
+
+### §12.7 — Summary (post-refresh)
+
+- Survey remains **complete** post-refresh. Zero new CRITICAL or HIGH
+  findings. Platform delta (migration head 0029 → 0030, ASP-03
+  VALID_TASKS 12 → 13) does not change the ASP-05 gap matrix.
+- Loop-affinity pre-check **CLEAN** — DEFECT-025 already RESOLVED
+  per ASP-OUT-064. No S-1 gate bug for ASP-05 v1.0.
+- Migration number **resolved** — ASP-05 prompt-seed migration is
+  **0031** (F-03-03 took 0030).
+- Recommended next directive **unchanged** — Architect review → spec
+  cycle green light → Batch 1 authoring.

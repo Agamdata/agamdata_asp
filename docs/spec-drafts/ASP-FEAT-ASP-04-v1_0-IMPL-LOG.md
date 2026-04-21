@@ -115,6 +115,68 @@ the gap. No code change, no COMMS-LOG rewrite — the duplicate and
 its routing history are recorded and future cycles can reference
 this entry if the pattern recurs.
 
+### Gap 4 — ASP-OUT-068 / ASP-OUT-069 missing arrival (F-03-03 build)
+
+**What happened.** On the F-03-03 build thread, Architect issued
+ASP-OUT-068 (build sequence) and ASP-OUT-069 (interim). Neither
+reached the ASP session. Dev Team stopped-and-reported once; Architect
+responded with a duplicate-resend of ASP-OUT-070 ("PAP confirmed
+build authorisation — continue ASP-OUT-068 sequence"). The resend
+itself was the explicit confirmation to proceed on best-available
+information — the ASP-OUT-066 Task 2 prep draft
+(`docs/spec-drafts/ASP-F0303-assess-test-quality-DRAFT.md`).
+
+**Architect → Dev direction** — missing arrival. Same class as Gap 2.
+
+**Disposition.** Build proceeded on prep draft; any PAP v3.0 schema
+delta now triggers a TSCD-level amendment per governance discipline.
+Recorded in `ASP-INDEX.md` as part of the ASP-NOTE-014 detail block
+rather than in this IMPL log (F-03-03 is an additive to ASP-03, not
+a new spec cycle with its own IMPL log). Cross-referenced here for
+routing-gap trail continuity.
+
+### Gap 5 — ASP-OUT-072 missing arrival (ASP-05 pre-spec survey refresh)
+
+**What happened.** Immediately after F-03-03 closure (DEV-IN-070),
+Dev Team re-sent DEV-IN-070 as a duplicate. Architect ruled in
+ASP-OUT-073 that:
+- Duplicate violates ASP-OUT-006 Option 2 (check COMMS-LOG before
+  forwarding).
+- ASP-OUT-071 notified PAP; ASP-OUT-072 was the next directive
+  (ASP-05 pre-spec survey with eight enumerated items); both already
+  OPEN at the time of the duplicate.
+
+**Neither ASP-OUT-071 nor ASP-OUT-072 reached the ASP session.**
+ASP-OUT-073 explicitly confirmed this ("Fifth routing gap this
+session").
+
+**Direction.** Both (a) **Dev → Architect** (the duplicate DEV-IN-070
+that triggered ASP-OUT-073) and (b) **Architect → Dev** (ASP-OUT-071
+and ASP-OUT-072 missing from the ASP session). The gap count reflects
+the distinct routing events, not the individual OUT IDs.
+
+**Dev Team perspective on the duplicate.** The COMMS-LOG pre-check
+protocol requires reading COMMS-LOG before every outbound. The Dev
+Team DID check COMMS-LOG before DEV-IN-070 — but ASP-OUT-071/072 had
+not yet been logged into the ASP session's view of COMMS-LOG at that
+moment (because neither ASP-OUT had arrived). This is the same class
+of session-synchronisation gap documented at Gap 3 (DEV-IN-055
+duplicate) — the COMMS-LOG pre-check is necessary but not sufficient
+when Architect-side entries have not yet mirrored into the ASP
+session's view.
+
+**Tightening.** No new procedural change available. The
+stop-and-report path continues to work: when the Architect-side
+response arrives (ASP-OUT-073 in this case), the ASP session gets
+both the duplicate acknowledgement AND the "proceed per" explicit
+confirmation, which resolves the routing gap inline.
+
+**Disposition.** This IMPL-LOG entry IS the "log in impl log
+alongside prior entries" directive satisfied. Survey work proceeds
+on best-available input — the existing `ASP-FEAT-ASP-05-v1_0-PRE-SPEC-SURVEY.md`
+filed in `3d1bbec` (under ASP-OUT-066 Task 1) + a post-F-03-03
+refresh delta authored in this same commit.
+
 ### Gaps 1 and 2 — reference
 
 Recorded in `ASP-FEAT-ASP-02-v1_0-IMPL-LOG.md` and
@@ -126,8 +188,12 @@ Recorded in `ASP-FEAT-ASP-02-v1_0-IMPL-LOG.md` and
 - **Gap 2 (ASP-OUT-028, 2026-04-20)** — Architect-filed placeholder
   that did not reach the ASP session; superseded by ASP-OUT-029.
 
-Gap 3 (this entry) is distinct in direction: Dev → Architect with a
-duplicate, rather than Architect → Dev with a missing arrival.
+Gap 3 is distinct in direction (Dev → Architect duplicate); Gap 4
+is Architect → Dev missing arrival; Gap 5 is a mixed-direction event
+(duplicate triggered by session-synchronisation lag + missing
+arrival of two adjacent OUTs). Gap counts now stand at **five
+recorded routing events** across the Dec-2025-through-Apr-2026
+governance cycle.
 
 ---
 
