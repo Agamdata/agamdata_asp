@@ -112,3 +112,43 @@ table.line-items td:nth-child(3),
 table.line-items td:nth-child(4) { text-align: right; font-variant-numeric: tabular-nums; }
 
 .error { color: #dc3545; font-weight: 500; }
+
+/* Login page (ASP-OUT-075) */
+.login-page {
+    display: flex;
+    justify-content: center;
+    padding: 3rem 1.5rem 1.5rem;
+}
+.login-panel {
+    max-width: 420px;
+    width: 100%;
+}
+.login-form {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    margin-top: 0.6rem;
+}
+.login-form label { font-weight: 500; }
+.login-form input[type=password] {
+    padding: 0.5rem 0.7rem;
+    border: 1px solid #d0d4dc;
+    border-radius: 4px;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI",
+                 "Roboto Mono", Roboto, monospace;
+    font-size: 0.95rem;
+}
+.login-form button {
+    background: #2e75b6; color: white; border: none;
+    padding: 0.55rem 1.3rem; border-radius: 4px; cursor: pointer;
+    align-self: flex-start; margin-top: 0.35rem;
+    font-weight: 500;
+}
+.login-form button:hover { background: #1e5a96; }
+.subtle.small { font-size: 0.8rem; margin-top: 1rem; }
+.subtle code {
+    background: #edeef2;
+    padding: 0.05rem 0.3rem;
+    border-radius: 3px;
+    font-size: 0.85em;
+}

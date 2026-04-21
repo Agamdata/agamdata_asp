@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block title %}Login — ASP Dashboard{% endblock %}
+
+{% block content %}
+<div class="login-page">
+    <div class="panel login-panel">
+        <h2>ASP Dashboard Login</h2>
+        <p class="subtle">
+            Enter your ASP API key to access the dashboard.
+            Sessions persist for 1 hour.
+        </p>
+
+        <form method="POST" action="/dashboard/login" class="login-form">
+            <label for="api-key">API Key</label>
+            <input
+                type="password"
+                id="api-key"
+                name="api_key"
+                placeholder="asp_..."
+                autocomplete="off"
+                required
+                autofocus>
+
+            <button type="submit">Sign in</button>
+        </form>
+
+        {% if error %}
+            <p class="error">{{ error }}</p>
+        {% endif %}
+
+        <p class="subtle small">
+            Pilot demo: keys have format
+            <code>asp_&lt;prefix12&gt;_&lt;secret32&gt;</code>.
+            Lost your key? Contact ops.
+        </p>
+    </div>
+</div>
+{% endblock %}

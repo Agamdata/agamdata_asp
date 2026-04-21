@@ -1724,6 +1724,7 @@ No v1.1 scope committed. Candidate items:
 - CSP `'unsafe-inline'` retire + nonce-based mechanism (§10.3 technical debt).
 - `documents` audit-history / versioning (§3.2 v1.0 out-of-scope).
 - **Auto-create `asp-documents` MinIO bucket on service startup** (OQ-5; surfaced DEV-IN-060). Either a MinIO `minio/mc` init sidecar in `docker-compose.yml` or an idempotent `head_bucket → create_bucket` check inside the ai-service FastAPI `lifespan` startup path. Removes the manual pre-demo step from §8.2b.
+- **Replace raw-key session cookie with server-side session token** (surfaced 2026-04-21 under ASP-OUT-075 dashboard-login unblock). The pilot-demo `/dashboard/login` flow sets the raw API key in an `asp_session` HttpOnly cookie (SameSite=Lax, 1-hour TTL) because browsers cannot set the `X-ASP-API-Key` header on navigation requests. This is a known debt: the browser-accessible surface stores a re-usable credential. Production Atrium must replace with a server-side session token that maps to the key (e.g. opaque random token → Redis entry `session:<token> → {tenant_id, key_prefix, expires_at}`), never exposing the key to the browser.
 
 ### Anticipated v2.0
 
