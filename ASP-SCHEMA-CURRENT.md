@@ -88,6 +88,7 @@ ASP-02 RAG + ASP-12 Ontology Manager persist schema chunks in ChromaDB. Governed
 | 0027 | Seed `extract_test_entities` v1 prompt row (nlp / test_generator / * / v1 / NULL) | F-03-02 / PAP-ASP-REQ-ASP-02 v1.0 (ASP-OUT-036) |
 | 0028 | Seed four wildcard catch-all prompt rows — caller_module='*', maturity_level='*' — one per F-03-02 task (draft_steps, suggest_preconditions, propose_edge_cases, extract_test_entities). `INSERT ... SELECT` from test_generator rows (verbatim content copy). P1 fix for PAP Block 3 500 errors. | ASP-OUT-051 (P1 recurrence of ASP-OUT-014 class) |
 | 0029 | **DDL + prompt seed.** Create `documents` table (11 cols, 1 CHECK on extraction_status five-state set, 2 FKs — tenants.id CASCADE + async_jobs.id SET NULL, 2 indexes — composite tenant+uploaded DESC + partial on in-flight statuses) + INSERT `extract_invoice` prompt row at `doc_intelligence/*/v1`. | ASP-FEAT-ASP-04 v1.0 (ASP-NOTE-013 — GOVERNED) |
+| 0030 | Seed `assess_test_quality` v1 prompt row at (generation / '*' / '*' / NULL) — wildcard catch-all per post-ASP-OUT-051 pattern. | F-03-03 / PAP-ASP-REQ-ASP-03 v3.0 (ASP-OUT-070; ASP-NOTE-014 additive) |
 
 ## Last Updated
 2026-04-21 — Migrations 0026 + 0027 applied (prompt-only seeds for F-03-02). Migration head 0027. No DDL changes; four new prompt rows total across `generation` (3) and `nlp` (1) services.
@@ -95,6 +96,8 @@ ASP-02 RAG + ASP-12 Ontology Manager persist schema chunks in ChromaDB. Governed
 2026-04-21 (later) — Migration 0028 applied (ASP-OUT-051 P1 fix). Four wildcard catch-all rows added; `INSERT ... SELECT` from test_generator rows (verbatim content). Migration head 0028. Still no DDL — prompt-table content only.
 
 2026-04-21 (later) — Migration 0029 applied (ASP-FEAT-ASP-04 v1.0 I-DOC-03). First DDL migration since 0023: `documents` table (11 cols, 1 CHECK, 2 FKs, 2 indexes) + `extract_invoice` prompt seed. Migration head **0029**.
+
+2026-04-21 (later) — Migration 0030 applied (F-03-03 Commit B). One prompt-only seed for `assess_test_quality` at `(generation, '*', '*', v1)`. Migration head **0030**. No DDL.
 
 ### Low-priority maintenance note (ASP-OUT-053, 2026-04-21)
 

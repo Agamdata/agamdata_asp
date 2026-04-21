@@ -80,9 +80,12 @@ this log — if PAP references them, we will back-populate them on request.
 | ASP-OUT-063 | Loop-affinity platform audit directive | 2026-04-21 | **CLOSED** | 2026-04-21 (audit accepted per ASP-OUT-064; DEFECT-025 CRITICAL filed then remediated in ASP-OUT-064) |
 | ASP-OUT-064 | DEFECT-025 remediation + §12 playbook + DEFECT-023 fix | 2026-04-21 | **CLOSED** | 2026-04-21 (both defects RESOLVED per ASP-OUT-066; 9/9 PASS + 103 passed sweep; platform clean) |
 | ASP-OUT-065 | Architect → PAP — service-naming correction for F-03-03 (ASP-12 → ASP-03) + 1-working-day accept+build commitment | 2026-04-21 | **OPEN** | 2026-04-21 (awaiting PAP-ASP-REQ-ASP-03 v3.0 filing; outbound no Dev Team action beyond prep) |
-| ASP-OUT-066 | Platform-clean acknowledgement + ASP-05 pre-spec survey (Task 1) + F-03-03 assess_test_quality prep (Task 2) — no implementation | 2026-04-21 | **OPEN** | 2026-04-21 (DEV-IN-066 in flight — Task 1 survey + Task 2 draft both shipped in this commit) |
+| ASP-OUT-066 | Platform-clean acknowledgement + ASP-05 pre-spec survey (Task 1) + F-03-03 assess_test_quality prep (Task 2) — no implementation | 2026-04-21 | **CLOSED** | 2026-04-21 (prep draft used as authoritative build sequence per ASP-OUT-070 resend) |
+| ASP-OUT-068 | (Architect-filed; routing gap — did not reach this session. Build sequence inferred from ASP-OUT-066 Task 2 prep draft per ASP-OUT-070 twice-sent confirmation) | 2026-04-21 | **CLOSED** | 2026-04-21 (superseded by ASP-OUT-070 explicit continue instruction) |
+| ASP-OUT-069 | (Architect-filed; routing gap — did not reach this session) | 2026-04-21 | **CLOSED** | 2026-04-21 (superseded by ASP-OUT-070 confirmation) |
+| ASP-OUT-070 | PAP F-03-03 authorisation confirmation — continue ASP-OUT-068 sequence; build in progress | 2026-04-21 | **OPEN** | 2026-04-21 (DEV-IN-070 in flight — Commits A/B/C/D shipped; 15/15 AC PASS; migration 0030; ASP-NOTE-014 issued) |
 
-Totals as of 2026-04-21: **2 OPEN** (ASP-OUT-065, ASP-OUT-066), **56 CLOSED**.
+Totals as of 2026-04-21: **2 OPEN** (ASP-OUT-065, ASP-OUT-070), **59 CLOSED**.
 
 ---
 

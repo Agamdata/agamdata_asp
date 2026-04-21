@@ -1,6 +1,6 @@
 # ASP-INDEX
 
-Last updated: 2026-04-21 | Migration head: 029 | Phase: ASP-04 Doc Intelligence + ASP-13 Dashboard Intelligence joint governance closure (ASP-NOTE-013) | 7/14 services GOVERNED
+Last updated: 2026-04-21 | Migration head: 030 | Phase: F-03-03 / PAP-ASP-REQ-ASP-03 v3.0 additive (ASP-NOTE-014) | 7/14 services GOVERNED
 
 ## ASP-INDEX Maintenance Protocol (ADR-026 — BINDING)
 
@@ -138,7 +138,7 @@ Migrations 002–005 were active in the codebase but untracked in ASP-INDEX prio
 | ASP-00 | Gateway | Synchronous | **GOVERNED** | ASP-FEAT-ASP-00 v1.0 | — |
 | ASP-01 | NLP Service | Synchronous | **GOVERNED** | ASP-FEAT-ASP-01 v1.2 + BP-10 additive (ASP-NOTE-010) + F-03-02 additive (ASP-NOTE-012) | — |
 | ASP-02 | RAG Service | Synchronous | **GOVERNED** | ASP-FEAT-ASP-02 v1.0 | — |
-| ASP-03 | Generation Service | Synchronous | **GOVERNED v2.0** | ASP-FEAT-ASP-03 v2.0 + F-03-02 additive (ASP-NOTE-012) | TSCD-001, v2.0 amendment |
+| ASP-03 | Generation Service | Synchronous | **GOVERNED v2.0** | ASP-FEAT-ASP-03 v2.0 + F-03-02 additive (ASP-NOTE-012) + F-03-03 additive (ASP-NOTE-014) | TSCD-001, v2.0 amendment |
 | ASP-04 | Doc Intelligence | Asynchronous | **GOVERNED** | ASP-FEAT-ASP-04 v1.0 | — |
 | ASP-05 | Prediction Service | Asynchronous | ACTIVE (pre-governance) | — | — |
 | ASP-06 | Prompt Registry | Infrastructure | ACTIVE (pre-governance) | — | — |
@@ -207,6 +207,7 @@ Next TSCD: ASP-TSCD-002
 | ASP-NOTE-011 | ASP-02 RAG + ASP-12 Ontology Manager joint governance closure. 26/26 AC PASS. No new Alembic migration (ChromaDB config only). S-4/S-5/S-6 net-new shipped: ChunkMetadata Pydantic (extra="forbid"), tenant_id defence-in-depth in where=, RAGCollectionMissingError→503 fail-closed path. Stream B commits a15e3fc..223543c resolved G-1..G-10 gap matrix. ADR-004 defence-in-depth posture formalised. 6/14 GOVERNED. | CLOSURE | 2026-04-20 |
 | ASP-NOTE-012 | F-03-02 / PAP-ASP-REQ-ASP-02 v1.0 — four new tasks additive. ASP-03: draft_steps, suggest_preconditions, propose_edge_cases (migration 026). ASP-01 NLP: extract_test_entities (migration 027). 16/16 ACs PASS. Quality tier=standard (Haiku). Type B additive — no existing contract changed. Naming-drift flags from ASP-OUT-034 resolved per Architect's directive-verbatim signatures (step_no vs step_number; priority: str vs Literal). Service-naming ambiguity ("ASP-02 (nlp)" vs NLP=ASP-01) flagged and noted in migration 027 docstring. No new GOVERNED service (F-03-02 is additive to existing governed surfaces of ASP-01 and ASP-03). | CLOSURE | 2026-04-21 |
 | ASP-NOTE-013 | ASP-04 Doc Intelligence + ASP-13 Dashboard Intelligence joint governance closure. 32/32 ACs PASS. Migration 029 applied (documents table DDL + extract_invoice prompt seed). DEFECT-024 (psycopg2 class-of-bug) RESOLVED in-cycle via asyncpg port at all three sites + cost-emission helper (same class fixed as an extension during AC suite bring-up, locked by AC-DOC-S5-02). First frontend asset in the repo: Jinja2 + HTMX + pdf.js two-panel dashboard. Legacy direct-file-key path DEPRECATED (v2.0 removal). Stream A (backend) + Stream B (frontend) shipped in parallel. MinIO asp-documents bucket = manual pre-demo step (OQ-5; v1.1 automation queued). Governed count 5/14 → 7/14. | CLOSURE | 2026-04-21 |
+| ASP-NOTE-014 | F-03-03 / PAP-ASP-REQ-ASP-03 v3.0 — assess_test_quality task added to ASP-03 Generation. Type B additive — no existing contract changed. 15/15 ACs PASS. Migration 030 (prompt-only seed at caller='*', maturity='*'; G-PROMPT-REACH 6/6 PASS; fresh-DB round-trip clean). Governed build under ASP-OUT-068/070 using the ASP-OUT-066 Task 2 prep draft (models + prompt verbatim). Fourth session routing gap logged (ASP-OUT-068/069 did not reach this session; Architect resent ASP-OUT-070 twice as confirmation to proceed on the prep draft). No new GOVERNED service — F-03-03 additive to the already-governed ASP-03 v2.0 surface. | CLOSURE | 2026-04-21 |
 
 ### ASP-NOTE-002 — ASP-01 Governance Closure
 
@@ -348,6 +349,42 @@ Next TSCD: ASP-TSCD-002
 **Issued by:** Principal Architect, ASP
 **Date:** 2026-04-21
 
+### ASP-NOTE-014 — F-03-03 assess_test_quality additive to ASP-03 Generation
+
+**Service:** ASP-03 Generation (additive — no re-governance)
+**Task:** `assess_test_quality` (Coverage Review; PAP-ASP-REQ-ASP-03 v3.0 / F-03-03)
+**Spec input:** `docs/spec-drafts/ASP-F0303-assess-test-quality-DRAFT.md` (prepared under ASP-OUT-066 Task 2)
+**AC Result:** **15/15 PASS** (5 blocks)
+**Classification:** Type B additive to the already-GOVERNED ASP-03 v2.0 surface. No existing contract changed.
+
+**Commit chain:**
+- `3d1bbec` — prep draft (Pydantic + prompt authored verbatim; stored in `docs/spec-drafts/`)
+- `7ff2042` — **Commit A** Pydantic models + handler dispatch wiring + capabilities registration
+- `3f0e38e` — **Commit B** migration 0030 (wildcard prompt seed) + 6-probe G-PROMPT-REACH PASS
+- `a7f48c2` — **Commit C** `tests/test_f0303.py` 15/15 AC PASS
+- *(this commit)* — **Commit D** OpenAPI 0030 + governance sync + ASP-NOTE-014
+
+**Migration:** 0030 (prompt-only; no DDL). Head: **0030**. First migration at that slot per the ASP-FEAT-ASP-05 v1.0 OQ-05-4 disambiguation — ASP-05 pre-spec survey (also filed today) has not yet entered build, so F-03-03 took 0030; ASP-05 will take 0031 when its cycle green-lights.
+
+**Governance-impact items:**
+
+1. **De-facto build sequence from prep draft.** PAP v3.0 had not been filed with the formal schema at build time. Architect resent ASP-OUT-070 twice as confirmation to proceed using the ASP-OUT-066 Task 2 draft as the authoritative shape. Any PAP v3.0 schema delta that arrives later triggers a TSCD-level amendment — no silent reshape. Recorded as a governance note in the change log rather than a defect (the 1-working-day commitment per ASP-OUT-065 required proceeding; the risk is explicitly accepted).
+
+2. **Fourth routing gap.** ASP-OUT-068 and ASP-OUT-069 did not reach the ASP session. Dev Team stopped-and-reported once (per ASP-OUT-006 discipline); Architect confirmed via ASP-OUT-070 resend. Gap logged under the standing routing-gap protocol. Prior instances: ASP-02 IMPL-LOG consolidated entry (gaps 1–2), ASP-04 IMPL-LOG gap 3.
+
+3. **Pre-build loop-affinity check applied** per the expanded ENGINEERING-PLAYBOOK §12 rule (ASP-OUT-064). Result: **N/A** — ASP-03 generation handlers are synchronous (no `asyncio.run()` in Celery task bodies). No CRITICAL findings. This is the first F-* addition to benefit from the governed pre-build check.
+
+**ADRs:** No new ADRs. ADR-001 (Zone 2 task surface), ADR-006 (cost emission), ADR-008 (`extra="ignore"`), ADR-010 (structlog), ADR-027 (prompts in DB), ADR-029 (fresh-DB round-trip), ADR-030 (capabilities + schemas), ADR-033 (`extra="ignore"` on LLM outputs), ADR-034 (OpenAPI snapshot per head) — all in compliance.
+
+**Defects resolved in cycle:** None. Platform remained at 0 open defects throughout.
+
+**Verification harness:** `tests/test_f0303.py` (15 ACs, pytest `-x` stop-on-first-failure). Reference probe runner: `tests/_reach_probe_assess_test_quality.py` (6/6 PASS).
+
+**Status:** ASP-03 surface extended with one new task; no service-status change. Governed count: **7/14** (unchanged).
+
+**Issued by:** Principal Architect, ASP (via ASP-OUT-070 build authorisation)
+**Date:** 2026-04-21
+
 ## Governance Documents
 
 | Document ID | Title | Version | Status | Date |
@@ -361,6 +398,7 @@ Next TSCD: ASP-TSCD-002
 | ASP-FEAT-ASP-03 | Generation Service Detailed Spec (amendment) | v2.0 | **GOVERNED** — 37/37 AC PASS. Migration 024 applied (prompt-only: 2 v4 rows split by caller + refactor_script_locators v1). Coverage-aware generation + form_data + locator_source=live_extracted + F-01-10 third caller + refactor_script_locators new task. ASP-NOTE-009 issued 2026-04-18. ASP-DEFECT-022 filed (cost aggregator psycopg2; separate maintenance task). | 2026-04-18 |
 | ASP-FEAT-ASP-02 | RAG Service + Schema Ontology Manager Detailed Spec (joint) | v1.0 | **GOVERNED** — 26/26 AC PASS (baf5a78). No migration (ChromaDB-only). S-4 ChunkMetadata + S-5 tenant_id defence-in-depth + S-6 RAGCollectionMissingError→503 shipped. ASP-NOTE-011 issued 2026-04-20. ASP-DEFECT-022 locked by AC-S7-02. | 2026-04-20 |
 | ASP-FEAT-ASP-04 | Doc Intelligence + Dashboard Intelligence panel (joint) | v1.0 | **GOVERNED** — 32/32 AC PASS (1ccf85b). Migration 029 applied (documents table DDL + extract_invoice prompt). DEFECT-024 RESOLVED in-cycle + cost-emit extension. First frontend asset (Jinja+HTMX+pdf.js). Legacy direct-file-key DEPRECATED (v2.0 removal). ASP-NOTE-013 issued 2026-04-21. | 2026-04-21 |
+| ASP-F0303-ASSESS — draft input | assess_test_quality task spec (additive to ASP-03 v2.0) | prep | **BUILT** — 15/15 AC PASS (a7f48c2). Migration 030 applied. F-03-03 / PAP-ASP-REQ-ASP-03 v3.0. Built on ASP-OUT-066 Task 2 prep draft per ASP-OUT-070 authorisation; any PAP v3.0 schema delta triggers TSCD. ASP-NOTE-014 issued 2026-04-21. | 2026-04-21 |
 
 ## Naming quick-ref
 
