@@ -1034,14 +1034,28 @@ chose. Per S-3 + Q-3 ruling, v1.0 mandates the upload endpoint as the
 
 1. Preferred: `POST /api/v1/ai/documents` → returns `storage_path`;
    use that as `file_key`.
-2. Legacy / bypass: direct caller-constructed `{tenant_id}/<opaque>.pdf`
-   still accepted — the tenant-prefix validation is the only gate.
+2. **DEPRECATED (ASP-OUT-054 Q-2 ruling):** direct caller-constructed
+   `{tenant_id}/<opaque>.pdf` still accepted — the tenant-prefix
+   validation is the only gate.
 
 The upload-first path produces a tracked `documents` row; legacy
 bypass does NOT (no `documents` row; async_jobs still tracks the
 task). Consumers that want per-document audit, status queries, or
 dashboard rendering MUST use the upload path. Consumers that just
 want a one-shot extract-and-forget may still use direct file keys.
+
+**DEPRECATION NOTICE (ASP-OUT-054 Q-2, 2026-04-21).** *Direct `file_key`
+submission bypasses the documents registry and produces no
+`extraction_status` tracking. This path is supported in v1.0 for
+LogiCRM backward compatibility only and will be removed in v2.0. New
+integrations must use the upload endpoint.* No removal in v1.0. The
+deprecation trail starts here and is enforced by:
+- Structlog warning `asp_doc_direct_file_key_used` emitted on every
+  invocation whose `file_key` does not match a row in `documents`
+  (tenant-prefix validated, but no registry entry). Ops can use the
+  emission count to track migration away from the legacy path.
+- An explicit `Deprecation` header on the 202 response for legacy-path
+  invocations: `Deprecation: version="v2.0"` per RFC 8594.
 
 ### §8.4 Error-path semantics for callers
 
@@ -1217,6 +1231,19 @@ override, the probe matrix expands per the playbook.
   many line items can approach 3K output tokens; 4K leaves headroom.
   Sonnet context window comfortably handles 50K OCR input + 4K output.
 
+**Budget rationale (ASP-OUT-054 Q-3 ruling, 2026-04-21).**
+*max_tokens=4096 is set for extract_invoice to accommodate complex
+invoices with multiple line items. If `stop_reason=max_tokens` is
+observed in production, investigate the invoice complexity before
+raising the ceiling — the OCR pipeline's 50K character truncation
+should prevent runaway input.* In other words: if we ever see the
+ceiling hit, the root cause is almost certainly a pathological
+invoice (hundreds of line items), not a token-budget miscalibration.
+The governed response to that scenario is ops triage, not a ceiling
+raise — a `generation_truncated` structlog emission + 500 with
+remediation hint (existing DEFECT-017 guard) is the correct
+caller-visible behaviour.
+
 All three tasks honour `DEFECT-017` truncation guard — if
 `stop_reason='max_tokens'`, emit `generation_truncated` structlog
 and return 500 with remediation hint.
@@ -1236,6 +1263,23 @@ request-layer decision, not persisted in prompt_templates).
 ---
 
 ## §10 Security Requirements
+
+### §10.0 `file_key` tenant-prefix 403 exception (ASP-OUT-054 Q-1)
+
+**Governed exception (verbatim per ruling):** *`file_key` tenant-prefix
+mismatch returns 403 (not 404) because the key structure discloses
+resource existence. This is the sole exception to the ASP-wide
+cross-tenant 404 policy.*
+
+All other cross-tenant access paths (job polling, document GET by
+`document_id`, any future registry lookup) return **404** per the
+standing ASP-wide rule (CLAUDE.md §Known Gotchas). The `file_key`
+contract is the only path where the key format itself is a
+self-constructed value that already discloses the tenant prefix to
+the caller — returning 404 here would be dishonest ("not found" when
+the caller knows the key format includes a tenant segment they
+control). 403 is the semantically correct response and matches the
+caller's mental model of contract-violation semantics.
 
 ### §10.1 Tenant isolation — three layers
 
@@ -1313,7 +1357,16 @@ Content-Security-Policy:
 HTMX and pdf.js are loaded from `unpkg.com` and `cdnjs.cloudflare.com`
 respectively (pinned versions). `'unsafe-inline'` on `style-src` is
 the pragmatic concession for Jinja-inlined styles; tightening is a
-v1.1 item.
+v2.0 item.
+
+**Technical-debt note (ASP-OUT-054 Q-4 ruling, 2026-04-21).**
+*`style-src 'unsafe-inline'` is permitted in v1.0 because the Jinja2
++ HTMX frontend uses inline styles for dynamic state rendering
+(loading indicators, confidence badges). This is a known CSP
+weakening. v2.0 should extract inline styles to a static CSS file
+and remove `'unsafe-inline'`. Tracked as a frontend security debt
+item.* Not filed as a defect — v1.0 governance accepts the debt; the
+retire path is formally scheduled for v2.0's frontend refactor.
 
 ### §10.4 Embedding / data-handling
 
@@ -1363,22 +1416,296 @@ No new ADRs introduced by this spec.
 
 ---
 
-**End of Batch 2 (§6–§10).** Batch 3 (§11 Implementation Checklist ·
-§12 Acceptance Criteria · §13 Open Questions · §14 Change Log) follows
-on review.
+**End of Batch 2 (§6–§10).** Batch 3 follows.
 
-**Awaiting Architect review.** Batch 2 review questions for particular
-attention:
+All four Batch 2 review questions accepted per ASP-OUT-054 rulings.
+Retrofits applied in-place at §10.0 (403 exception), §8.3
+(DEPRECATED notice), §9.6 (budget rationale), §10.3 (technical-debt
+note).
 
-1. §6.2 — deliberate 403 (not 404) on tenant-prefix mismatch for
-   `file_key`. Deviation from the standard cross-tenant 404 rule
-   because `file_key` is a self-constructed value not a resource
-   lookup. Confirm or revert to 404.
-2. §8.3 — legacy direct-file-key bypass (no `documents` row). Keep
-   for backward compatibility or require upload-first universally
-   post-v1.0?
-3. §9.6 — `max_tokens=4096` for `extract_invoice`. Based on estimated
-   tail of real invoices (10-20 line items). Tighten or loosen?
-4. §10.3 CSP — `'unsafe-inline'` on `style-src` is the pragmatic
-   concession. Acceptable for v1.0 or add a nonce-based mechanism now?
+---
+
+## §11 Implementation Checklist
+
+Single-commit-per-item discipline. DEFECT-024 (I-DOC-01) ships first
+and gates the rest of the cycle. Stream B (frontend) begins in
+parallel with I-DOC-03 once the documents table lands.
+
+| ID | Title | Stream | Status | Dependency |
+|---|---|---|---|---|
+| **I-DOC-01** | **DEFECT-024 fix** — asyncpg port at all three sites in `app/services/doc_intelligence.py`; per-invocation `create_async_engine` + `engine.dispose()`. ADR-006 `try/except` on cost emission bundled. 9-successive-invocation stress test required (DEFECT-022 verification contract). | A | **GATE — FIRST** | none |
+| **I-DOC-02** | **Confirm migration head at 0028** (F-03-02 wildcard rows from ASP-OUT-051 P1 fix already applied in commit `ce01e55`). `alembic current` → `0028 (head)` before writing 0029. | A | read-only check | I-DOC-01 (so we don't build on a broken worker) |
+| **I-DOC-03** | Migration 0029 — `documents` table DDL (11 cols, 1 CHECK, 2 FKs, 2 indexes — authored verbatim in §5.4) + `extract_invoice` prompt-row seed at `(*, *)` (§9.5). Fresh-DB round-trip per ADR-029. G-PROMPT-REACH 3-probe matrix (playwright_runner / test_generator / `*` × L2 / `*`) must PASS before commit. | A | migration+prompt seed | I-DOC-02 |
+| **I-DOC-04** | `Document` ORM model in `app/models/db_models.py` (§5.6) + `DocumentUploadResponse` + `LineItem` + `ExtractInvoiceOutput` + `ClassifyDocumentOutput` + `ExtractDocumentOutput` in new `app/schemas/doc_intelligence_schemas.py` (existing inline schemas migrated; §5.2). `Tenant.documents` relationship with `cascade="all, delete-orphan"`. | A | schema | I-DOC-03 |
+| **I-DOC-05** | `POST /api/v1/ai/documents` upload endpoint (`app/api/documents.py` — new module). Multipart form parsing; `file.content_type` whitelist; filename sanitisation; UUID + tenant-prefixed `storage_path` construction; MinIO write via `app.infra.storage`; `documents` INSERT; `emit_cost_event` wrapped per ADR-006; structlog `asp_doc_upload_succeeded` / `asp_doc_upload_storage_failure` / `asp_doc_upload_db_failure`. Route registered in `app/main.py`. | A | endpoint | I-DOC-04 |
+| **I-DOC-06** | `classify_document` handler update — on successful classification, UPDATE the `documents` row: `document_type`, `classification_confidence`, `extraction_status='classifying' → 'extracting'` (transitions on state entry/exit as per CHECK-constraint set). Celery worker also updates on `failed`. Transition events per S-7. | A | handler | I-DOC-04 |
+| **I-DOC-07** | `extract_invoice` handler — new task branch in `app/services/doc_intelligence.py::handle()`. OCR pipeline: `pdftotext` default → `pytesseract` fallback; 50K-char tail-truncation; empty-OCR → job `failed` with `reason="ocr_empty"` (no LLM call). LLM invocation at `quality_tier="enhanced"` (Sonnet) via existing Model Router. `ExtractInvoiceOutput.model_validate_json(strip_json(raw))`; `repair_json` fallback per Generation precedent. `extraction_status='complete'` + `extracted_fields` JSONB populated on success. | A | handler | I-DOC-06 |
+| **I-DOC-08** | ADR-006 fix — all three cost-emission call sites in `app/services/doc_intelligence.py` wrapped in `try/except` with `asp_doc_cost_emission_failed` structlog warning on exception. Response path never interrupted. (G-04-04 gap.) | A | resilience fix | I-DOC-01 (bundled into same file touch) |
+| **I-DOC-09** | ADR-010 fix — three structlog transition events in the Celery worker: `asp_doc_job_running` / `_completed` / `_failed` with `tenant_id`, `job_id`, `task`, `document_id`, `duration_ms` fields. (G-04-05 gap.) Field catalogue authored in §7.6. | A | observability | I-DOC-07 |
+| **I-DOC-10** | **ASP-13 frontend (Stream B)** — `app/ui/dashboard.py` router, `app/templates/base.html` + `dashboard/index.html` + `dashboard/doc_intelligence.html` + `_upload_panel.html` + `_review_panel.html` + `_classify_badge.html`. `app/static/css/dashboard.css` (confidence colours per OQ-4 default) + `app/static/js/doc_review.js` (pdf.js orchestration; HTMX config; localStorage key read). Five new UI routes (§6.4). CSP header middleware on `/dashboard/*` (§10.3). No build tooling; HTMX + pdf.js via CDN (pinned versions). | B | UI | I-DOC-05 (endpoints must exist before UI can hit them) |
+| **I-DOC-11** | `tests/test_doc_intelligence_v1.py` — 32 ACs (§12). Live-DB + mocked-Anthropic harness. Cross-tenant probe + CSP header assertion + regression probes. Stop-on-first-failure (`pytest -x`). | A | AC suite | I-DOC-10 |
+| **I-DOC-12** | OpenAPI snapshot 0029 via `python -c 'import json; from app.main import app; print(json.dumps(app.openapi(), indent=2))'` → `docs/openapi/asp-openapi-0029.json`. Governance sync: ASP-INDEX row updates (ASP-04 + ASP-13 → **GOVERNED**, 7/14); ASP-SCHEMA-CURRENT (documents table); ASP-ADR (no new ADRs); ASP-DEFECT-REGISTER (close DEFECT-024); CLAUDE.md (migration head + applied chain). **ASP-NOTE-013** issued — joint ASP-04 + ASP-13 v1.0 closure with full commit chain reference. 4-way sha256 sync. | A | closure | I-DOC-11 (all ACs must pass before governance is stamped) |
+
+**Commit chain after Batch 3 acceptance:**
+
+```
+I-DOC-01 (DEFECT-024 fix)
+  → I-DOC-02 (head check)
+  → I-DOC-03 (migration 0029)
+  → I-DOC-04 (ORM + schemas)
+  → I-DOC-05 (upload endpoint)
+  → I-DOC-06 (classify_document update)
+  → I-DOC-07 (extract_invoice new)
+  → I-DOC-08 (ADR-006 fix)    [bundled into I-DOC-01 commit]
+  → I-DOC-09 (ADR-010 fix)    [bundled into I-DOC-07 commit]
+  → I-DOC-10 (frontend)       [Stream B, begins after I-DOC-05]
+  → I-DOC-11 (AC suite)
+  → I-DOC-12 (governance sync + ASP-NOTE-013)
+```
+
+Ten distinct commits; I-DOC-08 / I-DOC-09 are bundled per "same file
+touch" economy (avoids three commits that each re-touch the same
+module).
+
+---
+
+## §12 Acceptance Criteria
+
+**Target: 32 ACs across 9 blocks** (AC count matches the 30-minimum
+directive threshold with regression block headroom). All must pass
+before GOVERNED closure (ASP-NOTE-013).
+
+Suite location: `tests/test_doc_intelligence_v1.py` (new).
+Runner: `docker compose exec -T ai-service pytest tests/test_doc_intelligence_v1.py -x -v`.
+
+### §12.1 Block S-1 — DEFECT-024 fix (3 ACs)
+
+| # | Criterion | Verification |
+|---|---|---|
+| **AC-DOC-S1-01** | 9 successive Celery invocations of `classify_document` + `extract_invoice` (mixed) all reach `status='completed'` end-to-end | `celery_app.send_task` 9× in a loop; assert `async_jobs.status='completed'` for each `job_id` |
+| **AC-DOC-S1-02** | `app/services/doc_intelligence.py` contains no `psycopg2` / `create_engine(sync_url)` references | `grep -nE 'psycopg2\|create_engine\\(' app/services/doc_intelligence.py` returns zero matches |
+| **AC-DOC-S1-03** | Regression — `cost_monthly_reports` aggregator still works (DEFECT-022 regression lock) | Call `celery_app.send_task('asp.cost_aggregator')` with a manual `report_month`; assert row present, `rows_affected >= 0` |
+
+### §12.2 Block S-2 — `documents` table (4 ACs)
+
+| # | Criterion | Verification |
+|---|---|---|
+| **AC-DOC-S2-01** | Table `documents` exists with all 11 governed columns + correct types | `pg_catalog.pg_attribute` query; compare to §5.1 governed table |
+| **AC-DOC-S2-02** | `ck_documents_extraction_status` CHECK enforces the five governed states | INSERT with `extraction_status='bogus'` → 23514 error; five governed INSERTs all succeed |
+| **AC-DOC-S2-03** | `ON DELETE CASCADE` on `tenant_id` removes child `documents` rows atomically | Create tenant + document; DELETE tenant; assert document row gone |
+| **AC-DOC-S2-04** | State transitions `pending → classifying → extracting → complete` all pass the CHECK | Four UPDATE statements in sequence; no 23514 on any |
+
+### §12.3 Block S-3 — Upload endpoint (5 ACs)
+
+| # | Criterion | Verification |
+|---|---|---|
+| **AC-DOC-S3-01** | Valid PDF upload → **201** with `DocumentUploadResponse` body; `document_id` is a valid UUID | `POST /api/v1/ai/documents` with PDF bytes; parse UUID from response |
+| **AC-DOC-S3-02** | Non-PDF content-type (e.g. `image/png`) → **415** `/errors/unsupported-media-type` | POST with `Content-Type: image/png`; assert 415 + envelope shape |
+| **AC-DOC-S3-03** | Oversized file (size > `ASP_DOC_UPLOAD_MAX_MB`) → **413** `/errors/payload-too-large` | POST a crafted `file.size` > cap; assert 413 |
+| **AC-DOC-S3-04** | Cross-tenant `file_key` on subsequent invoke → **403** `/errors/forbidden` (per §10.0 governed exception) | Tenant A upload; Tenant B invoke `extract_invoice` with A's `storage_path`; assert 403 |
+| **AC-DOC-S3-05** | MinIO object key begins with `{tenant_id}/` (ADR-013 compliance) | Upload succeeds; `boto3.list_objects_v2` prefix match; assert prefix equals `str(tenant.id) + '/'` |
+
+### §12.4 Block S-4 — `extract_invoice` task (6 ACs)
+
+| # | Criterion | Verification |
+|---|---|---|
+| **AC-DOC-S4-01** | Valid invoice PDF → invoke returns 202; polled job `status='completed'`; `result` has every `ExtractInvoiceOutput` key (absent values as `null`) | Stock invoice fixture; full round-trip |
+| **AC-DOC-S4-02** | LLM returns `null` for missing fields (not empty string) | Pathological invoice fixture with no `due_date`; assert `result['due_date'] is None` |
+| **AC-DOC-S4-03** | `stop_reason='end_turn'` (not `max_tokens`) on a standard-complexity invoice | Mock Anthropic response; assert `response.stop_reason == 'end_turn'` at handler boundary |
+| **AC-DOC-S4-04** | Async contract — invoke returns `JobAcceptedResponse` with `job_id` within the Gateway p95 latency budget | `POST /api/v1/ai/invoke`; assert status 202 + `job_id` present |
+| **AC-DOC-S4-05** | On completion, `documents.extracted_fields` JSONB equals the `ExtractInvoiceOutput.model_dump()` | Post-completion DB read; `json.loads(row.extracted_fields)` matches result |
+| **AC-DOC-S4-06** | `caller_feature` propagates to `cost_events` + `structlog` when sent | `POST` with `caller_feature='DEMO-F1'`; assert `cost_events.caller_feature='DEMO-F1'` row; assert log capture includes field |
+
+### §12.5 Block S-5 — ADR-006 compliance (2 ACs)
+
+| # | Criterion | Verification |
+|---|---|---|
+| **AC-DOC-S5-01** | Cost-emission exception AFTER successful extraction does NOT break response | Mock `emit_cost_event` to raise; assert job still `status='completed'` + `asp_doc_cost_emission_failed` warn logged |
+| **AC-DOC-S5-02** | One `cost_events` row per LLM call (classify + extract = 2 rows per document) | Full demo flow; `SELECT COUNT(*) FROM cost_events WHERE request_id = ...` = 2 |
+
+### §12.6 Block S-6 — structlog transitions (3 ACs)
+
+| # | Criterion | Verification |
+|---|---|---|
+| **AC-DOC-S6-01** | `asp_doc_job_running` + `asp_doc_job_completed` both emitted per task (classify + extract = 4 events total on the demo flow) | Log capture; assert 2 pairs with matching `job_id` |
+| **AC-DOC-S6-02** | Each event carries `tenant_id`, `job_id`, `task`, `document_id` | Log-event field-presence assertion |
+| **AC-DOC-S6-03** | LLM error path emits `asp_doc_job_failed` with `error` + `reason` | Mock Anthropic to raise; assert `asp_doc_job_failed` captured with `reason='llm_exception'` |
+
+### §12.7 Block S-7 — ASP-13 frontend (4 ACs)
+
+| # | Criterion | Verification |
+|---|---|---|
+| **AC-DOC-S7-01** | Upload form at `/dashboard/doc-intelligence` renders; HTML contains `<input type="file" accept="application/pdf">` | TestClient GET; parse HTML |
+| **AC-DOC-S7-02** | Classification badge partial (`_classify_badge.html`) renders with confidence-colour class (green/amber/red) per OQ-4 thresholds | POST a classification → GET the badge partial; assert `class="conf-green"` for confidence 0.94 |
+| **AC-DOC-S7-03** | Two-panel review layout: left panel has `<canvas id="pdf-canvas">`; right panel has confidence-indicator spans per field | GET review partial; assert DOM structure |
+| **AC-DOC-S7-04** | Confidence indicators render per field (green >0.8, amber 0.5-0.8, red <0.5) | Fixture extract result with mixed confidences; HTML assertion per field |
+
+### §12.8 Block S-8 — Security (3 ACs)
+
+| # | Criterion | Verification |
+|---|---|---|
+| **AC-DOC-S8-01** | Cross-tenant `GET /dashboard/.../documents/{document_id}/pdf` → **404** | Tenant A document; Tenant B request; assert 404 (not 403 — this is a resource lookup, not the `file_key` path) |
+| **AC-DOC-S8-02** | CSP header present on every `GET /dashboard/*` response with the governed policy (§10.3) | TestClient GET; assert `Content-Security-Policy` header contains `default-src 'self'` + `frame-ancestors 'none'` |
+| **AC-DOC-S8-03** | PDF binary content NEVER appears in `structlog` events OR `prompt_templates` / `cost_events` / `documents` rows | Grep log capture for magic `%PDF` bytes; DB column inspection for any column containing raw bytes |
+
+### §12.9 Block cross-cutting (2 ACs)
+
+| # | Criterion | Verification |
+|---|---|---|
+| **AC-DOC-CC-01** | Regression — `classify_probe_result` (ASP-01 NLP) still routes + parses cleanly | One invocation with sentinel payload; assert 200 + expected output shape |
+| **AC-DOC-CC-02** | Regression — `generate_test_cases_with_inventory` (ASP-03 Generation) unaffected | One invocation; assert 200 + expected output shape |
+
+**Pass threshold: 32/32.** Anything less blocks GOVERNED closure. Full run must complete via `pytest -x` (stop-on-first-failure) inside the `ai-service` container.
+
+---
+
+## §13 Open Questions
+
+All four OQs have governed v1.0 defaults per ASP-OUT-054. Captured
+for traceability; no OQ blocks GOVERNED closure.
+
+| ID | Subject | v1.0 Ruling | Owner |
+|---|---|---|---|
+| **OQ-1** | `pytesseract` availability in the Docker image | **DEFAULT: add `tesseract-ocr` apt package to `Dockerfile`** (alongside `poppler-utils` which is already present for `pdftotext`). I-DOC-07 implementation will edit the Dockerfile as part of the OCR pipeline commit. | Dev Team |
+| **OQ-2** | Max PDF file size limit | **DEFAULT: 10 MB** (`ASP_DOC_UPLOAD_MAX_MB=10`). The Batch 2 §6.1 text currently says 20 MB as a placeholder — **to be corrected to 10 MB in the I-DOC-05 implementation commit to match this OQ ruling.** Rate-limiter config surface unchanged. | Dev Team |
+| **OQ-3** | `documents` table retention policy — how long to keep uploaded docs | **DEFAULT: 30 days, no auto-purge in v1.0.** No reaper task yet. Rows accumulate during pilot; ops can manually `DELETE FROM documents WHERE uploaded_at < NOW() - INTERVAL '30 days'` if volume becomes a concern. A reaper-task-based retention job is a candidate for v1.1. | Dev Team / Ops |
+| **OQ-4** | Confidence indicator threshold for UI display (green / amber / red) | **DEFAULT: green > 0.8, amber 0.5 – 0.8, red < 0.5.** Encoded in `app/static/css/dashboard.css` via three classes `.conf-green`, `.conf-amber`, `.conf-red`; Jinja partial `_review_panel.html` picks the class server-side based on `field.confidence`. | Dev Team |
+
+**One spec-text correction for I-DOC-05 implementation:** the Batch 2
+§6.1 narrative says *"Max 20 MB in v1.0 (rate-limiter-adjacent
+config ASP_DOC_UPLOAD_MAX_MB, default 20)"*. Per OQ-2 default, the
+implementation commit must set `ASP_DOC_UPLOAD_MAX_MB=10`. The §6.1
+text stands as written for the spec draft; the commit message on
+I-DOC-05 will note the §13 OQ-2 override and the setting value
+10 MB (not 20 MB) will ship.
+
+---
+
+## §14 Change Log
+
+### v1.0-draft — 2026-04-21
+
+Joint ASP-04 Doc Intelligence + ASP-13 Dashboard Intelligence
+governance spec. Batch authoring per ASP-OUT-041 (pre-spec survey) →
+ASP-OUT-042 (survey accepted, six rulings, Batch 1 green light) →
+ASP-OUT-045/051 (P1 detour — F-03-02 caller-reach regression fixed
+via migration 0028; ASP-04 Batch 1 held during the P1 window) →
+ASP-OUT-053 (P1 closed, Batch 2 resume) → ASP-OUT-054 (Batch 2
+accepted with four rulings, Batch 3 green light).
+
+**Spec-driver summary:**
+
+- Product-demo requirement: engineer uploads invoice PDF → classify →
+  extract → two-panel review.
+- LogiCRM onboarding dependency.
+- First frontend asset in this repo.
+- **Governing blocker: ASP-DEFECT-024 (psycopg2, DEFECT-022-class bug)
+  — scheduled as I-DOC-01 first commit; gates every other implementation
+  item in the cycle.**
+
+**11-gap resolution matrix (from ASP-OUT-041 / DEV-IN-041 pre-spec survey):**
+
+| Gap | Severity | v1.0 disposition |
+|---|---|---|
+| **G-04-01** no upload endpoint | HIGH | I-DOC-05 implements `POST /api/v1/ai/documents` |
+| **G-04-02** doc tasks absent from `TASK_SCHEMA_MODELS` | MEDIUM | I-DOC-05 registers all three (ADR-030) |
+| **G-04-03** `ExtractDocumentOutput.fields` untyped | MEDIUM | §5.2 governed `ExtractInvoiceOutput` + `LineItem` models (new); existing two schemas migrated into same file |
+| **G-04-04** cost emission not wrapped (ADR-006 gap) | MEDIUM | I-DOC-08 wraps three emission sites in `try/except` |
+| **G-04-05** no structlog transitions in Celery worker | LOW | I-DOC-09 adds three transition events |
+| **G-04-06** **psycopg2 class-of-bug** | **CRITICAL** | I-DOC-01 first-to-ship (DEFECT-022 playbook); ASP-DEFECT-024 filed |
+| **G-04-07** no invoice-specific prompt row | MEDIUM | Migration 0029 seeds `extract_invoice` prompt row at `(*, *)` |
+| **G-13-01** no frontend at all | HIGH | I-DOC-10 ships Jinja + HTMX + pdf.js; first frontend asset in repo |
+| **G-13-02** no file-upload UI | HIGH | I-DOC-10 `_upload_panel.html` |
+| **G-13-03** no PDF viewer | HIGH | I-DOC-10 pdf.js + `<canvas>` pipeline in `doc_review.js` |
+| **G-13-04** no structured-field review panel | HIGH | I-DOC-10 `_review_panel.html` with confidence indicators per field (OQ-4 thresholds) |
+
+**ADRs referenced (none new):**
+- ADR-001, ADR-006, ADR-008, ADR-009, ADR-010, ADR-012, ADR-013,
+  ADR-022, ADR-026.2, ADR-028, ADR-029, ADR-030, ADR-032, ADR-033,
+  ADR-034. Full compliance matrix in §10.6.
+
+**Defects resolved in cycle:**
+- **ASP-DEFECT-024** (psycopg2 latent bug in `doc_intelligence.py`)
+  — I-DOC-01 fix; 9-invocation stress test lock in AC-DOC-S1-01.
+
+**Non-defect process notes folded into this cycle:**
+- **ASP-OUT-051 G-PROMPT-REACH procedural tightening** — the
+  expanded rule in `ENGINEERING-PLAYBOOK.md` applies to I-DOC-03's
+  migration 0029 reach gate. Three-probe matrix minimum per §9.5;
+  more specifically (playwright_runner, test_generator, `*`) × (L2,
+  `*`) = 6 probes for the `(*, *)` wildcard seed row.
+- **`refactor_script_locators` low-priority maintenance note** in
+  `ASP-SCHEMA-CURRENT.md` (ASP-OUT-053) — unrelated but co-filed in
+  the P1-window housekeeping commit `dc86c7e`.
+
+**Rulings applied from ASP-OUT-054 (Batch 2 review):**
+
+| Q | Ruling | Retrofit |
+|---|---|---|
+| Q-1 | 403 on `file_key` tenant-prefix mismatch | New §10.0 governed-exception block |
+| Q-2 | Legacy direct-file-key **DEPRECATED** in v1.0 (removal in v2.0) | §8.3 extended with RFC-8594 `Deprecation` header + `asp_doc_direct_file_key_used` structlog emission for migration tracking |
+| Q-3 | `max_tokens=4096` for `extract_invoice` | §9.6 budget-rationale paragraph added; runaway-input defence documented |
+| Q-4 | CSP `'unsafe-inline'` on `style-src` accepted as v1.0 technical debt | §10.3 technical-debt note added with v2.0 retire path |
+
+**Stream-ordered commit ledger (to be updated as commits land):**
+
+- *(pending)* `<hash>` — I-DOC-01 DEFECT-024 fix + ADR-006 wrap + 9-invocation stress test
+- *(pending)* `<hash>` — I-DOC-03 migration 0029 (DDL + prompt seed) + reach probes
+- *(pending)* `<hash>` — I-DOC-04 ORM model + schemas
+- *(pending)* `<hash>` — I-DOC-05 upload endpoint + `TASK_SCHEMA_MODELS`
+- *(pending)* `<hash>` — I-DOC-06 classify_document handler + documents.state_updates
+- *(pending)* `<hash>` — I-DOC-07 extract_invoice handler + OCR pipeline + ADR-010 transitions
+- *(pending)* `<hash>` — I-DOC-10 Stream B frontend (Jinja + HTMX + pdf.js)
+- *(pending)* `<hash>` — I-DOC-11 AC suite (32/32 target)
+- *(pending)* `<hash>` — I-DOC-12 OpenAPI 0029 + governance sync + **ASP-NOTE-013**
+
+Pre-Batch-3-acceptance commit chain (already shipped, pre-implementation):
+
+- `e0fc201` — Batch 1 (§1–§5) surfaced
+- `706deb3` — Batch 2 (§6–§10) surfaced
+- *(this commit)* — Batch 3 (§11–§14) surfaced + Batch 2 retrofits applied
+
+Pre-spec-cycle P1 detour (reference, not in ledger):
+
+- `6f5711c` — ASP-DEFECT-024 filed
+- `ce01e55` — migration 0028 (F-03-02 wildcard fix per ASP-OUT-051)
+- `dc86c7e` — P1 close-out + tests/README + SCHEMA note
+
+### Anticipated v1.1
+
+No v1.1 scope committed. Candidate items:
+
+- `documents` reaper task for the 30-day retention policy (OQ-3).
+- Expose `GET /api/v1/ai/documents` list endpoint if consumer demand emerges (§8.6).
+- Multi-page PDF splitting (§3.2 v1.0 out-of-scope).
+- Non-invoice extraction UI (§3.2 v1.0 out-of-scope).
+- Mobile-responsive layout (§3.2 v1.0 out-of-scope).
+- CSP `'unsafe-inline'` retire + nonce-based mechanism (§10.3 technical debt).
+- `documents` audit-history / versioning (§3.2 v1.0 out-of-scope).
+
+### Anticipated v2.0
+
+- Legacy direct-`file_key` path **removed** (§8.3 DEPRECATED trail
+  from v1.0).
+- Session-cookie handshake for dashboard UI (§7.5 reserved).
+- Frontend inline-style extraction + full strict CSP (§10.3 debt retire).
+
+---
+
+**End of Batch 3 (§11–§14). End of ASP-FEAT-ASP-04 v1.0 draft.**
+
+Awaiting Architect review of Batch 3 and green light for **I-DOC-01**
+(DEFECT-024 fix — first commit of the implementation cycle).
+
+---
+
+**Review-question ledger at spec-draft close:**
+
+All four Batch 2 review questions resolved per ASP-OUT-054 rulings
+and retrofitted into the spec body. No open review questions at
+Batch 3. The §13 OQs all have governed v1.0 defaults; none block
+closure. One spec-text correction flagged for the implementation
+commit (OQ-2 ruling: 10 MB not 20 MB upload cap).
+
+Ready for Batch 3 acceptance and implementation start.
 
