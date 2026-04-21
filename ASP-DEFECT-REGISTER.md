@@ -1,6 +1,6 @@
 # ASP Defect Register
 
-Last updated: 2026-04-21 | Total: 23 | **Open: 1** (ASP-DEFECT-023 — fix in progress this turn) | Mitigated: 1 | Resolved: 20 | Already Fixed: 2
+Last updated: 2026-04-21 | Total: 23 | **Open: 0** | Mitigated: 1 | Resolved: 21 | Already Fixed: 2
 
 **Open-defect confirmation (ASP-NOTE-011 closure gate, 2026-04-20):** zero open defects as ASP-02 / ASP-12 enter GOVERNED status. AC-S7-02 in `tests/test_rag_v1.py` locks the DEFECT-022 resolution — the `monthly-cost-aggregation` beat entry cannot silently regress.
 
@@ -50,7 +50,7 @@ Last updated: 2026-04-21 | Total: 23 | **Open: 1** (ASP-DEFECT-023 — fix in pr
 | ASP-DEFECT-020 | Gateway cost emission not wrapped in try/except — ADR-006 violation | INTERNAL | ASP-00 | HIGH | RESOLVED | ASP Dev Team | 2026-04-16 |
 | ASP-DEFECT-021 | alembic/env.py load_dotenv(override=True) defeats shell-level DATABASE_URL overrides | INTERNAL | INFRASTRUCTURE | LOW | RESOLVED | ASP Dev Team | 2026-04-17 |
 | ASP-DEFECT-022 | cost aggregator fails with No module named psycopg2 | INTERNAL | ASP-10 | HIGH | RESOLVED | ASP Dev Team | 2026-04-18 |
-| ASP-DEFECT-023 | test_ac19_cost_meter_resilience fails under multi-module test ordering — test isolation gap | INTERNAL | ASP-08 / test suite | LOW | **OPEN** | ASP Dev Team | 2026-04-21 |
+| ASP-DEFECT-023 | test_ac19_cost_meter_resilience fails under multi-module test ordering — test isolation gap | INTERNAL | ASP-08 / test suite | LOW | **RESOLVED** (commit TBD — asyncio.get_event_loop → asyncio.run) | ASP Dev Team | 2026-04-21 |
 | ASP-DEFECT-024 | ASP-04 doc_intelligence.py uses sync psycopg2 via create_engine — identical class of bug to DEFECT-022 | INTERNAL | ASP-04 | CRITICAL | **RESOLVED** (commit e0a1244, 9/9 stress PASS per ASP-OUT-056) | ASP Dev Team | 2026-04-21 |
 | ASP-DEFECT-025 | ASP-05 prediction.py uses sync psycopg2 via create_engine — fourth instance of DEFECT-022 class | INTERNAL | ASP-05 | CRITICAL | **RESOLVED** (commit TBD, 9/9 stress PASS per ASP-OUT-064) | ASP Dev Team | 2026-04-21 |
 
@@ -817,7 +817,7 @@ docker compose exec -T ai-service bash -c \
 **Timeline.**
 - 2026-04-21: Surfaced during F-03-02 full-repo regression sweep (DEV-IN-036).
 - 2026-04-21: Architect-filed per ASP-OUT-040.
-- Pending: fix in next maintenance slot. LOW severity; no production-path impact.
+- 2026-04-21: **RESOLVED.** Root cause: the test used `asyncio.get_event_loop().run_until_complete(...)` which pulls a deprecated "global" loop that may already be closed or left in a stale state by prior test modules' `asyncio.run()` calls. Fix: replaced with `asyncio.run(...)` which creates a fresh event loop per call. Matches the pattern used throughout the rest of the test suite. Verification: full multi-module sweep (`tests/test_rag_v1.py` + `test_nlp.py` + `test_generation.py` + `test_generation_ac.py` + `test_f0302.py`) now returns **103 passed, 1 skipped, 0 failed** — was `1 failed, 102 passed, 1 skipped` before the fix. Isolated single-test run still passes (0.60s). Ruled in ASP-OUT-064; shipped alongside DEFECT-025 remediation as Commit B of the milestone.
 
 ---
 

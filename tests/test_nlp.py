@@ -547,7 +547,17 @@ def test_ac18_extra_field_payload_422(nlp_authed_client, mock_anthropic):
 
 # AC-19: cost meter exception doesn't fail response (ADR-006)
 def test_ac19_cost_meter_resilience():
-    """Unit test: emit_cost_event never raises even when DB fails (ADR-006)."""
+    """Unit test: emit_cost_event never raises even when DB fails (ADR-006).
+
+    ASP-DEFECT-023 fix (2026-04-21, ASP-OUT-064): previously used
+    `asyncio.get_event_loop().run_until_complete(...)` which returns
+    a deprecated "global" loop that may already be closed or in a
+    stale state under multi-module pytest ordering (other test modules
+    finalise their own `asyncio.run()` loops before this test runs).
+    Switched to `asyncio.run(...)` which creates a fresh event loop
+    per call — matches the pattern used throughout the rest of the
+    suite and eliminates the test-isolation dependency.
+    """
     import asyncio
 
     mock_session = MagicMock()
@@ -557,7 +567,7 @@ def test_ac19_cost_meter_resilience():
     with patch("app.cost.meter.get_session", return_value=mock_session):
         from app.cost.meter import emit_cost_event
         # Must NOT raise — try/except in emit_cost_event catches all exceptions
-        asyncio.get_event_loop().run_until_complete(
+        asyncio.run(
             emit_cost_event(
                 request_id="test-req-id",
                 tenant_id="test-tenant-id",
