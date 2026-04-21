@@ -84,3 +84,9 @@ ASP-02 RAG + ASP-12 Ontology Manager persist schema chunks in ChromaDB. Governed
 2026-04-21 — Migrations 0026 + 0027 applied (prompt-only seeds for F-03-02). Migration head 0027. No DDL changes; four new prompt rows total across `generation` (3) and `nlp` (1) services.
 
 2026-04-21 (later) — Migration 0028 applied (ASP-OUT-051 P1 fix). Four wildcard catch-all rows added; `INSERT ... SELECT` from test_generator rows (verbatim content). Migration head 0028. Still no DDL — prompt-table content only.
+
+### Low-priority maintenance note (ASP-OUT-053, 2026-04-21)
+
+`refactor_script_locators` prompt row is `caller_module='playwright_runner'` scoped only. Other callers will fail fallback resolution. Add a wildcard row in a future maintenance migration if non-PAP callers are expected. No migration now. No defect ID. Note only.
+
+Surfaced during the ASP-OUT-051 extended G-PROMPT-REACH probe sweep (DEV-IN-051) alongside the F-03-02 fix. Directive-specific `playwright_runner` reach is confirmed PASS — PAP F-03-05 Block 3 unblocked. The gap becomes actionable only if a non-PAP consumer is onboarded for the `refactor_script_locators` task.

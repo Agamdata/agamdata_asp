@@ -61,10 +61,15 @@ this log — if PAP references them, we will back-populate them on request.
 | ASP-OUT-042 | Survey rulings Q-1..Q-6 + DEFECT-024 filing + Batch 1 §1–§5 green light | 2026-04-21 | **HELD** | 2026-04-21 (DEFECT-024 filed 6f5711c; Batch 1 surfaced e0fc201; put on hold by ASP-OUT-045 P1) |
 | ASP-OUT-045 | P1 — invoke path 500 on F-03-02 tasks; diagnostic sequence; stop-all-other-work | 2026-04-21 | **CLOSED** | 2026-04-21 (root cause located source-side: migrations 026/027 seeded prompt rows at caller_module='test_generator' only; PAP invoking from other caller → PromptNotFoundError → 500; superseded by ASP-OUT-051 fix ruling) |
 | ASP-OUT-049 | (Architect-filed; superseded by ASP-OUT-051 ruling) | 2026-04-21 | **CLOSED** | 2026-04-21 (superseded) |
-| ASP-OUT-050 | PAP notification of the P1 unblock — outbound; no Dev Team action beyond delivering fix | 2026-04-21 | **OPEN** | 2026-04-21 (pending PAP ack once fix is confirmed applied) |
-| ASP-OUT-051 | P1 FIX ruling — Option A: seed wildcard catch-all rows in migration 028 (preserve test_generator rows); expanded G-PROMPT-REACH rule; F-03-05 refactor_script_locators probe; fresh-DB round-trip; commit + sync | 2026-04-21 | **OPEN** | 2026-04-21 (DEV-IN-051 in flight — migration 0028 authored, applied, round-trip clean; 20/20 F-03-02 reach + F-03-05 playwright_runner reach verified; ENGINEERING-PLAYBOOK updated; process note filed) |
+| ASP-OUT-046 | (Architect-filed during P1 window; superseded by ASP-OUT-053 close-out) | 2026-04-21 | **CLOSED** | 2026-04-21 |
+| ASP-OUT-047 | ASP-FEAT-ASP-04 Batch 2 (§6–§10) authoring directive (queued during P1; active after ASP-OUT-053 resume) | 2026-04-21 | **CLOSED** | 2026-04-21 (resumed under ASP-OUT-053 — active work item until Batch 2 surfaced) |
+| ASP-OUT-048 | (Architect-filed during P1 window; superseded by ASP-OUT-053 close-out) | 2026-04-21 | **CLOSED** | 2026-04-21 |
+| ASP-OUT-050 | PAP notification of the P1 unblock — outbound; no Dev Team action beyond delivering fix | 2026-04-21 | **CLOSED** | 2026-04-21 (PAP notified; both Block 3 runs unblocked per Chief Architect PAP DEV-OUT-053) |
+| ASP-OUT-051 | P1 FIX ruling — Option A wildcard rows in migration 028; expanded G-PROMPT-REACH; F-03-05 probe; round-trip; playbook + defect-register updates | 2026-04-21 | **CLOSED** | 2026-04-21 (P1 confirmed clean per ASP-OUT-053; migration 0028 shipped commit ce01e55; 20/20 reach + F-03-05 playwright_runner reach PASS) |
+| ASP-OUT-052 | (Architect-filed PAP notification; superseded by ASP-OUT-053 close-out) | 2026-04-21 | **CLOSED** | 2026-04-21 |
+| ASP-OUT-053 | P1 closed; ASP-OUT-042 resumes as ASP-04 Batch 2 active work item; refactor_script_locators maintenance note in SCHEMA-CURRENT (no migration, no defect); tests/README governed-probe-runner pointer | 2026-04-21 | **OPEN** | 2026-04-21 (DEV-IN-053 in flight — SCHEMA note + tests/README + housekeeping landed; Batch 2 authoring to follow) |
 
-Totals as of 2026-04-21: **2 OPEN** (ASP-OUT-050, ASP-OUT-051), **1 HELD** (ASP-OUT-042), **37 CLOSED**.
+Totals as of 2026-04-21: **1 OPEN** (ASP-OUT-053), **1 HELD** (ASP-OUT-042 resumed as active under ASP-OUT-053), **44 CLOSED**.
 
 ---
 
