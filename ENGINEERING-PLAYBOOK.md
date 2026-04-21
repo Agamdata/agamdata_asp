@@ -202,6 +202,24 @@ Enforce size limit at **endpoint level** (not just Nginx):
 1. Check `Content-Length` header before reading body
 2. Check `len(file_bytes)` after reading, before processing
 
+### `python-multipart` dependency (added 2026-04-21, ASP-OUT-060)
+
+FastAPI multipart file upload (`File(...)` / `Form(...)` parameters)
+requires `python-multipart` in `requirements.txt`. **It is not a
+FastAPI transitive dependency — it must be explicitly declared.**
+Add it at any point a file upload endpoint is introduced.
+
+Failure mode if missing: FastAPI raises
+`RuntimeError: Form data requires "python-multipart" to be installed`
+at module import time — the router never registers, and the
+application fails to start cleanly. Surfaced during I-DOC-05
+implementation (ASP-FEAT-ASP-04 v1.0 upload endpoint).
+
+Governed pin: `python-multipart==0.0.9`. Upgrade only with an
+explicit compatibility test against the FastAPI + Starlette versions
+in `requirements.txt` — the multipart parser is closely coupled to
+the ASGI layer.
+
 ---
 
 ## 6. Audit Trail Pattern

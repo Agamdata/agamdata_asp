@@ -70,12 +70,13 @@ this log — if PAP references them, we will back-populate them on request.
 | ASP-OUT-053 | P1 closed; ASP-OUT-042 resumes as ASP-04 Batch 2 active work item; refactor_script_locators maintenance note in SCHEMA-CURRENT (no migration, no defect); tests/README governed-probe-runner pointer | 2026-04-21 | **CLOSED** | 2026-04-21 (DEV-IN-053 shipped commits dc86c7e + 706deb3; Batch 2 surfaced for review) |
 | ASP-OUT-054 | Batch 2 review ruling — ACCEPTED with four rulings + Batch 3 §11–§14 green light | 2026-04-21 | **CLOSED** | 2026-04-21 (Batch 3 shipped commit 40f578b; spec draft complete) |
 | ASP-OUT-055 | Batch 3 accepted; §6.1 20MB→10MB OQ-2 correction mandate for I-DOC-05; IMPLEMENTATION GREEN LIGHT starting I-DOC-01 | 2026-04-21 | **CLOSED** | 2026-04-21 (DEV-IN-055 superseded by ASP-OUT-056 ruling which accepted the stop-and-report and authorised I-DOC-02..05; I-DOC-01 shipped commit e0a1244) |
-| ASP-OUT-056 | I-DOC-01 ACCEPTED + DEFECT-024 RESOLVED + I-DOC-02..05 green light | 2026-04-21 | **OPEN** | 2026-04-21 (active work item — I-DOC-02..05 in flight; closure on consolidated milestone-1 report) |
+| ASP-OUT-056 | I-DOC-01 ACCEPTED + DEFECT-024 RESOLVED + I-DOC-02..05 green light | 2026-04-21 | **CLOSED** | 2026-04-21 (milestone-1 report accepted per ASP-OUT-060; I-DOC-01..05 shipped commits ad4beac/e0a1244/dcaab73/2b55f60/07d29b1) |
 | ASP-OUT-057 | (Architect-filed; routing mirror of ASP-OUT-056; not independently actioned) | 2026-04-21 | **CLOSED** | 2026-04-21 (absorbed into ASP-OUT-056) |
 | ASP-OUT-058 | (Architect-filed; routing mirror of ASP-OUT-056; not independently actioned) | 2026-04-21 | **CLOSED** | 2026-04-21 (absorbed into ASP-OUT-056) |
-| ASP-OUT-059 | DEV-IN-055 duplicate acknowledgement + third routing-gap log directive + "proceed per ASP-OUT-056" | 2026-04-21 | **OPEN** | 2026-04-21 (DEV-IN-059 in flight — DEFECT-024 closed; routing gap 3 logged; closes with milestone-1 report) |
+| ASP-OUT-059 | DEV-IN-055 duplicate acknowledgement + third routing-gap log directive + "proceed per ASP-OUT-056" | 2026-04-21 | **CLOSED** | 2026-04-21 (milestone-1 report delivered + accepted per ASP-OUT-060; routing gap 3 logged in ASP-04 IMPL-LOG) |
+| ASP-OUT-060 | Milestone 1 confirmed + python-multipart ENGINEERING-PLAYBOOK addendum directive + I-DOC-06 + I-DOC-07 + I-DOC-10 green light (parallel Streams A+B) | 2026-04-21 | **OPEN** | 2026-04-21 (DEV-IN-060 in flight — playbook update landing first; Stream A (I-DOC-06/07) + Stream B (I-DOC-10) begin after this commit) |
 
-Totals as of 2026-04-21: **2 OPEN** (ASP-OUT-056, ASP-OUT-059), **49 CLOSED**.
+Totals as of 2026-04-21: **1 OPEN** (ASP-OUT-060), **51 CLOSED**.
 
 ---
 
