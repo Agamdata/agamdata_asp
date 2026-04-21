@@ -75,7 +75,7 @@ this log — if PAP references them, we will back-populate them on request.
 | ASP-OUT-058 | (Architect-filed; routing mirror of ASP-OUT-056; not independently actioned) | 2026-04-21 | **CLOSED** | 2026-04-21 (absorbed into ASP-OUT-056) |
 | ASP-OUT-059 | DEV-IN-055 duplicate acknowledgement + third routing-gap log directive + "proceed per ASP-OUT-056" | 2026-04-21 | **CLOSED** | 2026-04-21 (milestone-1 report delivered + accepted per ASP-OUT-060; routing gap 3 logged in ASP-04 IMPL-LOG) |
 | ASP-OUT-060 | Milestone 1 confirmed + python-multipart playbook addendum + I-DOC-06/07/10 green light | 2026-04-21 | **CLOSED** | 2026-04-21 (milestone-2 report delivered + accepted per ASP-OUT-061; Stream A+B shipped commit 9a0bbd1; playbook shipped 2cd77df) |
-| ASP-OUT-061 | Milestone 2 confirmed + MinIO bucket OQ-5 spec amendment + demo run-book (§8.2b) + v1.1 candidate (§14) + I-DOC-11 (32 ACs) + I-DOC-12 (OpenAPI + governance sync + ASP-NOTE-013) + .docx render green light | 2026-04-21 | **OPEN** | 2026-04-21 (DEV-IN-061 in flight — spec amendments landing first; AC suite + governance + .docx to follow) |
+| ASP-OUT-061 | Milestone 2 confirmed + MinIO OQ-5 spec amendment + demo run-book + v1.1 candidate + I-DOC-11 + I-DOC-12 + .docx green light | 2026-04-21 | **OPEN** | 2026-04-21 (DEV-IN-061 — 32/32 AC PASS commit 1ccf85b; spec amendments 21d31cb; governance sync in this commit; .docx render next; cost-emit loop-affinity extension fix shipped in same I-DOC-11 touch) |
 
 Totals as of 2026-04-21: **1 OPEN** (ASP-OUT-061), **52 CLOSED**.
 

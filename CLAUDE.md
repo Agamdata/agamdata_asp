@@ -12,8 +12,8 @@ AI Service Platform (ASP) — A FastAPI/Python backend providing a unified gatew
 - DB: PostgreSQL 16 — `postgresql+asyncpg://asp:asp_secret@postgres:5432/asp_db` (port 5434 external)
 
 ## Current State
-- Migration head: `0028` (seed_f0302_wildcard_prompts — ASP-OUT-051 P1 fix; wildcard caller_module='*' catch-all for F-03-02 tasks)
-- Applied chain: 0001 → 0002 → 0003 → 0004 → 0005 → 0012 → 0013 → 0014 → 0015 → 0016 → 0017 → 0018 → 0019 → 0020 → 0021 → 0022 → 0023 → 0024 → 0025 → 0026 → 0027 → 0028
+- Migration head: `0029` (add_documents_and_extract_invoice_prompt — ASP-FEAT-ASP-04 v1.0 I-DOC-03)
+- Applied chain: 0001 → 0002 → 0003 → 0004 → 0005 → 0012 → 0013 → 0014 → 0015 → 0016 → 0017 → 0018 → 0019 → 0020 → 0021 → 0022 → 0023 → 0024 → 0025 → 0026 → 0027 → 0028 → 0029
 - ADRs: ADR-001 through ADR-033 (see ASP-ADR.md)
 - Branch: `claude/asp-v2` (governance + new features)
 - Phase: Governance Onboarding

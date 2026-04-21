@@ -1,6 +1,6 @@
 # ASP-INDEX
 
-Last updated: 2026-04-21 | Migration head: 027 | Phase: F-03-02 / PAP-ASP-REQ-ASP-02 v1.0 additive (ASP-NOTE-012) | 5/14 services GOVERNED
+Last updated: 2026-04-21 | Migration head: 029 | Phase: ASP-04 Doc Intelligence + ASP-13 Dashboard Intelligence joint governance closure (ASP-NOTE-013) | 7/14 services GOVERNED
 
 ## ASP-INDEX Maintenance Protocol (ADR-026 — BINDING)
 
@@ -139,7 +139,7 @@ Migrations 002–005 were active in the codebase but untracked in ASP-INDEX prio
 | ASP-01 | NLP Service | Synchronous | **GOVERNED** | ASP-FEAT-ASP-01 v1.2 + BP-10 additive (ASP-NOTE-010) + F-03-02 additive (ASP-NOTE-012) | — |
 | ASP-02 | RAG Service | Synchronous | **GOVERNED** | ASP-FEAT-ASP-02 v1.0 | — |
 | ASP-03 | Generation Service | Synchronous | **GOVERNED v2.0** | ASP-FEAT-ASP-03 v2.0 + F-03-02 additive (ASP-NOTE-012) | TSCD-001, v2.0 amendment |
-| ASP-04 | Doc Intelligence | Asynchronous | ACTIVE (pre-governance) | — | — |
+| ASP-04 | Doc Intelligence | Asynchronous | **GOVERNED** | ASP-FEAT-ASP-04 v1.0 | — |
 | ASP-05 | Prediction Service | Asynchronous | ACTIVE (pre-governance) | — | — |
 | ASP-06 | Prompt Registry | Infrastructure | ACTIVE (pre-governance) | — | — |
 | ASP-07 | Context Store | Infrastructure | ACTIVE (pre-governance) | — | — |
@@ -148,7 +148,7 @@ Migrations 002–005 were active in the codebase but untracked in ASP-INDEX prio
 | ASP-10 | Cost Aggregator | Cron/Scheduled | ACTIVE (pre-governance) | — | — |
 | ASP-11 | Model Router | Infrastructure | ACTIVE (pre-governance) | — | — |
 | ASP-12 | Schema Ontology Mgr | Admin triggered | **GOVERNED** | ASP-FEAT-ASP-02 v1.0 (joint with ASP-02) | — |
-| ASP-13 | Dashboard Intelligence | Synchronous | ACTIVE (pre-governance) | — | — |
+| ASP-13 | Dashboard Intelligence | Synchronous | **GOVERNED** | ASP-FEAT-ASP-04 v1.0 (joint Doc Intelligence panel) | — |
 
 ### Service status definitions
 - **ACTIVE (pre-governance):** Built and functional. Governance spec not yet written. No TSCD trail.
@@ -206,6 +206,7 @@ Next TSCD: ASP-TSCD-002
 | ASP-NOTE-010 | ASP-01 NLP — suggest_screen_mapping task added (BP-10 / PAP-ASP-REQ-ASP-01 v2.0). 8/8 AC PASS. Migration 025 (prompt-only). Type B additive. Hallucination guard verified. ASP-OUT-003 closed. | CLOSURE | 2026-04-18 |
 | ASP-NOTE-011 | ASP-02 RAG + ASP-12 Ontology Manager joint governance closure. 26/26 AC PASS. No new Alembic migration (ChromaDB config only). S-4/S-5/S-6 net-new shipped: ChunkMetadata Pydantic (extra="forbid"), tenant_id defence-in-depth in where=, RAGCollectionMissingError→503 fail-closed path. Stream B commits a15e3fc..223543c resolved G-1..G-10 gap matrix. ADR-004 defence-in-depth posture formalised. 6/14 GOVERNED. | CLOSURE | 2026-04-20 |
 | ASP-NOTE-012 | F-03-02 / PAP-ASP-REQ-ASP-02 v1.0 — four new tasks additive. ASP-03: draft_steps, suggest_preconditions, propose_edge_cases (migration 026). ASP-01 NLP: extract_test_entities (migration 027). 16/16 ACs PASS. Quality tier=standard (Haiku). Type B additive — no existing contract changed. Naming-drift flags from ASP-OUT-034 resolved per Architect's directive-verbatim signatures (step_no vs step_number; priority: str vs Literal). Service-naming ambiguity ("ASP-02 (nlp)" vs NLP=ASP-01) flagged and noted in migration 027 docstring. No new GOVERNED service (F-03-02 is additive to existing governed surfaces of ASP-01 and ASP-03). | CLOSURE | 2026-04-21 |
+| ASP-NOTE-013 | ASP-04 Doc Intelligence + ASP-13 Dashboard Intelligence joint governance closure. 32/32 ACs PASS. Migration 029 applied (documents table DDL + extract_invoice prompt seed). DEFECT-024 (psycopg2 class-of-bug) RESOLVED in-cycle via asyncpg port at all three sites + cost-emission helper (same class fixed as an extension during AC suite bring-up, locked by AC-DOC-S5-02). First frontend asset in the repo: Jinja2 + HTMX + pdf.js two-panel dashboard. Legacy direct-file-key path DEPRECATED (v2.0 removal). Stream A (backend) + Stream B (frontend) shipped in parallel. MinIO asp-documents bucket = manual pre-demo step (OQ-5; v1.1 automation queued). Governed count 5/14 → 7/14. | CLOSURE | 2026-04-21 |
 
 ### ASP-NOTE-002 — ASP-01 Governance Closure
 
@@ -296,6 +297,57 @@ Next TSCD: ASP-TSCD-002
 **Issued by:** Principal Architect, ASP
 **Date:** 2026-04-20
 
+### ASP-NOTE-013 — ASP-04 Doc Intelligence + ASP-13 Dashboard Intelligence Governance Closure (joint)
+
+**Services:** ASP-04 Doc Intelligence, ASP-13 Dashboard Intelligence (joint — ASP-13 panel is the demo UI for ASP-04)
+**Spec:** ASP-FEAT-ASP-04 v1.0
+**AC Result:** **32/32 PASS** (9 blocks: S-1 DEFECT-024 fix 3, S-2 documents table 4, S-3 Upload 5, S-4 extract_invoice 6, S-5 ADR-006 2, S-6 Structlog 3, S-7 Frontend 4, S-8 Security 3, Cross-cutting regression 2)
+
+**Commit chain:**
+
+- `ad4beac` — DEFECT-024 closure docs + ASP-04 IMPL-LOG (routing gap 3)
+- `e0a1244` — **I-DOC-01** DEFECT-024 asyncpg port at three sites + ADR-006 + ADR-010 bundled (9/9 stress PASS)
+- `dcaab73` — **I-DOC-03** migration 0029 (documents table DDL + extract_invoice prompt seed; 6/6 G-PROMPT-REACH PASS; fresh-DB round-trip clean)
+- `2b55f60` — **I-DOC-04** Document ORM + `app/schemas/doc_intelligence_schemas.py` (migrate existing + add LineItem + ExtractInvoiceOutput + DocumentUploadResponse)
+- `07d29b1` — **I-DOC-05** POST /api/v1/ai/documents upload endpoint + §6.1 10 MB OQ-2 correction + capabilities + TASK_SCHEMA_MODELS
+- `2cd77df` — ENGINEERING-PLAYBOOK `python-multipart` governed pin
+- `9a0bbd1` — **I-DOC-06 + I-DOC-07 + I-DOC-10 bundled** — classify-registry wiring + extract_invoice + OCR pipeline (pdftotext → pytesseract) + Dockerfile (tesseract-ocr) + requirements (pytesseract) + dashboard router + Jinja+HTMX+pdf.js frontend + CSP
+- `21d31cb` — Spec amendments (OQ-5 MinIO bucket + §8.2b demo run-book + §14 v1.1 candidate)
+- `1ccf85b` — **I-DOC-11** 32-AC suite + extension of the DEFECT-024 fix to `_async_emit_cost` (same-class loop-affinity bug surfaced during suite bring-up; locked by AC-DOC-S5-02)
+- *(this commit)* — **I-DOC-12** OpenAPI snapshot 0029 + governance sync + ASP-NOTE-013
+
+**Migration:** 029 applied. Head: **0029**. First DDL migration since 0023. `documents` table (11 cols, 1 CHECK, 2 FKs, 2 indexes — one partial). `extract_invoice` prompt row at `(*, *)` on `doc_intelligence` service.
+
+**Three governance-impact items:**
+
+1. **DEFECT-024 RESOLVED in-cycle** — psycopg2 class-of-bug on three sites in `doc_intelligence.py` ported to asyncpg per the DEFECT-022 playbook. 9/9 stress PASS. Extended mid-cycle to `_async_emit_cost` (cost-meter loop-affinity surfaced during AC suite bring-up; fixed + locked by AC-DOC-S5-02). Same class of bug, same fix pattern — not filed as a separate defect ID.
+2. **First frontend asset in the repo** — Jinja2 + HTMX + pdf.js two-panel review layout. Zero build tooling; CSP governed (with `'unsafe-inline'` v2.0 debt item formally recorded per §10.3).
+3. **Legacy direct-file-key path DEPRECATED** — RFC 8594 `Deprecation: version="v2.0"` header + `asp_doc_direct_file_key_used` structlog warn emitted on every legacy invocation. Ops can migrate tracking LogiCRM consumer onboarding.
+
+**ADRs:**
+- No new ADRs introduced.
+- ADR-001 Zone 2 classification applied to ASP-04 task surface + ASP-13 dashboard UI.
+- ADR-006, ADR-010, ADR-013, ADR-022, ADR-026.2, ADR-028, ADR-029, ADR-030, ADR-032, ADR-033, ADR-034 — all in compliance per §10.6.
+- ADR-013 tenant-scoped storage paths enforced at upload-endpoint construction.
+
+**Defects resolved in cycle:**
+- **ASP-DEFECT-024** (psycopg2 class) — RESOLVED commit `e0a1244`. 9/9 stress PASS + AC-DOC-S1-01 regression lock.
+
+**First frontend asset:** the ASP-13 Doc Intelligence dashboard panel (`app/api/dashboard.py`, `app/templates/dashboard/*`, `app/static/{css,js}/*`). Pinned CDN hosts for HTMX + pdf.js per §10.3 governed CSP.
+
+**Demo run-book (§8.2b governed pre-demo checklist):**
+1. Confirm `asp-documents` MinIO bucket exists (OQ-5 — manual in v1.0).
+2. Confirm celery-worker running with `-B` flag.
+3. Confirm migration head is 0029.
+4. Use text-based PDF for fastest extraction.
+
+**Verification harness:** `tests/test_doc_intelligence_v1.py` — 32/32 PASS. Stress verification `tests/_stress_defect024.py` retained as reference for the DEFECT-022 playbook. Run inside `ai-service` container via `docker compose exec`.
+
+**Status:** ASP-04 → **GOVERNED**, ASP-13 → **GOVERNED**. Governed count: **7/14**.
+
+**Issued by:** Principal Architect, ASP
+**Date:** 2026-04-21
+
 ## Governance Documents
 
 | Document ID | Title | Version | Status | Date |
@@ -308,6 +360,7 @@ Next TSCD: ASP-TSCD-002
 | ASP-FEAT-ASP-00 | Gateway Service Detailed Spec | v1.0 | **GOVERNED** — 36/36 AC PASS (ecaa1ce). Migration 023 applied. ADR-030/032/034 locked. DEFECT-010/021 RESOLVED. ASP-NOTE-008 issued 2026-04-18. | 2026-04-18 |
 | ASP-FEAT-ASP-03 | Generation Service Detailed Spec (amendment) | v2.0 | **GOVERNED** — 37/37 AC PASS. Migration 024 applied (prompt-only: 2 v4 rows split by caller + refactor_script_locators v1). Coverage-aware generation + form_data + locator_source=live_extracted + F-01-10 third caller + refactor_script_locators new task. ASP-NOTE-009 issued 2026-04-18. ASP-DEFECT-022 filed (cost aggregator psycopg2; separate maintenance task). | 2026-04-18 |
 | ASP-FEAT-ASP-02 | RAG Service + Schema Ontology Manager Detailed Spec (joint) | v1.0 | **GOVERNED** — 26/26 AC PASS (baf5a78). No migration (ChromaDB-only). S-4 ChunkMetadata + S-5 tenant_id defence-in-depth + S-6 RAGCollectionMissingError→503 shipped. ASP-NOTE-011 issued 2026-04-20. ASP-DEFECT-022 locked by AC-S7-02. | 2026-04-20 |
+| ASP-FEAT-ASP-04 | Doc Intelligence + Dashboard Intelligence panel (joint) | v1.0 | **GOVERNED** — 32/32 AC PASS (1ccf85b). Migration 029 applied (documents table DDL + extract_invoice prompt). DEFECT-024 RESOLVED in-cycle + cost-emit extension. First frontend asset (Jinja+HTMX+pdf.js). Legacy direct-file-key DEPRECATED (v2.0 removal). ASP-NOTE-013 issued 2026-04-21. | 2026-04-21 |
 
 ## Naming quick-ref
 

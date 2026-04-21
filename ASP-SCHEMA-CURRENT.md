@@ -43,6 +43,14 @@ Per-tenant webhook configuration for event delivery.
 Aggregated monthly cost rollups (idempotent).
 - Created in: 0001
 
+### documents
+ASP-04 Doc Intelligence tracked-document registry. One row per uploaded PDF; carries classification + extraction state transitions and the final extracted_fields JSONB. Governed by ASP-FEAT-ASP-04 v1.0 §5.1 (joint closure ASP-NOTE-013, 2026-04-21).
+- Created in: **0029**
+- Columns: `id UUID PK (gen_random_uuid), tenant_id UUID NOT NULL FK→tenants.id CASCADE, original_filename VARCHAR(255), storage_path VARCHAR(512), document_type VARCHAR(64) NULL, classification_confidence FLOAT NULL, extraction_status VARCHAR(32) DEFAULT 'pending', extraction_job_id UUID NULL FK→async_jobs.id SET NULL, extracted_fields JSONB NULL, uploaded_at TIMESTAMPTZ DEFAULT NOW(), updated_at TIMESTAMPTZ DEFAULT NOW()`
+- CHECK: `ck_documents_extraction_status` enforces values in `('pending','classifying','extracting','complete','failed')`
+- Indexes: `ix_documents_tenant_uploaded (tenant_id, uploaded_at DESC)` composite; `ix_documents_extraction_status` partial index on `('classifying','extracting')` — cheap in-flight ops query.
+- Contract: `storage_path` follows `{tenant_id}/{document_id}.pdf` (ADR-013). `extraction_job_id` targets `async_jobs.id` (UUID PK), not the VARCHAR `job_id`.
+
 ## Non-Postgres Persistence (ChromaDB)
 
 ASP-02 RAG + ASP-12 Ontology Manager persist schema chunks in ChromaDB. Governed by ASP-FEAT-ASP-02 v1.0 (joint, 2026-04-20 under ASP-NOTE-011). **No Alembic migration** — ChromaDB state lives on the `chroma_data` Docker volume mounted at `/chroma/data` on both `ai-service` and `celery-worker` (AC-S1-03 verified).
@@ -79,11 +87,14 @@ ASP-02 RAG + ASP-12 Ontology Manager persist schema chunks in ChromaDB. Governed
 | 0026 | Seed three generation prompt rows: `draft_steps`, `suggest_preconditions`, `propose_edge_cases` (generation / test_generator / * / v1 / NULL) | F-03-02 / PAP-ASP-REQ-ASP-02 v1.0 (ASP-OUT-036) |
 | 0027 | Seed `extract_test_entities` v1 prompt row (nlp / test_generator / * / v1 / NULL) | F-03-02 / PAP-ASP-REQ-ASP-02 v1.0 (ASP-OUT-036) |
 | 0028 | Seed four wildcard catch-all prompt rows — caller_module='*', maturity_level='*' — one per F-03-02 task (draft_steps, suggest_preconditions, propose_edge_cases, extract_test_entities). `INSERT ... SELECT` from test_generator rows (verbatim content copy). P1 fix for PAP Block 3 500 errors. | ASP-OUT-051 (P1 recurrence of ASP-OUT-014 class) |
+| 0029 | **DDL + prompt seed.** Create `documents` table (11 cols, 1 CHECK on extraction_status five-state set, 2 FKs — tenants.id CASCADE + async_jobs.id SET NULL, 2 indexes — composite tenant+uploaded DESC + partial on in-flight statuses) + INSERT `extract_invoice` prompt row at `doc_intelligence/*/v1`. | ASP-FEAT-ASP-04 v1.0 (ASP-NOTE-013 — GOVERNED) |
 
 ## Last Updated
 2026-04-21 — Migrations 0026 + 0027 applied (prompt-only seeds for F-03-02). Migration head 0027. No DDL changes; four new prompt rows total across `generation` (3) and `nlp` (1) services.
 
 2026-04-21 (later) — Migration 0028 applied (ASP-OUT-051 P1 fix). Four wildcard catch-all rows added; `INSERT ... SELECT` from test_generator rows (verbatim content). Migration head 0028. Still no DDL — prompt-table content only.
+
+2026-04-21 (later) — Migration 0029 applied (ASP-FEAT-ASP-04 v1.0 I-DOC-03). First DDL migration since 0023: `documents` table (11 cols, 1 CHECK, 2 FKs, 2 indexes) + `extract_invoice` prompt seed. Migration head **0029**.
 
 ### Low-priority maintenance note (ASP-OUT-053, 2026-04-21)
 
