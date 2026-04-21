@@ -1,6 +1,6 @@
 # ASP Defect Register
 
-Last updated: 2026-04-21 | Total: 23 | **Open: 2** (ASP-DEFECT-023, ASP-DEFECT-025) | Mitigated: 1 | Resolved: 19 | Already Fixed: 2
+Last updated: 2026-04-21 | Total: 23 | **Open: 1** (ASP-DEFECT-023 — fix in progress this turn) | Mitigated: 1 | Resolved: 20 | Already Fixed: 2
 
 **Open-defect confirmation (ASP-NOTE-011 closure gate, 2026-04-20):** zero open defects as ASP-02 / ASP-12 enter GOVERNED status. AC-S7-02 in `tests/test_rag_v1.py` locks the DEFECT-022 resolution — the `monthly-cost-aggregation` beat entry cannot silently regress.
 
@@ -52,7 +52,7 @@ Last updated: 2026-04-21 | Total: 23 | **Open: 2** (ASP-DEFECT-023, ASP-DEFECT-0
 | ASP-DEFECT-022 | cost aggregator fails with No module named psycopg2 | INTERNAL | ASP-10 | HIGH | RESOLVED | ASP Dev Team | 2026-04-18 |
 | ASP-DEFECT-023 | test_ac19_cost_meter_resilience fails under multi-module test ordering — test isolation gap | INTERNAL | ASP-08 / test suite | LOW | **OPEN** | ASP Dev Team | 2026-04-21 |
 | ASP-DEFECT-024 | ASP-04 doc_intelligence.py uses sync psycopg2 via create_engine — identical class of bug to DEFECT-022 | INTERNAL | ASP-04 | CRITICAL | **RESOLVED** (commit e0a1244, 9/9 stress PASS per ASP-OUT-056) | ASP Dev Team | 2026-04-21 |
-| ASP-DEFECT-025 | ASP-05 prediction.py uses sync psycopg2 via create_engine — fourth instance of DEFECT-022 class | INTERNAL | ASP-05 | **CRITICAL** | **OPEN** — surfaced by ASP-OUT-063 loop-affinity platform audit | ASP Dev Team | 2026-04-21 |
+| ASP-DEFECT-025 | ASP-05 prediction.py uses sync psycopg2 via create_engine — fourth instance of DEFECT-022 class | INTERNAL | ASP-05 | CRITICAL | **RESOLVED** (commit TBD, 9/9 stress PASS per ASP-OUT-064) | ASP Dev Team | 2026-04-21 |
 
 ---
 
@@ -909,4 +909,5 @@ This implicitly selects the `psycopg2` driver. `psycopg2` is **not** in `require
 **Timeline.**
 
 - 2026-04-21: Surfaced during ASP-OUT-063 loop-affinity platform audit.
-- Pending: Architect remediation ruling. Recommended as the S-1 gate of the next ASP-05 governance cycle (mirrors DEFECT-024's handling in the ASP-04 cycle).
+- 2026-04-21: Architect ruling per ASP-OUT-064 — apply DEFECT-022 playbook. ENGINEERING-PLAYBOOK §12 Celery task DB-write rule + pre-spec survey mandatory check added in the same commit.
+- 2026-04-21: **RESOLVED.** `app/services/prediction.py` ported to asyncpg via the DEFECT-022 playbook. Three sites fixed: `_async_update_job_status` (was `_sync_update_job_status` with psycopg2), `_async_emit_cost` (replaces shared-pool `emit_cost_event`), `_fire_webhook_async` (isolated for test patching). ADR-010 transitions (`asp_prediction_job_running` / `_completed` / `_failed`) + ADR-006 cost-emission try/except bundled. 9-invocation stress test PASS (`tests/_stress_defect025.py`). Zero psycopg2 / create_engine(sync_url) references remain in code (docstrings/comments only).

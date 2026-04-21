@@ -77,9 +77,10 @@ this log — if PAP references them, we will back-populate them on request.
 | ASP-OUT-060 | Milestone 1 confirmed + python-multipart playbook addendum + I-DOC-06/07/10 green light | 2026-04-21 | **CLOSED** | 2026-04-21 (milestone-2 report delivered + accepted per ASP-OUT-061; Stream A+B shipped commit 9a0bbd1; playbook shipped 2cd77df) |
 | ASP-OUT-061 | Milestone 2 confirmed + MinIO OQ-5 spec amendment + demo run-book + v1.1 candidate + I-DOC-11 + I-DOC-12 + .docx green light | 2026-04-21 | **CLOSED** | 2026-04-21 (32/32 PASS; spec + governance + .docx shipped; GOVERNED per ASP-OUT-063 ruling) |
 | ASP-OUT-062 | (Architect-filed; PAP notification of ASP-FEAT-ASP-04 v1.0 GOVERNED) | 2026-04-21 | **CLOSED** | 2026-04-21 (outbound; no Dev Team action) |
-| ASP-OUT-063 | ASP-FEAT-ASP-04 v1.0 GOVERNED acknowledgement + loop-affinity platform audit directive (grep-based, read-only, risk table) + DEFECT-023 maintenance if time permits | 2026-04-21 | **OPEN** | 2026-04-21 (DEV-IN-063 in flight — audit report shipped + ASP-DEFECT-025 filed CRITICAL; DEFECT-023 fix deferred to next turn to preserve scope boundary) |
+| ASP-OUT-063 | Loop-affinity platform audit directive | 2026-04-21 | **CLOSED** | 2026-04-21 (audit accepted per ASP-OUT-064; DEFECT-025 CRITICAL filed then remediated in ASP-OUT-064) |
+| ASP-OUT-064 | DEFECT-025 remediation directive + ENGINEERING-PLAYBOOK §12 Celery DB-write rule verbatim + pre-spec survey mandatory check + DEFECT-023 test-isolation fix | 2026-04-21 | **OPEN** | 2026-04-21 (DEV-IN-064 in flight — Commit A DEFECT-025 9/9 PASS + playbook update shipped; Commit B DEFECT-023 fix next) |
 
-Totals as of 2026-04-21: **1 OPEN** (ASP-OUT-063), **54 CLOSED**.
+Totals as of 2026-04-21: **1 OPEN** (ASP-OUT-064), **55 CLOSED**.
 
 ---
 

@@ -386,3 +386,61 @@ Symptom when violated: first invocation succeeds; second invocation fails
 with `got Future <Future pending> attached to a different loop` because the
 pool created against loop A is reused from loop B. See
 `app/cost/aggregator.py` for the governed pattern.
+
+### Celery Task DB-Write Rule (added 2026-04-21, ASP-OUT-064)
+
+**Every Celery task body that calls `asyncio.run(...)` must use
+per-invocation `create_async_engine` + `engine.dispose()` for every DB
+touch. Do not call `app.infra.db.get_session()`,
+`app.cost.meter.emit_cost_event`, or any other shared-pool helper from
+inside `asyncio.run()` bodies. Reference implementations:
+`app/cost/aggregator.py::_do_aggregation`,
+`app/services/doc_intelligence.py::_async_*`.**
+
+Governed precedent (four instances of this class of bug to date):
+
+- **ASP-DEFECT-022** (2026-04-18, ASP-10 cost aggregator) — first
+  instance; set the playbook.
+- **ASP-DEFECT-024** (2026-04-21, ASP-04 Doc Intelligence, three sites
+  in `doc_intelligence.py`) — same class; first ASP-04 remediation.
+- **ASP-FEAT-ASP-04 v1.0 I-DOC-11 in-cycle extension** — caught
+  `_async_emit_cost` going through the shared-pool helper during AC
+  suite bring-up; fixed in same commit.
+- **ASP-DEFECT-025** (2026-04-21, ASP-05 Prediction,
+  `app/services/prediction.py`) — fourth instance; surfaced by the
+  ASP-OUT-063 loop-affinity platform audit; RESOLVED in the same
+  ASP-OUT-064 turn via the playbook.
+
+**The helper `app.cost.meter.emit_cost_event` is safe from FastAPI
+request handlers (consistent event loop, shared pool correct) but is
+UNSAFE from inside `asyncio.run()` in Celery task bodies (new loop
+per invocation collides with the shared pool).** Celery tasks that
+need to emit cost events MUST use a per-invocation engine + direct
+`INSERT INTO cost_events` SQL. Reference implementations:
+`app/services/doc_intelligence.py::_async_emit_cost` and
+`app/services/prediction.py::_async_emit_cost`.
+
+### Pre-Spec Survey Mandatory Check (added 2026-04-21, ASP-OUT-064)
+
+Every pre-spec survey for an ungoverned service must include this
+mandatory check:
+
+> **Search for `create_engine()` and `asyncio.run()` in Celery task
+> bodies. Any hit is presumed CRITICAL until verified fixed.**
+
+Surfaced grep pattern:
+
+```
+grep -rn "create_engine\|asyncio.run\|get_session\|emit_cost" \
+    app/services/<svc>/ app/api/<svc>.py
+```
+
+Every hit must be triaged via the ASP-OUT-063 audit-finding risk
+schema (CRITICAL / HIGH / MEDIUM / LOW) before the spec's gap matrix
+is finalised. If a CRITICAL finding surfaces, it must be filed as a
+new defect (same severity + disposition as ASP-DEFECT-024 /
+ASP-DEFECT-025) and scheduled as the S-1 gate of the spec cycle —
+before any other implementation item ships.
+
+Audit artefacts: `docs/audits/` (governed). Reference:
+`docs/audits/loop-affinity-audit-2026-04-21.md`.
