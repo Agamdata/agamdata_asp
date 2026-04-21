@@ -503,24 +503,66 @@ async def _async_update_job_status(
 
 
 async def _async_emit_cost(job_id: str, usage, model: str, req_dict: dict) -> None:
-    """Emit a cost_events row for this LLM call. Wrapped in try/except
-    at the Celery-task boundary per ADR-006 (I-DOC-08 bundled) — any
-    failure here MUST NOT break the response path."""
-    from app.cost.meter import calculate_cost, emit_cost_event
+    """Emit a cost_events row for this LLM call.
 
-    await emit_cost_event(
-        request_id=job_id,
-        tenant_id=req_dict["tenant_id"],
-        caller_module=req_dict["caller_module"],
-        service_type="doc_intelligence",
-        task=req_dict["task"],
-        model=model,
-        quality_tier=req_dict.get("quality_tier", "standard"),
-        input_tokens=usage.input_tokens,
-        output_tokens=usage.output_tokens,
-        cost_usd=calculate_cost(model, usage.input_tokens, usage.output_tokens),
-        latency_ms=0,
-    )
+    Wrapped in try/except at the Celery-task boundary per ADR-006 (I-DOC-08
+    bundled) — any failure here MUST NOT break the response path.
+
+    Implementation note (I-DOC-11 regression lock): writes via a
+    per-invocation `create_async_engine()` + direct INSERT rather than
+    the app-wide `app.cost.meter.emit_cost_event` helper. The helper
+    uses `app.infra.db.get_session()` whose pool is bound to the event
+    loop that first touched it — fine for the FastAPI lifespan, fatal
+    for Celery tasks that call `asyncio.run()` which creates a new loop
+    per invocation. This is the same loop-affinity discipline as the
+    other `_async_*` helpers here; keeping all DB writes off the
+    shared pool removes the class of bug at the source. Direct SQL
+    avoids the ORM bind-parameter positional-coercion pitfall
+    documented in `_async_update_job_status`.
+    """
+    from app.config import settings
+    from app.cost.meter import calculate_cost
+
+    cost_usd = calculate_cost(model, usage.input_tokens, usage.output_tokens)
+
+    engine = create_async_engine(settings.DATABASE_URL, pool_pre_ping=False)
+    try:
+        async with engine.begin() as conn:
+            await conn.execute(
+                text("""
+                    INSERT INTO cost_events
+                      (request_id, tenant_id, caller_module, caller_feature,
+                       service_type, task, model, quality_tier,
+                       input_tokens, output_tokens, cost_usd,
+                       latency_ms, status, error_message, created_at)
+                    VALUES
+                      (:req, :tenant, :caller, :cfeat,
+                       'doc_intelligence', :task, :model, :tier,
+                       :inp, :out, :cost,
+                       :lat, 'success', NULL, NOW())
+                """),
+                {
+                    # The cost_events.request_id column is UUID. Cast
+                    # upfront — Celery task job_id is already a UUID
+                    # string so this is a no-op but makes the cast
+                    # explicit.
+                    "req": uuid.UUID(job_id) if isinstance(job_id, str) else job_id,
+                    "tenant": uuid.UUID(req_dict["tenant_id"])
+                              if isinstance(req_dict["tenant_id"], str)
+                              else req_dict["tenant_id"],
+                    "caller": req_dict["caller_module"],
+                    "cfeat":  req_dict.get("caller_feature"),
+                    "task":   req_dict["task"],
+                    "model":  model,
+                    "tier":   req_dict.get("quality_tier", "standard"),
+                    "inp":    usage.input_tokens,
+                    "out":    usage.output_tokens,
+                    "cost":   cost_usd,
+                    "lat":    0,
+                },
+            )
+    finally:
+        await engine.dispose()
 
 
 async def _async_fetch_prompt(task: str, caller_module: str) -> Optional[dict]:
