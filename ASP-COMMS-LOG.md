@@ -78,9 +78,11 @@ this log — if PAP references them, we will back-populate them on request.
 | ASP-OUT-061 | Milestone 2 confirmed + MinIO OQ-5 spec amendment + demo run-book + v1.1 candidate + I-DOC-11 + I-DOC-12 + .docx green light | 2026-04-21 | **CLOSED** | 2026-04-21 (32/32 PASS; spec + governance + .docx shipped; GOVERNED per ASP-OUT-063 ruling) |
 | ASP-OUT-062 | (Architect-filed; PAP notification of ASP-FEAT-ASP-04 v1.0 GOVERNED) | 2026-04-21 | **CLOSED** | 2026-04-21 (outbound; no Dev Team action) |
 | ASP-OUT-063 | Loop-affinity platform audit directive | 2026-04-21 | **CLOSED** | 2026-04-21 (audit accepted per ASP-OUT-064; DEFECT-025 CRITICAL filed then remediated in ASP-OUT-064) |
-| ASP-OUT-064 | DEFECT-025 remediation directive + ENGINEERING-PLAYBOOK §12 Celery DB-write rule verbatim + pre-spec survey mandatory check + DEFECT-023 test-isolation fix | 2026-04-21 | **OPEN** | 2026-04-21 (DEV-IN-064 in flight — Commit A DEFECT-025 9/9 PASS + playbook update shipped; Commit B DEFECT-023 fix next) |
+| ASP-OUT-064 | DEFECT-025 remediation + §12 playbook + DEFECT-023 fix | 2026-04-21 | **CLOSED** | 2026-04-21 (both defects RESOLVED per ASP-OUT-066; 9/9 PASS + 103 passed sweep; platform clean) |
+| ASP-OUT-065 | Architect → PAP — service-naming correction for F-03-03 (ASP-12 → ASP-03) + 1-working-day accept+build commitment | 2026-04-21 | **OPEN** | 2026-04-21 (awaiting PAP-ASP-REQ-ASP-03 v3.0 filing; outbound no Dev Team action beyond prep) |
+| ASP-OUT-066 | Platform-clean acknowledgement + ASP-05 pre-spec survey (Task 1) + F-03-03 assess_test_quality prep (Task 2) — no implementation | 2026-04-21 | **OPEN** | 2026-04-21 (DEV-IN-066 in flight — Task 1 survey + Task 2 draft both shipped in this commit) |
 
-Totals as of 2026-04-21: **1 OPEN** (ASP-OUT-064), **55 CLOSED**.
+Totals as of 2026-04-21: **2 OPEN** (ASP-OUT-065, ASP-OUT-066), **56 CLOSED**.
 
 ---
 
