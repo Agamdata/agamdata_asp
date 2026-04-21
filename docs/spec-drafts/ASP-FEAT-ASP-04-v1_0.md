@@ -1026,6 +1026,46 @@ that already hits `classify_document` / `extract_document` continues
 to work. To use `extract_invoice`, callers send `task="extract_invoice"`
 with `payload={"file_key": "<upload-returned storage_path>"}`.
 
+### §8.2b Demo run-book (governed pre-demo checklist)
+
+Per ASP-OUT-061 — amends §8 with the ops-side run-book all demo
+sessions must complete BEFORE the walkthrough begins. Each item is
+verbatim from the directive.
+
+**PRE-DEMO CHECKLIST:**
+
+1. Confirm `asp-documents` bucket exists in MinIO.
+   ```bash
+   docker compose exec ai-service python -c \
+     "from app.infra import storage; storage.get_s3().head_bucket(Bucket='asp-documents')"
+   ```
+   Expected: no output (bucket reachable). On `ClientError` → create:
+   ```bash
+   docker compose exec ai-service python -c \
+     "from app.infra import storage; storage.get_s3().create_bucket(Bucket='asp-documents')"
+   ```
+   *Tracked as OQ-5 — v1.1 will auto-create this bucket on service startup.*
+
+2. Confirm celery-worker is running with `-B` flag (so the beat
+   scheduler picks up the cost-aggregator + ontology-sync jobs and
+   the doc Celery task is reachable):
+   ```bash
+   docker compose ps celery-worker
+   ```
+   Expected: `Status: Up`, command contains `celery -A app.worker worker -B`.
+
+3. Confirm migration head is **0029**:
+   ```bash
+   docker compose exec ai-service alembic current
+   ```
+   Expected: `0029 (head)`.
+
+4. Use a **text-based** PDF invoice for fastest extraction. Scanned
+   (image-only) PDFs fall through the pytesseract path which is
+   markedly slower. The primary pdfminer.six path is ~100× faster
+   than pytesseract rasterisation; demo latency budget is tighter
+   with a text-based PDF.
+
 ### §8.3 Upload-first vs direct-file-key contract
 
 Historically the three doc tasks accepted any `file_key` the caller
@@ -1570,6 +1610,7 @@ for traceability; no OQ blocks GOVERNED closure.
 | **OQ-2** | Max PDF file size limit | **DEFAULT: 10 MB** (`ASP_DOC_UPLOAD_MAX_MB=10`). The Batch 2 §6.1 text currently says 20 MB as a placeholder — **to be corrected to 10 MB in the I-DOC-05 implementation commit to match this OQ ruling.** Rate-limiter config surface unchanged. | Dev Team |
 | **OQ-3** | `documents` table retention policy — how long to keep uploaded docs | **DEFAULT: 30 days, no auto-purge in v1.0.** No reaper task yet. Rows accumulate during pilot; ops can manually `DELETE FROM documents WHERE uploaded_at < NOW() - INTERVAL '30 days'` if volume becomes a concern. A reaper-task-based retention job is a candidate for v1.1. | Dev Team / Ops |
 | **OQ-4** | Confidence indicator threshold for UI display (green / amber / red) | **DEFAULT: green > 0.8, amber 0.5 – 0.8, red < 0.5.** Encoded in `app/static/css/dashboard.css` via three classes `.conf-green`, `.conf-amber`, `.conf-red`; Jinja partial `_review_panel.html` picks the class server-side based on `field.confidence`. | Dev Team |
+| **OQ-5** | MinIO `asp-documents` bucket initialisation | **DEFAULT: manual ops-side pre-demo step in v1.0.** *`asp-documents` MinIO bucket must exist before the upload endpoint can store files. In v1.0, bucket creation is manual (ops-side). In v1.1, add auto-creation to `docker-compose.yml` MinIO init job or ai-service lifespan startup. Demo run-book must include: confirm `asp-documents` bucket exists before demo session.* Surfaced during milestone-2 live smoke (DEV-IN-060) — the bucket was absent on the pilot MinIO volume because no pre-governance consumer had exercised the upload path. | Ops / Dev Team |
 
 **One spec-text correction for I-DOC-05 implementation:** the Batch 2
 §6.1 narrative says *"Max 20 MB in v1.0 (rate-limiter-adjacent
@@ -1682,6 +1723,7 @@ No v1.1 scope committed. Candidate items:
 - Mobile-responsive layout (§3.2 v1.0 out-of-scope).
 - CSP `'unsafe-inline'` retire + nonce-based mechanism (§10.3 technical debt).
 - `documents` audit-history / versioning (§3.2 v1.0 out-of-scope).
+- **Auto-create `asp-documents` MinIO bucket on service startup** (OQ-5; surfaced DEV-IN-060). Either a MinIO `minio/mc` init sidecar in `docker-compose.yml` or an idempotent `head_bucket → create_bucket` check inside the ai-service FastAPI `lifespan` startup path. Removes the manual pre-demo step from §8.2b.
 
 ### Anticipated v2.0
 
