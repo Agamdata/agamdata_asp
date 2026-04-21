@@ -262,6 +262,77 @@ async def dashboard_upload(
         )
         return _apply_csp(resp)
 
+    # ASP-OUT-075 follow-up — server-side kickoff of classify + extract.
+    #
+    # Prior implementation relied on inline JS in _upload_panel.html to
+    # call /api/v1/ai/invoke for classify_document + extract_invoice
+    # after upload, reading the API key from `localStorage.ASP_API_KEY`.
+    # That path bails silently when the dashboard is reached via the
+    # cookie-based login flow (HttpOnly cookie → not readable by JS).
+    # Result: upload row created, no Celery jobs enqueued, dashboard
+    # stays at 'pending' forever.
+    #
+    # Fix: enqueue both jobs server-side here using the authenticated
+    # tenant from the cookie. Same code path the /api/v1/ai/invoke
+    # endpoint takes — construct an InvokeRequest, call
+    # doc_intelligence.handle(), which creates async_jobs rows and
+    # dispatches the Celery task via celery_app.send_task. Matches the
+    # existing proxy pattern for the upload itself.
+    from app.models.request import InvokeRequest, UserContext
+    from app.services import doc_intelligence as _doc_svc
+
+    common_context = UserContext(
+        user_id="dashboard", role="analyst", maturity_level="L2",
+    )
+    for task_name, model in (
+        ("classify_document", "claude-haiku-4-5-20251001"),
+        ("extract_invoice",   "claude-sonnet-4-5-20251001"),
+    ):
+        try:
+            req = InvokeRequest(
+                service_type="doc_intelligence",
+                task=task_name,
+                caller_module="dashboard",
+                tenant_id=str(tenant.id),
+                payload={"file_key": upload_resp.storage_path},
+                quality_tier="enhanced" if task_name == "extract_invoice"
+                              else "standard",
+                user_context=common_context,
+            )
+            await _doc_svc.handle(req, model=model,
+                                   request_id=f"dashboard-{upload_resp.document_id}-{task_name}")
+        except Exception as kickoff_exc:
+            log.error(
+                "asp_dashboard_job_kickoff_failed",
+                document_id=upload_resp.document_id,
+                task=task_name,
+                error=str(kickoff_exc),
+            )
+            # Non-fatal — upload succeeded; surface the failure in the
+            # rendered partial so the user sees *why* status stays at
+            # 'pending' instead of silently spinning.
+            ctx = {
+                "request": request,
+                "tenant_id": str(tenant.id),
+                "document_id": upload_resp.document_id,
+                "storage_path": upload_resp.storage_path,
+                "original_filename": upload_resp.original_filename,
+                "error": (
+                    f"Upload succeeded but {task_name} job could not be "
+                    f"enqueued: {kickoff_exc}"
+                ),
+            }
+            resp = templates.TemplateResponse(
+                "dashboard/_upload_panel.html", ctx, status_code=500,
+            )
+            return _apply_csp(resp)
+
+    log.info(
+        "asp_dashboard_upload_and_kickoff_succeeded",
+        tenant_id=str(tenant.id),
+        document_id=upload_resp.document_id,
+    )
+
     ctx = {
         "request": request,
         "tenant_id": str(tenant.id),

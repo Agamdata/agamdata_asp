@@ -1,6 +1,6 @@
 # ASP Defect Register
 
-Last updated: 2026-04-21 | Total: 23 | **Open: 0** | Mitigated: 1 | Resolved: 21 | Already Fixed: 2
+Last updated: 2026-04-22 | Total: 25 | **Open: 2** (ASP-DEFECT-026, ASP-DEFECT-027) | Mitigated: 2 | Resolved: 21 | Already Fixed: 2
 
 **Open-defect confirmation (ASP-NOTE-011 closure gate, 2026-04-20):** zero open defects as ASP-02 / ASP-12 enter GOVERNED status. AC-S7-02 in `tests/test_rag_v1.py` locks the DEFECT-022 resolution — the `monthly-cost-aggregation` beat entry cannot silently regress.
 
@@ -53,6 +53,8 @@ Last updated: 2026-04-21 | Total: 23 | **Open: 0** | Mitigated: 1 | Resolved: 21
 | ASP-DEFECT-023 | test_ac19_cost_meter_resilience fails under multi-module test ordering — test isolation gap | INTERNAL | ASP-08 / test suite | LOW | **RESOLVED** (commit TBD — asyncio.get_event_loop → asyncio.run) | ASP Dev Team | 2026-04-21 |
 | ASP-DEFECT-024 | ASP-04 doc_intelligence.py uses sync psycopg2 via create_engine — identical class of bug to DEFECT-022 | INTERNAL | ASP-04 | CRITICAL | **RESOLVED** (commit e0a1244, 9/9 stress PASS per ASP-OUT-056) | ASP Dev Team | 2026-04-21 |
 | ASP-DEFECT-025 | ASP-05 prediction.py uses sync psycopg2 via create_engine — fourth instance of DEFECT-022 class | INTERNAL | ASP-05 | CRITICAL | **RESOLVED** (commit TBD, 9/9 stress PASS per ASP-OUT-064) | ASP Dev Team | 2026-04-21 |
+| ASP-DEFECT-026 | `settings.MODEL_ENHANCED = claude-sonnet-4-5-20251001` returns HTTP 404 from live Anthropic API | INTERNAL | Config / ASP-11 Model Router | HIGH | **OPEN** — workaround active (`quality_tier='standard'` for demo); governed Sonnet model ID unavailable against the pilot API key | ASP Dev Team (demo surface) | 2026-04-22 |
+| ASP-DEFECT-027 | `app.webhook.service.fire_webhook` uses shared-pool `get_session()` — sixth instance of the DEFECT-022 loop-affinity class-of-bug | INTERNAL | Webhook Service | MEDIUM | **MITIGATED** — doc_intelligence wraps webhook call in try/except so a webhook-side loop-affinity failure no longer retroactively flips a successful extraction to 'failed'. Proper fix (per-invocation engine at the webhook layer) remains open. | ASP Dev Team (demo surface) | 2026-04-22 |
 
 ---
 
@@ -911,3 +913,84 @@ This implicitly selects the `psycopg2` driver. `psycopg2` is **not** in `require
 - 2026-04-21: Surfaced during ASP-OUT-063 loop-affinity platform audit.
 - 2026-04-21: Architect ruling per ASP-OUT-064 — apply DEFECT-022 playbook. ENGINEERING-PLAYBOOK §12 Celery task DB-write rule + pre-spec survey mandatory check added in the same commit.
 - 2026-04-21: **RESOLVED.** `app/services/prediction.py` ported to asyncpg via the DEFECT-022 playbook. Three sites fixed: `_async_update_job_status` (was `_sync_update_job_status` with psycopg2), `_async_emit_cost` (replaces shared-pool `emit_cost_event`), `_fire_webhook_async` (isolated for test patching). ADR-010 transitions (`asp_prediction_job_running` / `_completed` / `_failed`) + ADR-006 cost-emission try/except bundled. 9-invocation stress test PASS (`tests/_stress_defect025.py`). Zero psycopg2 / create_engine(sync_url) references remain in code (docstrings/comments only).
+
+---
+
+## ASP-DEFECT-026 — `MODEL_ENHANCED` unavailable from live Anthropic API
+
+- **ID:** ASP-DEFECT-026
+- **Title:** `settings.MODEL_ENHANCED = claude-sonnet-4-5-20251001` returns HTTP 404 from live Anthropic API
+- **Source:** INTERNAL (surfaced during the ASP-OUT-075 dashboard demo unblock, 2026-04-22)
+- **Domain:** Config (`app/config.py`) / ASP-11 Model Router
+- **Severity:** HIGH — every `quality_tier="enhanced"` LLM call against the pilot API fails. Affects the governed Sonnet tier across ASP-04 (extract_invoice — ASP-NOTE-013) and the forthcoming ASP-05 (all four prediction tasks — ASP-FEAT-ASP-05 v1.0 §4.2 directive).
+- **Status:** **OPEN** — workaround active; requires Architect ruling on either (a) updating the governed model identifier to a Sonnet ID the pilot API key is entitled to use, or (b) sourcing a new API key with access to `claude-sonnet-4-5-20251001`.
+- **Filed:** 2026-04-22 by ASP Dev Team
+
+**Symptom.** First live Sonnet invocation of the session (the ASP-OUT-075 dashboard demo — invoice extract for document `c9ccb391-…`) surfaced:
+
+```
+Error code: 404 - {'type': 'error', 'error':
+ {'type': 'not_found_error',
+  'message': 'model: claude-sonnet-4-5-20251001'},
+ 'request_id': 'req_011CaHRZWptkgVsv4MmG9xgR'}
+```
+
+**Why invisible until 2026-04-22.** All AC suites to date mock Anthropic's `messages.create` — the governed model ID is passed through but never actually resolved against the live API. The bug was latent.
+
+**Workaround (demo-survival, deployed 2026-04-22).** For the immediate ASP-OUT-075 dashboard demo, extract_invoice was re-kicked via `quality_tier="standard"` (Haiku — `claude-haiku-4-5-20251001`). Haiku returned a fully-governed `ExtractInvoiceOutput` shape against the real invoice (all 10 keys populated; total_amount=60000.0 INR; one line item). The workaround is **not a fix** — it inverts the §4.2 tier-upgrade directive that Sonnet is the governed choice for `extract_invoice`.
+
+**Impact on ASP-FEAT-ASP-05 v1.0 spec.** §4.2 governs `enhanced` (Sonnet) for all four prediction tasks. If the model identifier is not resolvable at apply time, the governance is vacuous. Resolution of this defect should happen before ASP-05 Batch 1 review accepts or before ASP-05 implementation starts — whichever comes first.
+
+**Proposed fix paths for Architect ruling.**
+
+1. **(A) Update `settings.MODEL_ENHANCED`** to a Sonnet identifier the pilot API key can reach (e.g. a prior Sonnet generation confirmed-available via an API probe). Update `app.cost.meter._PRICING` in lockstep. No code-level governance change; MODEL_ENHANCED is pilot-env-specific per ADR-017 (model-router externalisation).
+2. **(B) Source a new API key** with access to `claude-sonnet-4-5-20251001`. Config stays; ops swap.
+3. **(C) Dynamic fallback** — Model Router tries the governed ID, catches 404, falls back to the next-best-available. Adds a runtime probe path; more code, but model-identifier changes become an ops event rather than a config event. Candidate for v1.1.
+
+**Timeline.**
+- 2026-04-22: Surfaced during ASP-OUT-075 dashboard demo (first live Sonnet path). Filed by Dev Team in the hot-fix commit.
+- Pending: Architect ruling on the fix path.
+
+---
+
+## ASP-DEFECT-027 — `fire_webhook` shared-pool loop-affinity (sixth instance)
+
+- **ID:** ASP-DEFECT-027
+- **Title:** `app.webhook.service.fire_webhook` uses shared-pool `get_session()` — sixth instance of the DEFECT-022 loop-affinity class-of-bug
+- **Source:** INTERNAL (surfaced during the ASP-OUT-075 dashboard demo unblock, 2026-04-22)
+- **Domain:** Webhook Service (`app/webhook/service.py`) / Celery worker integration
+- **Severity:** MEDIUM — the raised exception retroactively flipped a successful doc_intelligence extraction (persisted to `documents.extracted_fields`) to `'failed'` via the Celery task's unified except clause.
+- **Status:** **MITIGATED** — doc_intelligence.py wraps the webhook call in its own try/except so webhook-side loop-affinity failure no longer corrupts the extraction-success path. Proper fix (port `fire_webhook` to per-invocation async engine per ENGINEERING-PLAYBOOK §12 Celery DB-write rule) remains OPEN.
+- **Filed:** 2026-04-22 by ASP Dev Team
+
+**Symptom.** The extract_invoice retry in the demo unblock completed the LLM call successfully, wrote `extracted_fields` JSONB, then crashed in `_fire_webhook_async`:
+
+```
+Task <Task pending name='Task-105' coro=<_fire_webhook_async() ...>>
+got Future <Future pending cb=[Protocol._on_waiter_completed()]>
+attached to a different loop
+```
+
+The async_jobs row transitioned `completed → failed` via the Celery task's unified except clause. The documents row was flipped back from `complete → failed` by the same except clause (it called `_async_update_document_failed()` on any exception in the try block).
+
+**Precedent context — sixth instance of the class.** Prior five:
+
+1. **ASP-DEFECT-022** — ASP-10 cost aggregator (2026-04-18, RESOLVED `d158221`)
+2. **ASP-DEFECT-024** — ASP-04 doc_intelligence, three sites (2026-04-21, RESOLVED `e0a1244`)
+3. **ASP-FEAT-ASP-04 v1.0 I-DOC-11 extension** — `_async_emit_cost` (2026-04-21, RESOLVED `1ccf85b`; not a separate defect ID)
+4. **ASP-OUT-063 audit finding #4** — same file, surfaced as part of the platform audit
+5. **ASP-DEFECT-025** — ASP-05 prediction.py (2026-04-21, RESOLVED `0695c38`)
+
+Each instance has been a `get_session()` / `emit_cost_event()` shared-pool call inside a Celery task body wrapped by `asyncio.run()`. The ENGINEERING-PLAYBOOK §12 Celery task DB-write rule (added under ASP-OUT-064) prohibits exactly this pattern — but pre-existing code not yet audited against the rule still carries the bug.
+
+**Why invisible until 2026-04-22.** `test_doc_intelligence_v1.py::_run_process_document` patches `_fire_webhook_async` to a no-op so the 32-AC suite never exercised the real webhook code path. The loop-affinity bug did not surface under test. First live doc_intelligence Celery job completion of the session (the ASP-OUT-075 dashboard demo) was also the first real fire.
+
+**Mitigation (deployed 2026-04-22 in the ASP-OUT-075 hot-fix commit).** `app/services/doc_intelligence.py` wraps the `asyncio.run(_fire_webhook_async(...))` call in its own try/except with an `asp_doc_webhook_delivery_failed` structlog warning. Webhook-delivery failure now logs but does NOT re-raise into the unified except clause, so the extraction-success state is preserved.
+
+This is a **resilience wrap**, not a fix. The underlying loop-affinity bug remains in `fire_webhook`. The resilience wrap is semantically correct anyway — a successful LLM extraction should not be retroactively failed because a notification-tier webhook delivery failed. Parallels the ADR-006 pattern already applied to cost emission.
+
+**Proper fix (awaiting Architect ruling).** Port `app/webhook/service.py::fire_webhook` to the governed per-invocation async engine pattern per ENGINEERING-PLAYBOOK §12 Celery task DB-write rule. Single-file change; same pattern as DEFECT-024 / DEFECT-025 remediation. Mirror the webhook wrap in ASP-05 `prediction.py::run_prediction` Celery task as well (ADR-006-style defence-in-depth).
+
+**Timeline.**
+- 2026-04-22: Surfaced during ASP-OUT-075 dashboard demo (first live doc_intelligence end-to-end run). Resilience wrap deployed same commit. Filed.
+- Pending: Architect ruling on the proper fix (is this its own remediation commit, or folded into the ASP-05 v1.0 implementation cycle alongside DEFECT-025's existing prediction.py-fire_webhook wrapping)?

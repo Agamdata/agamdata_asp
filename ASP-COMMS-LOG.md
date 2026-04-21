@@ -87,9 +87,10 @@ this log — if PAP references them, we will back-populate them on request.
 | ASP-OUT-071 | (Architect-filed; PAP notification of F-03-03 BUILT — outbound; did not reach ASP session) | 2026-04-21 | **CLOSED** | 2026-04-21 (routing gap; no Dev Team action required) |
 | ASP-OUT-072 | (Architect-filed; ASP-05 pre-spec survey directive with 8 enumerated items — did not reach ASP session) | 2026-04-21 | **CLOSED** | 2026-04-21 (routing gap; superseded by ASP-OUT-073 "proceed per ASP-OUT-072" confirmation — survey delivered via post-F-03-03 refresh of the existing 3d1bbec survey) |
 | ASP-OUT-073 | DEV-IN-070 duplicate acknowledgement + fifth routing-gap log directive + proceed per ASP-OUT-072 | 2026-04-21 | **CLOSED** | 2026-04-22 (DEV-IN-073 survey refresh accepted per ASP-OUT-074; eight ASP-OUT-072 items confirmed covered by existing §1–§12; gap 5 logged) |
-| ASP-OUT-074 | DEV-IN-073 confirmation + ASP-OUT-072 eight-item coverage map + ASP-OUT-065 closure (PAP v3.0 matched pre-prepared draft, no delta) + ASP-05 Batch 1 green light with confirmed §1–§5 scope | 2026-04-22 | **OPEN** | 2026-04-22 (DEV-IN-074 in flight — Batch 1 §1–§5 authored; DB-probe confirmed 0 prompt rows for ASP-05; 32-probe reach matrix planned for S-6) |
+| ASP-OUT-074 | DEV-IN-073 confirmation + ASP-05 Batch 1 green light | 2026-04-22 | **OPEN** | 2026-04-22 (Batch 1 §1–§5 surfaced commit dbb4e53; awaiting review) |
+| ASP-OUT-075 | URGENT dashboard login form + cookie-aware auth (demo unblock) | 2026-04-21 | **OPEN** | 2026-04-22 (login form shipped 6fe63de; server-side classify+extract kickoff + webhook-resilience wrap shipped in follow-up hot-fix — user-confirmed extraction PASS on live invoice: SADANAND DISA / 60,000 INR / 1 line item) |
 
-Totals as of 2026-04-22: **1 OPEN** (ASP-OUT-074), **64 CLOSED**.
+Totals as of 2026-04-22: **2 OPEN** (ASP-OUT-074, ASP-OUT-075), **64 CLOSED**. **2 OPEN defects** (DEFECT-026 HIGH MODEL_ENHANCED 404; DEFECT-027 MEDIUM fire_webhook loop-affinity, mitigated).
 
 ---
 

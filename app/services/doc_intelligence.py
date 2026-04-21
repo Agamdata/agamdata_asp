@@ -783,15 +783,34 @@ def register_task(celery_app):
                 output_tokens=response.usage.output_tokens,
             )
 
-            # Fire webhook
-            asyncio.run(
-                _fire_webhook_async(
-                    job_id,
-                    req_dict["tenant_id"],
-                    req_dict["caller_module"],
-                    output_dict,
+            # Fire webhook. ADR-006-style resilience: wrapped in its
+            # own try/except so a webhook delivery failure does NOT
+            # retroactively flip a successful LLM extraction (which has
+            # already persisted to async_jobs.result_json +
+            # documents.extracted_fields) to 'failed'. The webhook
+            # service still uses the app-wide shared session pool and
+            # hits the loop-affinity class-of-bug under `asyncio.run()`
+            # — resolving that at the webhook_service layer is a
+            # separate commit (ENGINEERING-PLAYBOOK §12 Celery DB-write
+            # rule extension). This wrap is the demo-survival fix;
+            # flagged in governance notes for follow-up.
+            try:
+                asyncio.run(
+                    _fire_webhook_async(
+                        job_id,
+                        req_dict["tenant_id"],
+                        req_dict["caller_module"],
+                        output_dict,
+                    )
                 )
-            )
+            except Exception as webhook_exc:
+                log.warning(
+                    "asp_doc_webhook_delivery_failed",
+                    job_id=job_id,
+                    tenant_id=req_dict.get("tenant_id"),
+                    error=str(webhook_exc),
+                    reason=webhook_exc.__class__.__name__,
+                )
 
         except Exception as exc:
             # I-DOC-01 site 1 (failure path) — async failure-status

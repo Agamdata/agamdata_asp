@@ -27,6 +27,10 @@
     <p class="subtle">Uploaded: <code>{{ original_filename }}</code></p>
     <p class="subtle">Document ID: <code>{{ document_id }}</code></p>
 
+    {# classify_document + extract_invoice jobs are kicked off
+       server-side by /dashboard/doc-intelligence/upload (ASP-OUT-075
+       follow-up) using the authenticated tenant from the cookie. The
+       browser only needs to poll for completion. #}
     <div id="classify-slot"
          hx-get="/dashboard/doc-intelligence/status/{{ document_id }}"
          hx-trigger="load, every 2s"
@@ -36,57 +40,5 @@
             <span class="spinner"></span> Classifying &amp; extracting…
         </p>
     </div>
-
-    <script>
-        // Trigger classify + extract kickoff once upload confirmed.
-        (async () => {
-            const key = window.localStorage.getItem('ASP_API_KEY');
-            if (!key) {
-                console.warn('ASP_API_KEY not set in localStorage; '
-                    + 'invoke calls will 401.');
-                return;
-            }
-            const common = {
-                tenant_id: '{{ tenant_id }}',
-                caller_module: 'dashboard',
-                payload: { file_key: '{{ storage_path }}' },
-                quality_tier: 'enhanced',
-                user_context: { user_id: 'dashboard', role: 'analyst',
-                                maturity_level: 'L2' }
-            };
-            try {
-                const classifyResp = await fetch('/api/v1/ai/invoke', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-ASP-API-Key': key,
-                    },
-                    body: JSON.stringify({
-                        service_type: 'doc_intelligence',
-                        task: 'classify_document',
-                        ...common,
-                    })
-                });
-                console.log('classify_document enqueue:',
-                            classifyResp.status);
-                const extractResp = await fetch('/api/v1/ai/invoke', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-ASP-API-Key': key,
-                    },
-                    body: JSON.stringify({
-                        service_type: 'doc_intelligence',
-                        task: 'extract_invoice',
-                        ...common,
-                    })
-                });
-                console.log('extract_invoice enqueue:',
-                            extractResp.status);
-            } catch (e) {
-                console.error('invoke kickoff error:', e);
-            }
-        })();
-    </script>
 </div>
 {% endif %}
