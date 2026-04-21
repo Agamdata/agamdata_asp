@@ -15,6 +15,8 @@ from app.cost.meter import router as cost_router
 from app.webhook.service import router as webhook_router
 from app.api.capabilities import router as capabilities_router
 from app.api.documents import router as documents_router  # I-DOC-05
+from app.api.dashboard import router as dashboard_router  # I-DOC-10
+from fastapi.staticfiles import StaticFiles
 
 configure_logging()
 log = structlog.get_logger()
@@ -40,6 +42,12 @@ app.include_router(cost_router, prefix="/api/v1/cost")
 app.include_router(webhook_router, prefix="/api/v1/webhooks")
 app.include_router(capabilities_router, prefix="/api/v1")
 app.include_router(documents_router, prefix="/api/v1")  # I-DOC-05
+app.include_router(dashboard_router)                    # I-DOC-10 — same-origin UI surface
+
+# Static assets for the dashboard (I-DOC-10). Relative to the process
+# CWD (/app at runtime); CSP style-src/script-src allows 'self' to
+# cover these paths.
+app.mount("/static", StaticFiles(directory="app/static"), name="static")
 
 # RFC 7807 global exception handler — renders problem+json envelope at top level.
 # Per ASP-FEAT-ASP-00 v1.0 §11 I-RFC7807.

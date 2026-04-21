@@ -1,5 +1,17 @@
 FROM python:3.11-slim
 WORKDIR /app
+
+# ASP-04 Doc Intelligence — I-DOC-07 (ASP-FEAT-ASP-04 v1.0 §9.4 / §13 OQ-1).
+# OCR pipeline needs both:
+#   - poppler-utils: pdftotext (primary, for text-based PDFs)
+#   - tesseract-ocr: pytesseract fallback (for scanned-image PDFs)
+# apt cache cleared in the same layer to keep image size down.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        poppler-utils \
+        tesseract-ocr \
+    && rm -rf /var/lib/apt/lists/*
+
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 

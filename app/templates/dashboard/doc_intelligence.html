@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block title %}Doc Intelligence — ASP Dashboard{% endblock %}
+
+{% block content %}
+<div class="doc-intel-page">
+    <h2>Invoice Intelligence</h2>
+    <p class="subtle">Upload an invoice PDF → classify → extract → review.</p>
+
+    <section id="upload-slot" class="panel">
+        {% include "dashboard/_upload_panel.html" %}
+    </section>
+
+    <section id="review-slot" class="panel two-panel" style="display:none;">
+        {# Populated by HTMX swap once extraction_status=='complete'. #}
+    </section>
+</div>
+
+{# Inline config sink for the dashboard. Per §7.5 the X-ASP-API-Key is
+   read from localStorage on each HTMX request. CSP style-src
+   'unsafe-inline' is the v2.0 debt item per §10.3. #}
+<script>
+  document.body.addEventListener('htmx:configRequest', (evt) => {
+    const key = window.localStorage.getItem('ASP_API_KEY');
+    if (key) {
+      evt.detail.headers['X-ASP-API-Key'] = key;
+    }
+  });
+</script>
+<script src="/static/js/doc_review.js"></script>
+{% endblock %}

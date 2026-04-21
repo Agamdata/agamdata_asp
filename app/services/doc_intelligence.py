@@ -37,6 +37,7 @@ worker state per ADR-010 (§7.6 of the spec draft).
 import asyncio
 import io
 import json
+import re
 import time
 import uuid
 from datetime import datetime, timezone
@@ -63,12 +64,30 @@ from app.schemas.doc_intelligence_schemas import (
 
 log = structlog.get_logger()
 
-VALID_TASKS = {"extract_document", "classify_document"}
+# I-DOC-07 (ASP-FEAT-ASP-04 v1.0 §11) — extract_invoice joins the
+# task set. VALID_TASKS is the single source of truth aggregated into
+# SERVICE_CAPABILITIES ("doc_intelligence") at capabilities-router
+# import time (app/api/capabilities.py).
+VALID_TASKS = {"extract_document", "classify_document", "extract_invoice"}
 
 
 TASK_OUTPUT_SCHEMAS = {
     "extract_document": ExtractDocumentOutput,
     "classify_document": ClassifyDocumentOutput,
+    "extract_invoice": ExtractInvoiceOutput,   # I-DOC-07
+}
+
+
+# ──────────────────────────────────────────────────────────────────────
+# Per-task max_tokens budget (ASP-FEAT-ASP-04 v1.0 §9.6).
+# extract_invoice needs 4096 for multi-line-item invoices per OQ-3
+# ruling (ASP-OUT-054 Q-3 governed).
+# ──────────────────────────────────────────────────────────────────────
+
+TASK_MAX_TOKENS = {
+    "classify_document": 256,
+    "extract_document": 2048,
+    "extract_invoice":  4096,
 }
 
 
@@ -137,7 +156,13 @@ def _get_celery_app():
 
 
 def _extract_text(file_bytes: bytes, filename: str = "") -> tuple[str, int]:
-    """Extract text from PDF or DOCX. Returns (text, page_count)."""
+    """Extract text from PDF or DOCX. Returns (text, page_count).
+
+    DOCX path unchanged. PDF path delegates to `_ocr_pdf` which
+    implements the ASP-FEAT-ASP-04 v1.0 §9.4 governed OCR pipeline
+    (pdftotext → pytesseract fallback). Non-PDF non-DOCX inputs are
+    decoded as UTF-8 with replacement.
+    """
     if filename.lower().endswith(".docx") or file_bytes[:4] == b"PK\x03\x04":
         try:
             import docx
@@ -147,16 +172,251 @@ def _extract_text(file_bytes: bytes, filename: str = "") -> tuple[str, int]:
         except Exception:
             pass
 
-    # Default: treat as PDF
+    if file_bytes[:4] == b"%PDF":
+        return _ocr_pdf(file_bytes)
+
+    # Plain-text fallback
     try:
-        from pdfminer.high_level import extract_text as pdf_extract_text
-        text = pdf_extract_text(io.BytesIO(file_bytes))
-        # Estimate pages by form feed characters
-        page_count = max(1, text.count("\x0c") + 1)
-        return text, page_count
+        return file_bytes.decode("utf-8", errors="replace"), 1
     except Exception as e:
         log.warning("text_extraction_failed", error=str(e))
-        return file_bytes.decode("utf-8", errors="replace"), 1
+        return "", 1
+
+
+def _ocr_pdf(file_bytes: bytes) -> tuple[str, int]:
+    """OCR pipeline per ASP-FEAT-ASP-04 v1.0 §9.4 (I-DOC-07).
+
+    1. Try pdfminer.six extract_text (covers text-based PDFs;
+       equivalent semantic layer to pdftotext, in-process, no
+       subprocess overhead).
+    2. If result is empty or near-empty, fall back to pytesseract
+       (scanned-image PDFs — rasterise via pdf2image, OCR each page).
+    3. Return (text, page_count). Empty-OCR is the caller's
+       responsibility to handle as a failed job per §8.4.
+    4. 50K char tail-truncation happens in the worker AFTER this
+       call — keeps this function's contract simple.
+    """
+    text = ""
+    page_count = 1
+
+    # Stage 1: pdfminer.six (pdftotext-equivalent; no subprocess)
+    try:
+        from pdfminer.high_level import extract_text as pdf_extract_text
+        text = pdf_extract_text(io.BytesIO(file_bytes)) or ""
+        # Estimate pages by form feed characters (pdfminer inserts \x0c
+        # between pages).
+        page_count = max(1, text.count("\x0c") + 1)
+    except Exception as e:
+        log.warning("asp_doc_ocr_pdfminer_failed", error=str(e))
+        text = ""
+
+    # Stage 2: pytesseract fallback if stage 1 returned near-empty
+    # (less than 30 non-whitespace chars → likely a scanned image).
+    if len(text.strip()) < 30:
+        try:
+            import pytesseract
+            from pdf2image import convert_from_bytes
+            pages = convert_from_bytes(file_bytes, dpi=200)
+            page_count = max(page_count, len(pages))
+            ocr_chunks = []
+            for idx, page_img in enumerate(pages):
+                try:
+                    ocr_chunks.append(pytesseract.image_to_string(page_img))
+                except Exception as pe:
+                    log.warning(
+                        "asp_doc_ocr_pytesseract_page_failed",
+                        page_index=idx, error=str(pe),
+                    )
+            fallback_text = "\n\x0c".join(ocr_chunks)
+            if len(fallback_text.strip()) > len(text.strip()):
+                log.info(
+                    "asp_doc_ocr_fallback_applied",
+                    primary_chars=len(text.strip()),
+                    fallback_chars=len(fallback_text.strip()),
+                )
+                text = fallback_text
+        except ImportError as ie:
+            # pytesseract / pdf2image not installed; primary path
+            # result (possibly empty) returned as-is. Ops should see
+            # the pdfminer_failed warn above.
+            log.warning(
+                "asp_doc_ocr_fallback_unavailable", error=str(ie),
+            )
+        except Exception as e:
+            log.warning("asp_doc_ocr_pytesseract_failed", error=str(e))
+
+    return text, page_count
+
+
+def _truncate_tail(text: str, max_chars: int = 50_000) -> str:
+    """§9.4 tail-truncation — keep the tail because invoice totals
+    are usually at the end. Returns the last `max_chars` characters
+    if `len(text) > max_chars`, else the original text.
+    """
+    if len(text) <= max_chars:
+        return text
+    log.warning(
+        "asp_doc_ocr_truncated",
+        original_length=len(text),
+        kept_length=max_chars,
+        mode="tail",
+    )
+    return text[-max_chars:]
+
+
+# ──────────────────────────────────────────────────────────────────────
+# I-DOC-06 — documents-registry async helpers
+# ──────────────────────────────────────────────────────────────────────
+
+_FILE_KEY_RE = re.compile(
+    r"^(?P<tenant_id>[^/]+)/(?P<document_id>[^/]+)\.pdf$"
+)
+
+
+def _document_id_from_file_key(file_key: str) -> Optional[str]:
+    """Parse `{tenant_id}/{document_id}.pdf` → document_id UUID str.
+    Returns None if the format doesn't match — legacy direct-file-key
+    path (DEPRECATED §8.3) may not follow the UUID-suffix convention."""
+    m = _FILE_KEY_RE.match(file_key)
+    return m.group("document_id") if m else None
+
+
+async def _async_resolve_asyncjob_id(job_id_str: str) -> Optional[str]:
+    """Return the UUID `async_jobs.id` for a given VARCHAR `job_id`
+    string. documents.extraction_job_id FK targets the UUID PK, not
+    the string identifier."""
+    from app.config import settings
+    engine = create_async_engine(settings.DATABASE_URL, pool_pre_ping=False)
+    try:
+        async with engine.connect() as conn:
+            row = (
+                await conn.execute(
+                    text("SELECT id FROM async_jobs WHERE job_id = :j"),
+                    {"j": job_id_str},
+                )
+            ).mappings().one_or_none()
+    finally:
+        await engine.dispose()
+    return str(row["id"]) if row else None
+
+
+async def _async_update_document_classify(
+    document_id: str,
+    document_type: Optional[str],
+    confidence: Optional[float],
+    extraction_job_uuid: Optional[str],
+) -> None:
+    """I-DOC-06 — update documents row on classify completion.
+
+    Sets document_type + classification_confidence; links
+    extraction_job_id to the async_jobs.id UUID; transitions status
+    'pending' / 'classifying' → 'classifying' (left in-flight per
+    the demo flow — extract_invoice moves it to 'extracting' →
+    'complete'). No status override if the row is already at a
+    terminal state ('complete' / 'failed').
+    """
+    from app.config import settings
+    engine = create_async_engine(settings.DATABASE_URL, pool_pre_ping=False)
+    try:
+        async with engine.begin() as conn:
+            await conn.execute(
+                text("""
+                    UPDATE documents
+                    SET document_type             = :document_type,
+                        classification_confidence = :confidence,
+                        extraction_job_id         = :job_uuid,
+                        extraction_status         = CASE
+                            WHEN extraction_status IN ('complete','failed')
+                                 THEN extraction_status
+                            ELSE 'classifying'
+                        END,
+                        updated_at                = NOW()
+                    WHERE id = :document_id
+                """),
+                {
+                    "document_id": document_id,
+                    "document_type": document_type,
+                    "confidence": confidence,
+                    "job_uuid": extraction_job_uuid,
+                },
+            )
+    finally:
+        await engine.dispose()
+
+
+async def _async_update_document_extract_start(
+    document_id: str,
+    extraction_job_uuid: Optional[str],
+) -> None:
+    """I-DOC-07 — transition documents row to 'extracting' at the start
+    of an extract_invoice job. Links extraction_job_id if provided."""
+    from app.config import settings
+    engine = create_async_engine(settings.DATABASE_URL, pool_pre_ping=False)
+    try:
+        async with engine.begin() as conn:
+            await conn.execute(
+                text("""
+                    UPDATE documents
+                    SET extraction_status = 'extracting',
+                        extraction_job_id = COALESCE(:job_uuid, extraction_job_id),
+                        updated_at        = NOW()
+                    WHERE id = :document_id
+                      AND extraction_status NOT IN ('complete','failed')
+                """),
+                {"document_id": document_id, "job_uuid": extraction_job_uuid},
+            )
+    finally:
+        await engine.dispose()
+
+
+async def _async_update_document_extract_complete(
+    document_id: str,
+    extracted_fields: dict,
+) -> None:
+    """I-DOC-07 — transition documents row to 'complete' with the
+    extracted_fields JSONB populated. Terminal state."""
+    from app.config import settings
+    engine = create_async_engine(settings.DATABASE_URL, pool_pre_ping=False)
+    try:
+        async with engine.begin() as conn:
+            await conn.execute(
+                text("""
+                    UPDATE documents
+                    SET extraction_status = 'complete',
+                        extracted_fields  = CAST(:fields AS JSONB),
+                        updated_at        = NOW()
+                    WHERE id = :document_id
+                """),
+                {
+                    "document_id": document_id,
+                    "fields": json.dumps(extracted_fields),
+                },
+            )
+    finally:
+        await engine.dispose()
+
+
+async def _async_update_document_failed(
+    document_id: str,
+) -> None:
+    """Transition documents row to 'failed' on worker exception. No
+    error text persisted to documents.extracted_fields — async_jobs
+    carries error_message for audit."""
+    from app.config import settings
+    engine = create_async_engine(settings.DATABASE_URL, pool_pre_ping=False)
+    try:
+        async with engine.begin() as conn:
+            await conn.execute(
+                text("""
+                    UPDATE documents
+                    SET extraction_status = 'failed',
+                        updated_at        = NOW()
+                    WHERE id = :document_id
+                """),
+                {"document_id": document_id},
+            )
+    finally:
+        await engine.dispose()
 
 
 # ──────────────────────────────────────────────────────────────────────
@@ -328,9 +588,58 @@ def register_task(celery_app):
 
             file_key = req_dict["payload"]["file_key"]
             file_bytes = storage.download(file_key)
-            text_content, page_count = _extract_text(file_bytes, file_key)
 
             task = req_dict["task"]
+
+            # I-DOC-06 (ASP-FEAT-ASP-04 v1.0 §8.1) — tracked-document
+            # flow. Parse document_id from the tenant-prefixed
+            # file_key so subsequent state transitions target the
+            # governed `documents` row. Legacy direct-file-key
+            # (DEPRECATED §8.3) returns None here; we log + proceed
+            # without documents-registry updates so the LogiCRM
+            # backward-compatibility contract holds.
+            document_id = _document_id_from_file_key(file_key)
+            if document_id is None:
+                log.warning(
+                    "asp_doc_direct_file_key_used",
+                    tenant_id=req_dict.get("tenant_id"),
+                    caller_module=req_dict.get("caller_module"),
+                    job_id=job_id,
+                    task=task,
+                    file_key_format_mismatch=True,
+                    deprecation="v2.0 (per §8.3)",
+                )
+
+            # Resolve the async_jobs.id UUID for the FK on
+            # documents.extraction_job_id.
+            extraction_job_uuid = asyncio.run(
+                _async_resolve_asyncjob_id(job_id)
+            )
+
+            # I-DOC-07 — OCR pipeline for extract_invoice; generic
+            # text extraction for the other two tasks preserves
+            # backward compatibility.
+            if task == "extract_invoice":
+                # Transition: classifying (or pending) → extracting
+                if document_id is not None:
+                    asyncio.run(_async_update_document_extract_start(
+                        document_id, extraction_job_uuid
+                    ))
+                text_content, page_count = _ocr_pdf(file_bytes)
+                text_content = _truncate_tail(text_content, 50_000)
+                if not text_content.strip():
+                    # §9.4 empty-OCR → job-status-failed with
+                    # governed reason. No LLM call made.
+                    log.error(
+                        "asp_doc_ocr_empty",
+                        tenant_id=req_dict.get("tenant_id"),
+                        job_id=job_id,
+                        document_id=document_id,
+                        reason="ocr_empty",
+                    )
+                    raise RuntimeError("ocr_empty")
+            else:
+                text_content, page_count = _extract_text(file_bytes, file_key)
 
             # I-DOC-01 site 3 — async prompt fetch (was sync psycopg2)
             prompt = asyncio.run(_async_fetch_prompt(task, req_dict["caller_module"]))
@@ -338,11 +647,19 @@ def register_task(celery_app):
                 prompt["system_prompt"] if prompt
                 else f"Extract information from this document. Return JSON."
             )
-            user_msg = f"Extract from this document:\n{text_content[:8000]}"
 
+            # extract_invoice user prompt is the governed minimal
+            # {document_text} passthrough (§9.3); other tasks keep
+            # the legacy format.
+            if task == "extract_invoice":
+                user_msg = text_content
+            else:
+                user_msg = f"Extract from this document:\n{text_content[:8000]}"
+
+            max_tokens = TASK_MAX_TOKENS.get(task, 4096)
             response = client.messages.create(
                 model=model,
-                max_tokens=4096,
+                max_tokens=max_tokens,
                 system=system_prompt,
                 messages=[{"role": "user", "content": user_msg}],
             )
@@ -357,10 +674,45 @@ def register_task(celery_app):
             else:
                 output_dict = {"raw": raw}
 
-            # I-DOC-01 site 1 — async job-status update (was sync psycopg2)
+            # I-DOC-01 site 1 — async job-status update
             asyncio.run(
                 _async_update_job_status(job_id, "completed", output_dict)
             )
+
+            # I-DOC-06 / I-DOC-07 — document registry transitions
+            # based on task. classify_document updates type +
+            # confidence + status=classifying (or preserves terminal).
+            # extract_invoice writes extracted_fields + status=complete.
+            if document_id is not None:
+                if task == "classify_document":
+                    try:
+                        asyncio.run(_async_update_document_classify(
+                            document_id=document_id,
+                            document_type=output_dict.get("doc_type"),
+                            confidence=output_dict.get("confidence"),
+                            extraction_job_uuid=extraction_job_uuid,
+                        ))
+                    except Exception as doc_exc:
+                        log.warning(
+                            "asp_doc_registry_update_failed",
+                            job_id=job_id, document_id=document_id,
+                            task=task, error=str(doc_exc),
+                        )
+                elif task == "extract_invoice":
+                    try:
+                        asyncio.run(_async_update_document_extract_complete(
+                            document_id=document_id,
+                            extracted_fields=output_dict,
+                        ))
+                    except Exception as doc_exc:
+                        log.warning(
+                            "asp_doc_registry_update_failed",
+                            job_id=job_id, document_id=document_id,
+                            task=task, error=str(doc_exc),
+                        )
+                # extract_document does NOT touch documents — it is
+                # the legacy generic-extraction task with no registry
+                # contract.
 
             # I-DOC-08 — ADR-006 cost-emission resilience. Wrap in
             # try/except so a cost-meter failure does not re-raise
@@ -401,7 +753,7 @@ def register_task(celery_app):
 
         except Exception as exc:
             # I-DOC-01 site 1 (failure path) — async failure-status
-            # update (was sync psycopg2 via the same helper).
+            # update on async_jobs.
             try:
                 asyncio.run(_async_update_job_status(job_id, "failed", error=str(exc)))
             except Exception as status_exc:
@@ -412,6 +764,19 @@ def register_task(celery_app):
                     job_id=job_id,
                     primary_error=str(exc),
                     status_update_error=str(status_exc),
+                )
+
+            # I-DOC-06 / I-DOC-07 — documents row failure transition
+            # (best-effort; never swallows the primary error).
+            try:
+                file_key_for_fail = req_dict.get("payload", {}).get("file_key", "")
+                failure_doc_id = _document_id_from_file_key(file_key_for_fail)
+                if failure_doc_id is not None:
+                    asyncio.run(_async_update_document_failed(failure_doc_id))
+            except Exception as doc_fail_exc:
+                log.warning(
+                    "asp_doc_registry_failed_update_failed",
+                    job_id=job_id, error=str(doc_fail_exc),
                 )
 
             # I-DOC-09 — structlog `failed` transition.

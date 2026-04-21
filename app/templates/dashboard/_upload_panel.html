@@ -1,0 +1,92 @@
+<form id="upload-form"
+      hx-post="/dashboard/doc-intelligence/upload"
+      hx-encoding="multipart/form-data"
+      hx-target="#upload-slot"
+      hx-swap="innerHTML">
+    <label for="upload-file">Upload invoice PDF:</label>
+    <input type="file" id="upload-file" name="file" accept="application/pdf" required>
+
+    <label for="upload-hint">Document type (optional):</label>
+    <select id="upload-hint" name="document_type_hint">
+        <option value="">(auto-detect)</option>
+        <option value="invoice" selected>Invoice</option>
+        <option value="receipt">Receipt</option>
+        <option value="contract">Contract</option>
+        <option value="other">Other</option>
+    </select>
+
+    <button type="submit">Upload &amp; Extract</button>
+</form>
+
+{% if error %}
+    <p class="error">{{ error }}</p>
+{% endif %}
+
+{% if document_id %}
+<div id="upload-success">
+    <p class="subtle">Uploaded: <code>{{ original_filename }}</code></p>
+    <p class="subtle">Document ID: <code>{{ document_id }}</code></p>
+
+    <div id="classify-slot"
+         hx-get="/dashboard/doc-intelligence/status/{{ document_id }}"
+         hx-trigger="load, every 2s"
+         hx-swap="outerHTML"
+         hx-target="this">
+        <p class="subtle">
+            <span class="spinner"></span> Classifying &amp; extracting…
+        </p>
+    </div>
+
+    <script>
+        // Trigger classify + extract kickoff once upload confirmed.
+        (async () => {
+            const key = window.localStorage.getItem('ASP_API_KEY');
+            if (!key) {
+                console.warn('ASP_API_KEY not set in localStorage; '
+                    + 'invoke calls will 401.');
+                return;
+            }
+            const common = {
+                tenant_id: '{{ tenant_id }}',
+                caller_module: 'dashboard',
+                payload: { file_key: '{{ storage_path }}' },
+                quality_tier: 'enhanced',
+                user_context: { user_id: 'dashboard', role: 'analyst',
+                                maturity_level: 'L2' }
+            };
+            try {
+                const classifyResp = await fetch('/api/v1/ai/invoke', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-ASP-API-Key': key,
+                    },
+                    body: JSON.stringify({
+                        service_type: 'doc_intelligence',
+                        task: 'classify_document',
+                        ...common,
+                    })
+                });
+                console.log('classify_document enqueue:',
+                            classifyResp.status);
+                const extractResp = await fetch('/api/v1/ai/invoke', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-ASP-API-Key': key,
+                    },
+                    body: JSON.stringify({
+                        service_type: 'doc_intelligence',
+                        task: 'extract_invoice',
+                        ...common,
+                    })
+                });
+                console.log('extract_invoice enqueue:',
+                            extractResp.status);
+            } catch (e) {
+                console.error('invoke kickoff error:', e);
+            }
+        })();
+    </script>
+</div>
+{% endif %}

@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{% block title %}ASP Dashboard{% endblock %}</title>
+
+    {# HTMX + pdf.js loaded from governed CDN hosts per ASP-FEAT-ASP-04 v1.0 §10.3 CSP. Pinned versions. #}
+    <script src="https://unpkg.com/htmx.org@1.9.10" crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js" crossorigin="anonymous"></script>
+
+    <link rel="stylesheet" href="/static/css/dashboard.css">
+</head>
+<body>
+    <header class="asp-header">
+        <h1>ASP Dashboard</h1>
+    </header>
+
+    <main>
+        {% block content %}{% endblock %}
+    </main>
+
+    <footer class="asp-footer">
+        <span>ASP-FEAT-ASP-04 v1.0 — Doc Intelligence Panel</span>
+    </footer>
+</body>
+</html>

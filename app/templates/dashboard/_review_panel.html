@@ -1,0 +1,97 @@
+{# Two-panel review layout per ASP-FEAT-ASP-04 v1.0 §8.1 + §11 I-DOC-10.
+   Left 60% = pdf.js canvas. Right 40% = extracted fields + classification
+   badge + confidence indicators. Polled in by HTMX when
+   extraction_status='complete'. #}
+
+<div class="review-top">
+    {% if document_type %}
+    <span class="classify-badge conf-{{ confidence_class }}">
+        {{ document_type|title }} — {{ (classification_confidence * 100)|round }}%
+    </span>
+    {% endif %}
+    <span class="subtle">Document ID: <code>{{ document_id }}</code></span>
+</div>
+
+<div class="review-columns">
+    <div class="pdf-panel">
+        <canvas id="pdf-canvas" data-pdf-url="/dashboard/doc-intelligence/pdf/{{ document_id }}"></canvas>
+    </div>
+
+    <div class="fields-panel">
+        <h3>Extracted fields</h3>
+        {% set fields = extracted_fields or {} %}
+        <dl class="fields-list">
+            {% for key in ['vendor','invoice_number','invoice_date','due_date','currency','payment_terms'] %}
+            <dt>{{ key|replace('_',' ')|title }}</dt>
+            <dd>
+                {% if fields.get(key) %}
+                    <span>{{ fields[key] }}</span>
+                {% else %}
+                    <span class="muted">Not found</span>
+                {% endif %}
+                <span class="conf-dot conf-{{ confidence_class }}" title="Classification confidence (per-field extraction confidence is not separately scored in v1.0)"></span>
+            </dd>
+            {% endfor %}
+        </dl>
+
+        <h4>Totals</h4>
+        <dl class="fields-list">
+            {% for key in ['subtotal','tax_amount','total_amount'] %}
+            <dt>{{ key|replace('_',' ')|title }}</dt>
+            <dd>
+                {% if fields.get(key) is not none %}
+                    <span>{{ '%.2f'|format(fields[key]) }}</span>
+                {% else %}
+                    <span class="muted">Not found</span>
+                {% endif %}
+            </dd>
+            {% endfor %}
+        </dl>
+
+        {% if fields.get('line_items') %}
+        <h4>Line items</h4>
+        <table class="line-items">
+            <thead>
+                <tr><th>Description</th><th>Qty</th><th>Unit price</th><th>Amount</th></tr>
+            </thead>
+            <tbody>
+            {% for item in fields['line_items'] %}
+                <tr>
+                    <td>{{ item.description }}</td>
+                    <td>{% if item.quantity is not none %}{{ '%g'|format(item.quantity) }}{% else %}—{% endif %}</td>
+                    <td>{% if item.unit_price is not none %}{{ '%.2f'|format(item.unit_price) }}{% else %}—{% endif %}</td>
+                    <td>{% if item.amount is not none %}{{ '%.2f'|format(item.amount) }}{% else %}—{% endif %}</td>
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+        {% endif %}
+    </div>
+</div>
+
+<script>
+    // Kick off pdf.js render for the canvas above.
+    (function renderPdf() {
+        const canvas = document.getElementById('pdf-canvas');
+        if (!canvas || !window.pdfjsLib) return;
+        const url = canvas.getAttribute('data-pdf-url');
+        const key = window.localStorage.getItem('ASP_API_KEY');
+        pdfjsLib.GlobalWorkerOptions.workerSrc =
+            'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+        const loadingTask = pdfjsLib.getDocument({
+            url: url,
+            httpHeaders: key ? { 'X-ASP-API-Key': key } : {},
+        });
+        loadingTask.promise.then((pdf) => {
+            pdf.getPage(1).then((page) => {
+                const vp = page.getViewport({ scale: 1.1 });
+                canvas.width = vp.width;
+                canvas.height = vp.height;
+                const ctx = canvas.getContext('2d');
+                page.render({ canvasContext: ctx, viewport: vp });
+            });
+        }).catch((e) => {
+            console.error('pdf.js load error:', e);
+        });
+    })();
+</script>

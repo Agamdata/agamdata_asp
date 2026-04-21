@@ -2,6 +2,12 @@ fastapi==0.115.0
 # python-multipart required by FastAPI's File/Form parsing
 # (ASP-FEAT-ASP-04 v1.0 §6.1 multipart upload endpoint, I-DOC-05).
 python-multipart==0.0.9
+# pytesseract — OCR fallback for scanned-image PDFs (ASP-FEAT-ASP-04
+# v1.0 §9.4 / I-DOC-07). Requires tesseract-ocr apt binary (in
+# Dockerfile). Primary OCR path is pdftotext via pdfminer.six (for
+# text-based PDFs) which is already installed; pytesseract only
+# activates on empty-text fallback.
+pytesseract==0.3.10
 uvicorn[standard]==0.30.6
 pydantic==2.8.2
 pydantic-settings==2.4.0
