@@ -1,6 +1,6 @@
 # ASP Defect Register
 
-Last updated: 2026-04-21 | Total: 22 | **Open: 1** (ASP-DEFECT-023) | Mitigated: 1 | Resolved: 19 | Already Fixed: 2
+Last updated: 2026-04-21 | Total: 23 | **Open: 2** (ASP-DEFECT-023, ASP-DEFECT-025) | Mitigated: 1 | Resolved: 19 | Already Fixed: 2
 
 **Open-defect confirmation (ASP-NOTE-011 closure gate, 2026-04-20):** zero open defects as ASP-02 / ASP-12 enter GOVERNED status. AC-S7-02 in `tests/test_rag_v1.py` locks the DEFECT-022 resolution — the `monthly-cost-aggregation` beat entry cannot silently regress.
 
@@ -52,6 +52,7 @@ Last updated: 2026-04-21 | Total: 22 | **Open: 1** (ASP-DEFECT-023) | Mitigated:
 | ASP-DEFECT-022 | cost aggregator fails with No module named psycopg2 | INTERNAL | ASP-10 | HIGH | RESOLVED | ASP Dev Team | 2026-04-18 |
 | ASP-DEFECT-023 | test_ac19_cost_meter_resilience fails under multi-module test ordering — test isolation gap | INTERNAL | ASP-08 / test suite | LOW | **OPEN** | ASP Dev Team | 2026-04-21 |
 | ASP-DEFECT-024 | ASP-04 doc_intelligence.py uses sync psycopg2 via create_engine — identical class of bug to DEFECT-022 | INTERNAL | ASP-04 | CRITICAL | **RESOLVED** (commit e0a1244, 9/9 stress PASS per ASP-OUT-056) | ASP Dev Team | 2026-04-21 |
+| ASP-DEFECT-025 | ASP-05 prediction.py uses sync psycopg2 via create_engine — fourth instance of DEFECT-022 class | INTERNAL | ASP-05 | **CRITICAL** | **OPEN** — surfaced by ASP-OUT-063 loop-affinity platform audit | ASP Dev Team | 2026-04-21 |
 
 ---
 
@@ -868,3 +869,44 @@ This implicitly selects the `psycopg2` driver. `psycopg2` is **not** in `require
 - 2026-04-21: Architect-filed per ASP-OUT-042.
 - 2026-04-21: Scheduled in ASP-FEAT-ASP-04 v1.0 Stream A / S-1, BEFORE any other implementation work in the spec cycle per Architect directive.
 - 2026-04-21: **RESOLVED.** Commit `e0a1244` (I-DOC-01) ported all three sync sites to asyncpg via the DEFECT-022 playbook (per-invocation `create_async_engine` + `engine.dispose()`). 9-invocation stress test PASS (AC-DOC-S1-01 verbatim evidence embedded in the commit message). ADR-006 cost-emission `try/except` (I-DOC-08) and ADR-010 five-event structlog transition catalogue (I-DOC-09) bundled into the same touch. Closed per ASP-OUT-056 ruling; closure note filed in the ASP-FEAT-ASP-04 v1.0 IMPL-LOG.
+
+---
+
+## ASP-DEFECT-025 — ASP-05 Prediction sync psycopg2 latent bug (DEFECT-022 class, fourth instance)
+
+- **ID:** ASP-DEFECT-025
+- **Title:** `app/services/prediction.py` uses sync `psycopg2` via `sqlalchemy.create_engine` — fourth instance of the DEFECT-022 class of bug
+- **Source:** INTERNAL (surfaced by ASP Dev Team during the ASP-OUT-063 loop-affinity platform audit)
+- **Domain:** ASP-05 Prediction
+- **Severity:** **CRITICAL** — every ASP-05 Celery task that writes to Postgres is affected. The task has never succeeded end-to-end in the pilot environment.
+- **Status:** **OPEN** — awaiting Architect remediation ruling (expected: asyncpg port + 9-invocation stress test, same as DEFECT-022 / DEFECT-024).
+- **Filed:** 2026-04-21 by ASP Dev Team
+- **Reporter:** ASP Dev Team (loop-affinity platform audit, ASP-OUT-063)
+
+**Symptom.** `app/services/prediction.py` lines 74–106 define `_sync_update_job_status` exactly parallel to the pre-I-DOC-01 doc_intelligence implementation: regex-strips `+asyncpg` from `settings.DATABASE_URL`, constructs a SQLAlchemy engine via `create_engine(sync_url)`, selects the psycopg2 driver implicitly. `psycopg2` is **not** in `requirements.txt`. The Celery worker image raises `ModuleNotFoundError: No module named 'psycopg2'` on the first state transition write.
+
+**Affected sites in `app/services/prediction.py`:**
+
+1. `_sync_update_job_status` (lines 74–106) — writes `async_jobs` status transitions.
+2. `run_prediction` Celery task (lines 109–171) calls `_sync_update_job_status` at three transitions (`running`, `completed`, `failed`).
+3. `asyncio.run(_emit_and_webhook())` (lines 146–165) — calls `emit_cost_event` which uses the shared `get_session()` pool. Same loop-affinity bug that was fixed in `_async_emit_cost` during I-DOC-11 (commit `1ccf85b`). In production, `cost_events` rows for ASP-05 prediction calls are never written (cost-meter's own try/except per ADR-006 swallows silently).
+
+**Root cause.** Identical to DEFECT-022 / DEFECT-024. The prediction module pre-dates the DEFECT-022 remediation discipline and was never audited for the same class of bug until ASP-OUT-063.
+
+**Why it was invisible.** No ASP-05 integration test exists in the repo. No consumer has driven the ASP-05 Celery task end-to-end in the pilot environment. The enqueue path works; the worker path has never completed.
+
+**Fix (pending Architect ruling).** Apply the DEFECT-022 playbook (same as DEFECT-024 fix in commit `e0a1244`):
+
+- Replace `_sync_update_job_status` with an async `_async_update_job_status` implementation; wrap with `asyncio.run(...)` at the Celery task boundary. Per-invocation `create_async_engine` + `engine.dispose()`.
+- Split the SQL into terminal-state + non-terminal-state branches to sidestep the asyncpg `AmbiguousParameterError` documented in `doc_intelligence._async_update_job_status`.
+- Replace the `asyncio.run(_emit_and_webhook())` body's `emit_cost_event` call with a direct `INSERT INTO cost_events` via a per-invocation engine — same pattern as `doc_intelligence._async_emit_cost` (fixed in `1ccf85b`).
+- Webhook dispatch (`fire_webhook`) may remain as-is if it doesn't touch the DB; otherwise apply the same discipline.
+
+**Verification contract** (mirrors DEFECT-022 / DEFECT-024 closure): 9 successive Celery invocations of `run_prediction` (mixed tasks: churn_prediction, revenue_forecast, anomaly_detection, lead_scoring) must reach `status='completed'`, with 9 rows persisted in `cost_events`.
+
+**Atrium relevance.** **AVOID.** This is now the fourth instance of the same class of bug across the platform. The ASP-OUT-063 audit report (`docs/audits/loop-affinity-audit-2026-04-21.md`) includes a recommendation to extend `ENGINEERING-PLAYBOOK.md` §12 with an explicit "Celery task DB-write rule" subsection codifying the governed pattern + prohibiting direct use of the shared-pool `emit_cost_event` / `get_session` helpers from inside `asyncio.run()` bodies.
+
+**Timeline.**
+
+- 2026-04-21: Surfaced during ASP-OUT-063 loop-affinity platform audit.
+- Pending: Architect remediation ruling. Recommended as the S-1 gate of the next ASP-05 governance cycle (mirrors DEFECT-024's handling in the ASP-04 cycle).
