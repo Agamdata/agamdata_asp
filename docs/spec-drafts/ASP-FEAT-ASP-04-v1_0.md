@@ -647,7 +647,7 @@ invoice
 
 | Name | Required | Type | Notes |
 |---|---|---|---|
-| `file` | yes | PDF binary (`application/pdf`) | Max 20 MB in v1.0 (rate-limiter-adjacent config `ASP_DOC_UPLOAD_MAX_MB`, default `20`). Rejected with 413 if exceeded. |
+| `file` | yes | PDF binary (`application/pdf`) | Max **10 MB** in v1.0 (rate-limiter-adjacent config `ASP_DOC_UPLOAD_MAX_MB`, default `10`). Rejected with 413 if exceeded. **§6.1 corrected from 20 MB to 10 MB in the I-DOC-05 implementation commit per §13 OQ-2 ruling (ASP-OUT-055).** Invoice PDFs are typically <2 MB; 10 MB provides adequate headroom with lower attack surface. |
 | `document_type_hint` | no | `str` | Advisory hint for the `classify_document` downstream call. Accepted values: `"invoice"`, `"receipt"`, `"contract"`, `"other"`, or omitted. Does not bypass classification; the LLM may override. |
 
 **Note:** `tenant_id` is **not** a form part. It is extracted from the

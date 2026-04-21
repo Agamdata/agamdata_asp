@@ -19,6 +19,13 @@ class Settings(BaseSettings):
     S3_SECRET_KEY: str = "minioadmin"
     S3_BUCKET_DOCS: str = "asp-documents"
 
+    # ASP-FEAT-ASP-04 v1.0 §6.1 / OQ-2 (ASP-OUT-055 correction).
+    # Max PDF upload size in MB. 10 MB governs (spec §6.1 text had 20 MB
+    # as the Batch 2 placeholder; OQ-2 ruling set 10 MB as the final v1.0
+    # value). Invoice PDFs are typically <2 MB; 10 MB gives adequate
+    # headroom with lower attack surface.
+    ASP_DOC_UPLOAD_MAX_MB: int = 10
+
     # App
     ENVIRONMENT: str = "local"
     LOG_LEVEL: str = "INFO"

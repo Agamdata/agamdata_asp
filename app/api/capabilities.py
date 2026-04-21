@@ -22,11 +22,19 @@ router = APIRouter()
 
 from app.services.nlp import VALID_TASKS as NLP_TASKS
 from app.services.generation import VALID_TASKS as GENERATION_TASKS
+# I-DOC-05 (ASP-FEAT-ASP-04 v1.0 §6.2 / §6.5) — doc_intelligence joins
+# the capabilities surface alongside nlp + generation. VALID_TASKS on
+# the service module is the source of truth.
+from app.services.doc_intelligence import VALID_TASKS as DOC_TASKS
 
 # Map service_type → sorted task list
 SERVICE_CAPABILITIES: dict[str, list[str]] = {
     "nlp": sorted(NLP_TASKS),
     "generation": sorted(GENERATION_TASKS),
+    # extract_invoice is wired into VALID_TASKS by I-DOC-07; until
+    # that commit lands this tuple contains the existing two doc
+    # tasks and appears in capabilities with the up-to-date set.
+    "doc_intelligence": sorted(DOC_TASKS),
 }
 
 # Map (service_type, task) → Pydantic payload model for JSON schema export
@@ -68,6 +76,14 @@ TASK_SCHEMA_MODELS[("nlp", "sentiment_analysis")] = SentimentAnalysisPayload
 TASK_SCHEMA_MODELS[("nlp", "classify_probe_result")] = ClassifyProbeResultPayload
 TASK_SCHEMA_MODELS[("nlp", "suggest_screen_mapping")] = SuggestScreenMappingPayload  # BP-10
 TASK_SCHEMA_MODELS[("nlp", "extract_test_entities")] = ExtractTestEntitiesPayload    # F-03-02
+
+# I-DOC-05 (ASP-FEAT-ASP-04 v1.0 §6.5) — doc_intelligence invoke-path
+# schemas. All three doc tasks share the same {file_key, webhook_url?}
+# payload shape.
+from app.schemas.doc_intelligence_schemas import DocIntelligencePayload
+TASK_SCHEMA_MODELS[("doc_intelligence", "classify_document")] = DocIntelligencePayload
+TASK_SCHEMA_MODELS[("doc_intelligence", "extract_document")] = DocIntelligencePayload
+TASK_SCHEMA_MODELS[("doc_intelligence", "extract_invoice")] = DocIntelligencePayload
 
 
 # ---------------------------------------------------------------------------

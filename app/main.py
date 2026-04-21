@@ -14,6 +14,7 @@ from slowapi.errors import RateLimitExceeded
 from app.cost.meter import router as cost_router
 from app.webhook.service import router as webhook_router
 from app.api.capabilities import router as capabilities_router
+from app.api.documents import router as documents_router  # I-DOC-05
 
 configure_logging()
 log = structlog.get_logger()
@@ -38,6 +39,7 @@ app.include_router(gateway_router, prefix="/api/v1")
 app.include_router(cost_router, prefix="/api/v1/cost")
 app.include_router(webhook_router, prefix="/api/v1/webhooks")
 app.include_router(capabilities_router, prefix="/api/v1")
+app.include_router(documents_router, prefix="/api/v1")  # I-DOC-05
 
 # RFC 7807 global exception handler — renders problem+json envelope at top level.
 # Per ASP-FEAT-ASP-00 v1.0 §11 I-RFC7807.

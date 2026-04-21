@@ -95,6 +95,23 @@ class ExtractInvoiceOutput(BaseModel):
 # NEW — upload endpoint response (§5.3 / §7.2)  — I-DOC-05
 # ---------------------------------------------------------------------------
 
+class DocIntelligencePayload(BaseModel):
+    """Shared payload shape for the three doc_intelligence invoke tasks
+    (classify_document, extract_document, extract_invoice).
+
+    `file_key` is typically the `storage_path` returned by
+    POST /api/v1/ai/documents — governed path per §8.3. Legacy
+    direct-file-key submission is DEPRECATED in v1.0 (§8.3
+    DEPRECATION NOTICE) but still accepted.
+
+    Optional `webhook_url` fires on Celery-task completion per the
+    existing async contract.
+    """
+    model_config = ConfigDict(extra="ignore")
+    file_key:    str
+    webhook_url: Optional[str] = None
+
+
 class DocumentUploadResponse(BaseModel):
     """Response body for POST /api/v1/ai/documents.
 
