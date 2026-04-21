@@ -8,6 +8,24 @@ Last updated: 2026-04-21 | Total: 22 | **Open: 2** (ASP-DEFECT-023, ASP-DEFECT-0
 
 **2026-04-21 update (ASP-OUT-042):** ASP-DEFECT-024 filed — `app/services/doc_intelligence.py` uses sync `psycopg2` via `sqlalchemy.create_engine` at three sites (regex-strips `+asyncpg` from `DATABASE_URL`). `psycopg2` is NOT in `requirements.txt` — identical class of bug to DEFECT-022. Surfaced by ASP Dev Team during the ASP-FEAT-ASP-04 pre-spec survey (DEV-IN-041). CRITICAL severity — any ASP-04 Celery task that writes to Postgres has never succeeded in this environment. Fix: DEFECT-022 playbook (per-invocation `create_async_engine` + `engine.dispose()`). Scheduled for the ASP-FEAT-ASP-04 v1.0 spec cycle (S-1).
 
+---
+
+## Process note — ASP-OUT-051 G-PROMPT-REACH procedural recurrence
+
+**Filed:** 2026-04-21 (per ASP-OUT-051 directive — note attached to DEFECT-024's surrounding context rather than filed as a separate defect, because this is a **gate-procedure gap**, not a code defect).
+
+**What happened.** The F-03-02 build (ASP-OUT-036 → `baf5a78`) shipped migrations 026 / 027 with prompt rows seeded at `caller_module='test_generator'` only. The G-PROMPT-REACH gate was run at commit time but with `caller_module='test_generator'` only — all 12 (migration 026) and 4 (migration 027) probes trivially resolved to their own seeded rows. PAP Block 3 invoked the four F-03-02 tasks from `caller_module='playwright_runner'`; all four levels of the registry fallback chain missed; `PromptNotFoundError` surfaced as HTTP 500 from the handler. PAP Block 3 blocked (ASP-OUT-045 P1).
+
+**Same class as ASP-OUT-014** (migration 024 strict-exact-match regression), just on the caller axis instead of the maturity axis. The G-PROMPT-REACH gate existed specifically to catch the earlier regression; it did not catch this one because the coverage matrix was too narrow — only the seeded caller was probed.
+
+**Remediation.**
+
+1. **Immediate (shipped):** migration 0028 seeds wildcard `caller_module='*'` catch-all rows for all four F-03-02 tasks via `INSERT ... SELECT` from the existing `test_generator` rows (verbatim content copy, no paste drift). 20/20 F-03-02 probes PASS (5 caller patterns × 4 tasks) post-apply. Reference implementation: `alembic/versions/0028_seed_f0302_wildcard_prompts.py`.
+2. **Procedural (shipped):** `ENGINEERING-PLAYBOOK.md` G-PROMPT-REACH section extended with explicit multi-caller probe requirement. Any future `prompt_templates` migration must run G-PROMPT-REACH for: seeded caller + `playwright_runner` + `test_generator` + `*` catch-all. `tests/_reach_probe_f0302.py` is the governed reference probe runner; copy-and-adapt for future migrations.
+3. **Adjacent probe:** `refactor_script_locators` (migration 024, F-03-05) reach verified — `playwright_runner` (L2 + `*`) **PASS** (the canonical PAP caller for F-03-05 Block 3, per the ASP-OUT-051 specific ask). Extended probes found `test_generator` and `any_other` callers **FAIL** for refactor_script_locators, mirroring the F-03-02 gap. Flagged to Architect for ruling — out of scope for ASP-OUT-051 fix itself, which is F-03-02-scoped. Consumer-unblocking status for F-03-05 is the directive question and the directive-specified probe passed.
+
+**Why not a separate defect ID.** DEFECT-023 is a test-isolation gap. DEFECT-024 is a code defect (sync psycopg2). This is neither — it is a gate-procedure gap that manifested as a routing miss. Filing as a process note keeps the defect register's signal-to-noise ratio high and bundles the corrective action (playbook update) with its origin.
+
 ## Summary
 
 | ID | Title | Source | Domain | Severity | Status | Reporter | Filed |

@@ -78,6 +78,9 @@ ASP-02 RAG + ASP-12 Ontology Manager persist schema chunks in ChromaDB. Governed
 | 0025 | Seed `suggest_screen_mapping` v1 prompt row (nlp / test_generator / * / v1 / NULL) | PAP-ASP-REQ-ASP-01 v2.0 / BP-10 (ASP-OUT-020) |
 | 0026 | Seed three generation prompt rows: `draft_steps`, `suggest_preconditions`, `propose_edge_cases` (generation / test_generator / * / v1 / NULL) | F-03-02 / PAP-ASP-REQ-ASP-02 v1.0 (ASP-OUT-036) |
 | 0027 | Seed `extract_test_entities` v1 prompt row (nlp / test_generator / * / v1 / NULL) | F-03-02 / PAP-ASP-REQ-ASP-02 v1.0 (ASP-OUT-036) |
+| 0028 | Seed four wildcard catch-all prompt rows — caller_module='*', maturity_level='*' — one per F-03-02 task (draft_steps, suggest_preconditions, propose_edge_cases, extract_test_entities). `INSERT ... SELECT` from test_generator rows (verbatim content copy). P1 fix for PAP Block 3 500 errors. | ASP-OUT-051 (P1 recurrence of ASP-OUT-014 class) |
 
 ## Last Updated
 2026-04-21 — Migrations 0026 + 0027 applied (prompt-only seeds for F-03-02). Migration head 0027. No DDL changes; four new prompt rows total across `generation` (3) and `nlp` (1) services.
+
+2026-04-21 (later) — Migration 0028 applied (ASP-OUT-051 P1 fix). Four wildcard catch-all rows added; `INSERT ... SELECT` from test_generator rows (verbatim content). Migration head 0028. Still no DDL — prompt-table content only.

@@ -100,6 +100,43 @@ Run this probe against the live DB before committing any migration
 that touches `prompt_templates`. Pre-write gate result is PASS only
 if the probe resolves to the intended row.
 
+**Expanded rule (added 2026-04-21, ASP-OUT-051 — P1 recurrence).**
+
+**G-PROMPT-REACH must be run for ALL expected `caller_module` values,
+not just the seeded value.** A prompt row that only resolves for its
+seeded caller is unreachable for all other callers. At minimum the
+probe matrix must cover:
+
+- The explicitly seeded `caller_module` value (the one the migration
+  INSERTs)
+- `"playwright_runner"` — canonical PAP caller for generation tasks
+  and NLP inferencing from test infrastructure
+- `"test_generator"` — canonical PAP caller for F-01-10 interactive
+  test-generator panel
+- `"*"` catch-all probe — confirm the row is reachable from any
+  unexpected caller
+
+**Why this rule exists.** Migrations 026/027 (ASP-FEAT-ASP-02 v1.0
+F-03-02 build) seeded prompt rows at `caller_module='test_generator'`
+only. The Commit B/C verification ran G-PROMPT-REACH **with
+`caller_module='test_generator'` only**, which passed trivially. When
+PAP Block 3 invoked the four F-03-02 tasks from
+`caller_module='playwright_runner'`, every fallback-chain level
+missed → `PromptNotFoundError` → 500 → P1 (ASP-OUT-045). This was
+the **same class of regression as ASP-OUT-014** (migration 024), just
+at a different point in the fallback chain (caller axis this time,
+maturity axis previously).
+
+**The gate failed because it was run with insufficient caller
+coverage.** The fix is not a new tool or a new chain level — it is a
+procedural tightening of the gate itself. Run multi-caller probes
+every time. Do not trust "my migration inserts for caller X, I tested
+caller X, that's enough."
+
+**Reference probe runner:** `tests/_reach_probe_f0302.py` (used to
+verify migration 0028 reach). Copy-and-adapt pattern for every future
+`prompt_templates` migration.
+
 ### Known Gotcha: Partial Migration Failures
 When a migration fails mid-way:
 1. Check `alembic_version` table — it shows the LAST successful revision
