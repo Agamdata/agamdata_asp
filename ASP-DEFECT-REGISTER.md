@@ -1,6 +1,6 @@
 # ASP Defect Register
 
-Last updated: 2026-04-21 | Total: 22 | **Open: 2** (ASP-DEFECT-023, ASP-DEFECT-024) | Mitigated: 1 | Resolved: 18 | Already Fixed: 2
+Last updated: 2026-04-21 | Total: 22 | **Open: 1** (ASP-DEFECT-023) | Mitigated: 1 | Resolved: 19 | Already Fixed: 2
 
 **Open-defect confirmation (ASP-NOTE-011 closure gate, 2026-04-20):** zero open defects as ASP-02 / ASP-12 enter GOVERNED status. AC-S7-02 in `tests/test_rag_v1.py` locks the DEFECT-022 resolution — the `monthly-cost-aggregation` beat entry cannot silently regress.
 
@@ -51,7 +51,7 @@ Last updated: 2026-04-21 | Total: 22 | **Open: 2** (ASP-DEFECT-023, ASP-DEFECT-0
 | ASP-DEFECT-021 | alembic/env.py load_dotenv(override=True) defeats shell-level DATABASE_URL overrides | INTERNAL | INFRASTRUCTURE | LOW | RESOLVED | ASP Dev Team | 2026-04-17 |
 | ASP-DEFECT-022 | cost aggregator fails with No module named psycopg2 | INTERNAL | ASP-10 | HIGH | RESOLVED | ASP Dev Team | 2026-04-18 |
 | ASP-DEFECT-023 | test_ac19_cost_meter_resilience fails under multi-module test ordering — test isolation gap | INTERNAL | ASP-08 / test suite | LOW | **OPEN** | ASP Dev Team | 2026-04-21 |
-| ASP-DEFECT-024 | ASP-04 doc_intelligence.py uses sync psycopg2 via create_engine — identical class of bug to DEFECT-022 | INTERNAL | ASP-04 | **CRITICAL** | **OPEN** — fix in ASP-FEAT-ASP-04 v1.0 cycle (S-1) | ASP Dev Team | 2026-04-21 |
+| ASP-DEFECT-024 | ASP-04 doc_intelligence.py uses sync psycopg2 via create_engine — identical class of bug to DEFECT-022 | INTERNAL | ASP-04 | CRITICAL | **RESOLVED** (commit e0a1244, 9/9 stress PASS per ASP-OUT-056) | ASP Dev Team | 2026-04-21 |
 
 ---
 
@@ -866,4 +866,5 @@ This implicitly selects the `psycopg2` driver. `psycopg2` is **not** in `require
 
 - 2026-04-21: Surfaced in pre-spec survey (DEV-IN-041 / G-04-06).
 - 2026-04-21: Architect-filed per ASP-OUT-042.
-- Scheduled: fix in ASP-FEAT-ASP-04 v1.0 Stream A / S-1, BEFORE any other implementation work in the spec cycle per Architect directive.
+- 2026-04-21: Scheduled in ASP-FEAT-ASP-04 v1.0 Stream A / S-1, BEFORE any other implementation work in the spec cycle per Architect directive.
+- 2026-04-21: **RESOLVED.** Commit `e0a1244` (I-DOC-01) ported all three sync sites to asyncpg via the DEFECT-022 playbook (per-invocation `create_async_engine` + `engine.dispose()`). 9-invocation stress test PASS (AC-DOC-S1-01 verbatim evidence embedded in the commit message). ADR-006 cost-emission `try/except` (I-DOC-08) and ADR-010 five-event structlog transition catalogue (I-DOC-09) bundled into the same touch. Closed per ASP-OUT-056 ruling; closure note filed in the ASP-FEAT-ASP-04 v1.0 IMPL-LOG.
