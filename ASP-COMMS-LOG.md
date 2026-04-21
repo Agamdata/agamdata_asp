@@ -68,9 +68,10 @@ this log — if PAP references them, we will back-populate them on request.
 | ASP-OUT-051 | P1 FIX ruling — Option A wildcard rows in migration 028; expanded G-PROMPT-REACH; F-03-05 probe; round-trip; playbook + defect-register updates | 2026-04-21 | **CLOSED** | 2026-04-21 (P1 confirmed clean per ASP-OUT-053; migration 0028 shipped commit ce01e55; 20/20 reach + F-03-05 playwright_runner reach PASS) |
 | ASP-OUT-052 | (Architect-filed PAP notification; superseded by ASP-OUT-053 close-out) | 2026-04-21 | **CLOSED** | 2026-04-21 |
 | ASP-OUT-053 | P1 closed; ASP-OUT-042 resumes as ASP-04 Batch 2 active work item; refactor_script_locators maintenance note in SCHEMA-CURRENT (no migration, no defect); tests/README governed-probe-runner pointer | 2026-04-21 | **CLOSED** | 2026-04-21 (DEV-IN-053 shipped commits dc86c7e + 706deb3; Batch 2 surfaced for review) |
-| ASP-OUT-054 | Batch 2 review ruling — ACCEPTED with four rulings (Q-1 403/Q-2 DEPRECATE/Q-3 4096 max_tokens/Q-4 CSP unsafe-inline v1.0 debt); Batch 3 §11–§14 green light with 12 I-DOC items + 32 ACs + 4 OQ defaults + v1.0/v1.1/v2.0 change log | 2026-04-21 | **OPEN** | 2026-04-21 (DEV-IN-054 in flight — Batch 2 retrofits applied inline; Batch 3 authored; spec draft complete — full §1–§14 surfaced) |
+| ASP-OUT-054 | Batch 2 review ruling — ACCEPTED with four rulings + Batch 3 §11–§14 green light | 2026-04-21 | **CLOSED** | 2026-04-21 (Batch 3 shipped commit 40f578b; spec draft complete) |
+| ASP-OUT-055 | Batch 3 accepted; §6.1 20MB→10MB OQ-2 correction mandate for I-DOC-05; IMPLEMENTATION GREEN LIGHT starting I-DOC-01 (DEFECT-024 fix with 9-invocation stress test) + three pre-I-DOC-10 confirmations (tesseract-ocr / pdf.js CDN / Jinja2) | 2026-04-21 | **OPEN** | 2026-04-21 (DEV-IN-055 in flight — I-DOC-01 shipped; 9/9 stress test PASS; three confirmations reported) |
 
-Totals as of 2026-04-21: **1 OPEN** (ASP-OUT-054), **45 CLOSED**.
+Totals as of 2026-04-21: **1 OPEN** (ASP-OUT-055), **46 CLOSED**.
 
 ---
 
