@@ -47,6 +47,7 @@ from app.schemas.generation_schemas import (
     GeneratePlaywrightScriptPayload,
     RefactorScriptLocatorsPayload,          # v2.0 (I-024-07)
     DraftTestContentPayload,                # F-03-02 (ASP-OUT-036)
+    TestQualityAssessmentPayload,           # F-03-03 (ASP-OUT-068/070)
 )
 
 TASK_SCHEMA_MODELS[("generation", "generate_test_cases")] = GenerateTestCasesPayload
@@ -57,6 +58,9 @@ TASK_SCHEMA_MODELS[("generation", "refactor_script_locators")] = RefactorScriptL
 TASK_SCHEMA_MODELS[("generation", "draft_steps")] = DraftTestContentPayload
 TASK_SCHEMA_MODELS[("generation", "suggest_preconditions")] = DraftTestContentPayload
 TASK_SCHEMA_MODELS[("generation", "propose_edge_cases")] = DraftTestContentPayload
+# F-03-03 / ASP-OUT-068/070 — assess_test_quality has its own payload shape
+# (includes expected_result; steps required)
+TASK_SCHEMA_MODELS[("generation", "assess_test_quality")] = TestQualityAssessmentPayload
 
 # Register NLP payload schemas
 from app.schemas.nlp_schemas import (

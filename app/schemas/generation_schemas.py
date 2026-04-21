@@ -278,3 +278,51 @@ class ProposeEdgeCasesResult(BaseModel):
     model_config = ConfigDict(extra="ignore")
     result: List[EdgeCase]
     confidence: float = 0.0
+
+
+# ---------------------------------------------------------------------------
+# F-03-03 / PAP-ASP-REQ-ASP-03 v3.0 — assess_test_quality (Coverage Review)
+# ---------------------------------------------------------------------------
+#
+# Prepared as ASP-OUT-066 Task 2 draft; built under ASP-OUT-068/070
+# build authorisation. StepContext reused from the F-03-02 block
+# above — no redefinition.
+#
+# Both models use ConfigDict(extra="ignore") per ADR-033 (generation
+# service convention).
+
+
+class TestQualityAssessmentPayload(BaseModel):
+    """Payload for assess_test_quality task.
+
+    Directive-quoted field list (ASP-OUT-066 Task 2). Final PAP v3.0
+    schema may refine field names/types; any delta at that point is a
+    TSCD-level amendment.
+    """
+    model_config = ConfigDict(extra="ignore")
+    screen_key:      str
+    module_key:      str
+    title:           str
+    objective:       str
+    category:        str
+    priority:        str
+    steps:           List[StepContext]
+    preconditions:   List[str] = []
+    expected_result: str
+
+
+class TestQualityAssessmentResult(BaseModel):
+    """Output of assess_test_quality.
+
+    Five dimension scores in [0.0, 1.0] + overall_quality_score
+    (weighted mean of the four dimensions per prompt STRICT RULE 2;
+    Pydantic does not enforce the arithmetic relationship — AC suite
+    flags a drift tolerance).
+    """
+    model_config = ConfigDict(extra="ignore")
+    step_count_adequacy:       float
+    precondition_completeness: float
+    assertion_coverage:        float
+    edge_case_presence:        float
+    overall_quality_score:     float
+    suggestions:               List[str] = []

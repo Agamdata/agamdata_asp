@@ -31,6 +31,9 @@ from app.schemas.generation_schemas import (
     DraftStepsResult,
     SuggestPreconditionsResult,
     ProposeEdgeCasesResult,
+    # F-03-03 / PAP-ASP-REQ-ASP-03 v3.0 (ASP-OUT-068/070)
+    TestQualityAssessmentPayload,
+    TestQualityAssessmentResult,
 )
 from app.models.generation_outputs import (
     GenerateTestCasesOutput,
@@ -86,6 +89,7 @@ VALID_TASKS = {
     "draft_steps",                            # F-03-02 / ASP-OUT-036 (migration 026)
     "suggest_preconditions",                  # F-03-02 / ASP-OUT-036 (migration 026)
     "propose_edge_cases",                     # F-03-02 / ASP-OUT-036 (migration 026)
+    "assess_test_quality",                    # F-03-03 / ASP-OUT-068/070 (migration 030)
 }
 
 TASK_OUTPUT_SCHEMAS = {
@@ -102,6 +106,8 @@ TASK_OUTPUT_SCHEMAS = {
     "draft_steps":                            DraftStepsResult,
     "suggest_preconditions":                  SuggestPreconditionsResult,
     "propose_edge_cases":                     ProposeEdgeCasesResult,
+    # F-03-03 / ASP-OUT-068/070 (migration 030)
+    "assess_test_quality":                    TestQualityAssessmentResult,
 }
 
 TASK_PAYLOAD_VALIDATORS = {
@@ -113,6 +119,8 @@ TASK_PAYLOAD_VALIDATORS = {
     "draft_steps":                            DraftTestContentPayload,
     "suggest_preconditions":                  DraftTestContentPayload,
     "propose_edge_cases":                     DraftTestContentPayload,
+    # F-03-03 / ASP-OUT-068/070 — distinct payload (has expected_result)
+    "assess_test_quality":                    TestQualityAssessmentPayload,
 }
 
 TASK_MAX_TOKENS = {
@@ -130,6 +138,9 @@ TASK_MAX_TOKENS = {
     "draft_steps":                            2048,
     "suggest_preconditions":                  1024,
     "propose_edge_cases":                     2048,
+    # F-03-03 / ASP-OUT-068/070 — five floats + short suggestions list.
+    # 2048 is ample; any truncation signals a pathological assessment.
+    "assess_test_quality":                    2048,
 }
 
 # v2.0 (§11 I-024-03 / OQ-2 ruling): interactive-panel ceiling.
@@ -276,6 +287,30 @@ async def handle(req: InvokeRequest, model: str, request_id: str) -> InvokeRespo
             objective=validated_payload.get("objective", ""),
             existing_steps=existing_steps_rendered,
             preconditions=preconditions_rendered,
+        )
+
+    elif task == "assess_test_quality":
+        # F-03-03 / ASP-OUT-068/070 — distinct from the F-03-02 trio.
+        # Payload field is `steps` (not `existing_steps`) and includes
+        # `expected_result`. Migration 030 user_prompt_template uses:
+        # screen_key, module_key, category, priority, title, objective,
+        # steps, preconditions, expected_result.
+        steps_rendered = json.dumps(
+            validated_payload.get("steps", []), indent=2, default=str
+        )
+        preconditions_rendered = json.dumps(
+            validated_payload.get("preconditions", []), indent=2, default=str
+        )
+        user_message = prompt.user_prompt_template.format(
+            screen_key=validated_payload.get("screen_key", ""),
+            module_key=validated_payload.get("module_key", ""),
+            category=validated_payload.get("category", ""),
+            priority=validated_payload.get("priority", ""),
+            title=validated_payload.get("title", ""),
+            objective=validated_payload.get("objective", ""),
+            steps=steps_rendered,
+            preconditions=preconditions_rendered,
+            expected_result=validated_payload.get("expected_result", ""),
         )
 
     else:
