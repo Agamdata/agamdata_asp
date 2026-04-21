@@ -257,3 +257,15 @@ Doc Intelligence + ASP-13 Dashboard Intelligence. Governed count
 **7/14**. DEFECT-024 RESOLVED in-cycle; no open defects from this
 cycle. DEFECT-023 (test-isolation flake, LOW) remains the sole
 open defect, scheduled for next maintenance slot.
+
+## .docx render
+
+Rendered via `docs/spec-drafts/md2docx.js` + global `docx@9.6.1` to:
+
+```
+asp-projects/04-features/04-Doc-Intel/ASP-FEAT-ASP-04-v1_0.docx
+```
+
+(61 253 bytes, 1 202 block elements). Lives in the governance
+mirror outside the main repo — same convention as the prior
+Gateway / RAG / Generation v2.0 / F-03-02 .docx renders.
